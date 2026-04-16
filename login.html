@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>登入 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { background: var(--c-primary); min-height: 100vh; }
+    .login-layout {
+      display: grid; grid-template-columns: 1fr 480px;
+      min-height: 100vh;
+    }
+    /* Left brand panel */
+    .login-brand {
+      background: linear-gradient(150deg, var(--c-primary) 0%, var(--c-primary-mid) 50%, #1A6878 100%);
+      display: flex; flex-direction: column; justify-content: space-between;
+      padding: var(--sp-12) var(--sp-12);
+      position: relative; overflow: hidden;
+    }
+    .login-brand::before {
+      content: '';
+      position: absolute; width: 400px; height: 400px; border-radius: 50%;
+      background: rgba(255,255,255,0.03); top: -100px; right: -100px;
+    }
+    .login-brand::after {
+      content: '';
+      position: absolute; width: 300px; height: 300px; border-radius: 50%;
+      background: rgba(26,155,181,0.08); bottom: 50px; left: -80px;
+    }
+    .brand-hero { position: relative; z-index: 1; }
+    .brand-logo-lg {
+      width: 56px; height: 56px; border-radius: var(--r-lg);
+      background: linear-gradient(135deg, var(--c-accent-teal), var(--c-gold));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 28px; font-weight: 900; color: white;
+      margin-bottom: var(--sp-8); box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+    .brand-headline {
+      font-size: 42px; font-weight: var(--fw-bold); color: white;
+      line-height: 1.2; margin-bottom: var(--sp-4);
+    }
+    .brand-headline span { color: var(--c-gold); }
+    .brand-desc {
+      font-size: var(--fs-md); color: rgba(255,255,255,0.65);
+      line-height: 1.8; max-width: 420px;
+    }
+    .brand-features { display: flex; flex-direction: column; gap: var(--sp-4); margin-top: var(--sp-8); }
+    .brand-feature {
+      display: flex; align-items: flex-start; gap: var(--sp-4);
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
+    }
+    .bf-icon {
+      width: 38px; height: 38px; border-radius: var(--r-sm);
+      background: rgba(26,155,181,0.2); display: flex; align-items: center;
+      justify-content: center; font-size: 18px; flex-shrink: 0;
+    }
+    .bf-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: white; margin-bottom: 3px; }
+    .bf-desc  { font-size: var(--fs-xs); color: rgba(255,255,255,0.55); line-height: 1.5; }
+    .brand-footer { color: rgba(255,255,255,0.3); font-size: var(--fs-xs); position: relative; z-index: 1; }
+
+    /* Right form panel */
+    .login-form-panel {
+      background: white; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: var(--sp-12) var(--sp-10);
+    }
+    .login-form-wrap { width: 100%; max-width: 380px; }
+    .login-form-header { margin-bottom: var(--sp-8); }
+    .login-form-title { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-1); }
+    .login-form-sub { font-size: var(--fs-sm); color: var(--c-text-muted); }
+    /* Demo badge */
+    .demo-badge {
+      background: var(--c-gold-lt); border: 1px solid rgba(201,168,76,0.3);
+      border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
+      margin-bottom: var(--sp-5); font-size: var(--fs-xs); color: #8B6A1F;
+    }
+    .demo-badge strong { display: block; margin-bottom: 6px; color: var(--c-gold); }
+    .demo-cred {
+      display: flex; align-items: center; justify-content: space-between;
+      background: white; border: 1px solid rgba(201,168,76,0.2);
+      border-radius: var(--r-sm); padding: 6px 10px; margin-bottom: 4px; cursor: pointer;
+      transition: background var(--t-fast);
+    }
+    .demo-cred:hover { background: var(--c-gold-lt); }
+    .demo-cred:last-child { margin-bottom: 0; }
+    /* Password toggle */
+    .pw-wrap { position: relative; }
+    .pw-toggle {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; color: var(--c-text-muted);
+      font-size: 16px; padding: 4px;
+    }
+    .pw-wrap .form-control { padding-right: 44px; }
+    /* Submit btn */
+    .btn-login {
+      background: linear-gradient(135deg, var(--c-primary-mid) 0%, var(--c-accent-teal) 100%);
+      color: white; border: none; width: 100%; padding: 13px;
+      font-size: var(--fs-md); font-weight: var(--fw-bold);
+      border-radius: var(--r-md); cursor: pointer;
+      transition: all var(--t-base);
+      box-shadow: 0 4px 16px rgba(26,74,90,0.25);
+    }
+    .btn-login:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(26,74,90,0.35); }
+    .btn-login:active { transform: translateY(0); }
+    .btn-login:disabled { opacity: 0.65; pointer-events: none; }
+    .form-footer { text-align: center; font-size: var(--fs-sm); color: var(--c-text-muted); margin-top: var(--sp-5); }
+    .form-footer a { color: var(--c-accent-teal); font-weight: var(--fw-semi); }
+    @media (max-width: 900px) {
+      .login-layout { grid-template-columns: 1fr; }
+      .login-brand { display: none; }
+      .login-form-panel { min-height: 100vh; background: var(--c-primary); }
+      .login-form-wrap { background: white; padding: var(--sp-8); border-radius: var(--r-xl); }
+    }
+  </style>
+</head>
+<body>
+<div class="login-layout">
+  <!-- Left Brand Panel -->
+  <div class="login-brand">
+    <div class="brand-hero">
+      <div class="brand-logo-lg">A</div>
+      <div class="brand-headline">讓雲端決策<br>更<span>清晰</span>、更快速</div>
+      <div class="brand-desc">Smart Archie 是 AI 驅動的雲端顧問平台，協助企業將模糊的雲端需求，轉化為可執行的架構建議與治理策略。</div>
+      <div class="brand-features">
+        <div class="brand-feature">
+          <div class="bf-icon">🎯</div>
+          <div><div class="bf-title">6R 策略自動判斷</div><div class="bf-desc">依系統現況、合規需求與預算，自動推薦最適遷移策略</div></div>
+        </div>
+        <div class="brand-feature">
+          <div class="bf-icon">🏛️</div>
+          <div><div class="bf-title">Landing Zone 架構建議</div><div class="bf-desc">自動輸出帳號結構、Guardrails、治理成熟度建議</div></div>
+        </div>
+        <div class="brand-feature">
+          <div class="bf-icon">📊</div>
+          <div><div class="bf-title">高層 + 技術雙版報告</div><div class="bf-desc">Executive Summary 與 Tech PM 執行建議，一次產出</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="brand-footer">© 2026 Smart Archie · AI Cloud Advisory Platform</div>
+  </div>
+
+  <!-- Right Form Panel -->
+  <div class="login-form-panel">
+    <div class="login-form-wrap animate-up">
+      <div class="login-form-header">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--sp-5);">
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--c-accent-teal),var(--c-gold));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:white;">A</div>
+          <span style="font-size:var(--fs-md);font-weight:var(--fw-bold);color:var(--c-primary);">Smart Archie</span>
+        </div>
+        <div class="login-form-title">登入您的帳號</div>
+        <div class="login-form-sub">歡迎回來！請輸入您的帳號資訊</div>
+      </div>
+
+      <!-- Demo credentials -->
+      <div class="demo-badge">
+        <strong>🎮 Demo 帳號（點擊快速填入）</strong>
+        <div class="demo-cred" onclick="fillDemo('demo@smartarchie.ai','demo1234')">
+          <span>👤 一般使用者</span>
+          <span style="color:var(--c-text-light);">demo@smartarchie.ai</span>
+        </div>
+        <div class="demo-cred" onclick="fillDemo('admin@smartarchie.ai','admin1234')">
+          <span>⚙️ 管理員</span>
+          <span style="color:var(--c-text-light);">admin@smartarchie.ai</span>
+        </div>
+      </div>
+
+      <form id="loginForm" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label">電子信箱 <span class="required">*</span></label>
+          <input type="email" id="email" class="form-control" placeholder="your@email.com" required autocomplete="email">
+          <div class="form-error">請輸入有效的電子信箱</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;justify-content:space-between;">
+            <span>密碼 <span class="required">*</span></span>
+            <a href="#" style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:500;" onclick="SA.Toast.info('忘記密碼','此功能將於正式版開放')">忘記密碼？</a>
+          </label>
+          <div class="pw-wrap">
+            <input type="password" id="password" class="form-control" placeholder="輸入密碼" required autocomplete="current-password">
+            <button type="button" class="pw-toggle" id="pwToggle" onclick="togglePW()">👁️</button>
+          </div>
+          <div class="form-error">密碼不得為空</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--sp-5);">
+          <input type="checkbox" id="remember" style="width:16px;height:16px;cursor:pointer;">
+          <label for="remember" style="font-size:var(--fs-sm);color:var(--c-text-muted);cursor:pointer;">記住我</label>
+        </div>
+        <div id="loginError" class="alert alert-danger mb-4" style="display:none;">
+          <span class="alert-icon">❌</span>
+          <div id="loginErrorMsg">帳號或密碼不正確</div>
+        </div>
+        <button type="submit" class="btn-login" id="loginBtn">
+          <span id="loginBtnText">登入</span>
+          <span id="loginBtnSpinner" class="spinner" style="display:none;margin-left:8px;"></span>
+        </button>
+      </form>
+
+      <div class="form-footer">
+        還沒有帳號？<a href="register.html"> 立即免費註冊</a>
+      </div>
+      <div class="form-footer" style="margin-top:var(--sp-3);">
+        <a href="analyze.html" style="color:var(--c-text-muted);font-size:var(--fs-xs);">不登入，先試用分析工具 →</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Already logged in → redirect
+  if (Auth.isLoggedIn()) window.location.href = 'dashboard.html';
+});
+
+function fillDemo(email, pw) {
+  document.getElementById('email').value = email;
+  document.getElementById('password').value = pw;
+  document.getElementById('email').closest('.form-group').classList.remove('has-error');
+  document.getElementById('password').closest('.form-group').classList.remove('has-error');
+}
+
+function togglePW() {
+  const input = document.getElementById('password');
+  const btn = document.getElementById('pwToggle');
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁️'; }
+}
+
+async function handleLogin(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('loginBtn');
+  const btnText = document.getElementById('loginBtnText');
+  const spinner = document.getElementById('loginBtnSpinner');
+  const errDiv = document.getElementById('loginError');
+  const errMsg = document.getElementById('loginErrorMsg');
+
+  if (!email || !password) {
+    SA.Toast.warning('請填寫所有必填欄位');
+    return;
+  }
+
+  btn.disabled = true;
+  btnText.textContent = '登入中…';
+  spinner.style.display = 'inline-block';
+  errDiv.style.display = 'none';
+
+  await new Promise(r => setTimeout(r, 600)); // Simulate network
+
+  const result = Auth.login(email, password);
+
+  btn.disabled = false;
+  btnText.textContent = '登入';
+  spinner.style.display = 'none';
+
+  if (result.success) {
+    SA.Toast.success('登入成功', `歡迎回來，${result.user.name}！`);
+    setTimeout(() => { window.location.href = result.user.role === 'admin' ? 'admin-dashboard.html' : 'dashboard.html'; }, 600);
+  } else {
+    errMsg.textContent = result.error;
+    errDiv.style.display = 'flex';
+    document.getElementById('password').value = '';
+    document.getElementById('password').focus();
+  }
+}
+</script>
+</body>
+</html>

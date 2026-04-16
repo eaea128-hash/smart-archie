@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>免費註冊 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { background: var(--c-bg); min-height: 100vh; }
+    .reg-layout {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: var(--sp-8) var(--sp-6);
+    }
+    .reg-card {
+      background: white; border-radius: var(--r-xl);
+      box-shadow: var(--shadow-xl); width: 100%; max-width: 940px;
+      display: grid; grid-template-columns: 1fr 400px; overflow: hidden;
+    }
+    /* Left: form */
+    .reg-form-panel { padding: var(--sp-10) var(--sp-10); }
+    .reg-logo { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-8); }
+    .reg-logo-icon { width: 36px; height: 36px; border-radius: var(--r-md); background: linear-gradient(135deg, var(--c-accent-teal), var(--c-gold)); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: white; }
+    .reg-logo-name { font-size: var(--fs-md); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .reg-title { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-1); }
+    .reg-sub { font-size: var(--fs-sm); color: var(--c-text-muted); margin-bottom: var(--sp-6); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4); }
+    .pw-wrap { position: relative; }
+    .pw-toggle { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: var(--c-text-muted); font-size: 16px; padding: 4px; }
+    .pw-wrap .form-control { padding-right: 44px; }
+    .btn-register {
+      background: linear-gradient(135deg, var(--c-primary-mid) 0%, var(--c-accent-teal) 100%);
+      color: white; border: none; width: 100%; padding: 13px;
+      font-size: var(--fs-md); font-weight: var(--fw-bold);
+      border-radius: var(--r-md); cursor: pointer;
+      transition: all var(--t-base);
+      box-shadow: 0 4px 16px rgba(26,74,90,0.25);
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-register:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(26,74,90,0.35); }
+    .btn-register:disabled { opacity: 0.65; pointer-events: none; }
+    /* Strength meter */
+    .strength-bar { height: 4px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; margin-top: 6px; }
+    .strength-fill { height: 100%; border-radius: var(--r-full); transition: all var(--t-base); width: 0%; }
+    .strength-label { font-size: 11px; margin-top: 4px; font-weight: 500; }
+    /* Right: benefits panel */
+    .reg-benefits {
+      background: linear-gradient(150deg, var(--c-primary) 0%, var(--c-primary-mid) 100%);
+      padding: var(--sp-10) var(--sp-8);
+      display: flex; flex-direction: column; justify-content: center;
+      position: relative; overflow: hidden;
+    }
+    .reg-benefits::before {
+      content: ''; position: absolute; width: 300px; height: 300px; border-radius: 50%;
+      background: rgba(255,255,255,0.03); top: -80px; right: -80px;
+    }
+    .rb-title { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: white; margin-bottom: var(--sp-2); position: relative; z-index: 1; }
+    .rb-sub { font-size: var(--fs-sm); color: rgba(255,255,255,0.6); margin-bottom: var(--sp-6); position: relative; z-index: 1; }
+    .rb-items { display: flex; flex-direction: column; gap: var(--sp-4); position: relative; z-index: 1; }
+    .rb-item { display: flex; align-items: flex-start; gap: var(--sp-3); }
+    .rb-check { width: 20px; height: 20px; border-radius: 50%; background: rgba(45,157,120,0.3); border: 1.5px solid var(--c-success); display: flex; align-items: center; justify-content: center; font-size: 10px; flex-shrink: 0; margin-top: 2px; color: var(--c-success); }
+    .rb-text .rb-name { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: white; margin-bottom: 2px; }
+    .rb-text .rb-desc { font-size: var(--fs-xs); color: rgba(255,255,255,0.55); line-height: 1.5; }
+    .rb-plan-highlight {
+      background: rgba(201,168,76,0.15); border: 1px solid rgba(201,168,76,0.3);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5); margin-top: var(--sp-6);
+      position: relative; z-index: 1;
+    }
+    .rb-plan-label { font-size: var(--fs-xs); color: var(--c-gold); font-weight: var(--fw-semi); margin-bottom: 4px; }
+    .rb-plan-name { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: white; }
+    .rb-plan-desc { font-size: var(--fs-xs); color: rgba(255,255,255,0.6); margin-top: 4px; }
+    .agree-row { display: flex; align-items: flex-start; gap: 10px; }
+    .agree-row input { width: 16px; height: 16px; margin-top: 2px; cursor: pointer; flex-shrink: 0; }
+    @media (max-width: 768px) {
+      .reg-card { grid-template-columns: 1fr; }
+      .reg-benefits { display: none; }
+      .reg-form-panel { padding: var(--sp-8) var(--sp-6); }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="reg-layout">
+  <div class="reg-card animate-scale">
+    <!-- Form Panel -->
+    <div class="reg-form-panel">
+      <div class="reg-logo">
+        <div class="reg-logo-icon">A</div>
+        <span class="reg-logo-name">Smart Archie</span>
+      </div>
+      <div class="reg-title">建立免費帳號</div>
+      <div class="reg-sub">立即開始，每月享有 3 次免費雲端分析額度</div>
+
+      <form id="registerForm" onsubmit="handleRegister(event)" novalidate>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">姓名 <span class="required">*</span></label>
+            <input type="text" id="regName" class="form-control" placeholder="王大明" required autocomplete="name">
+            <div class="form-error" id="nameErr">請填寫姓名</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">公司 / 組織</label>
+            <input type="text" id="regCompany" class="form-control" placeholder="ABC 科技股份有限公司" autocomplete="organization">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">電子信箱 <span class="required">*</span></label>
+          <input type="email" id="regEmail" class="form-control" placeholder="your@company.com" required autocomplete="email">
+          <div class="form-error" id="emailErr">請輸入有效的電子信箱</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">職稱 / 角色</label>
+          <select id="regRole" class="form-select">
+            <option value="">請選擇（選填）</option>
+            <option value="pm">產品經理 / PM</option>
+            <option value="architect">雲端架構師</option>
+            <option value="devops">DevOps / 平台工程師</option>
+            <option value="security">資安 / 合規</option>
+            <option value="manager">IT 主管 / CTO</option>
+            <option value="consultant">顧問 / 數位轉型</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">密碼 <span class="required">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" id="regPw" class="form-control" placeholder="至少 8 個字元" required autocomplete="new-password" oninput="checkPwStrength()">
+              <button type="button" class="pw-toggle" onclick="togglePW('regPw',this)">👁️</button>
+            </div>
+            <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+            <div class="strength-label" id="strengthLabel" style="color:var(--c-text-muted);">請輸入密碼</div>
+            <div class="form-error" id="pwErr">密碼至少需要 8 個字元</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">確認密碼 <span class="required">*</span></label>
+            <div class="pw-wrap">
+              <input type="password" id="regPwConfirm" class="form-control" placeholder="再次輸入密碼" required autocomplete="new-password">
+              <button type="button" class="pw-toggle" onclick="togglePW('regPwConfirm',this)">👁️</button>
+            </div>
+            <div class="form-error" id="pwConfirmErr">兩次密碼不一致</div>
+          </div>
+        </div>
+        <div class="form-group">
+          <div class="agree-row">
+            <input type="checkbox" id="agreeTerms" required>
+            <label for="agreeTerms" style="font-size:var(--fs-xs);color:var(--c-text-muted);cursor:pointer;line-height:1.6;">
+              我已閱讀並同意 <a href="#" style="color:var(--c-accent-teal);" onclick="return false;">服務條款</a> 與 <a href="#" style="color:var(--c-accent-teal);" onclick="return false;">隱私政策</a>，並了解本平台將依上述政策處理個人資料。
+            </label>
+          </div>
+        </div>
+        <div id="regError" class="alert alert-danger mb-4" style="display:none;">
+          <span class="alert-icon">❌</span>
+          <div id="regErrorMsg">註冊失敗，請重試</div>
+        </div>
+        <button type="submit" class="btn-register" id="regBtn">
+          <span id="regBtnText">🚀 免費建立帳號</span>
+          <span id="regBtnSpinner" class="spinner" style="display:none;"></span>
+        </button>
+      </form>
+      <div style="text-align:center;font-size:var(--fs-sm);color:var(--c-text-muted);margin-top:var(--sp-5);">
+        已有帳號？<a href="login.html" style="color:var(--c-accent-teal);font-weight:var(--fw-semi);">立即登入</a>
+      </div>
+    </div>
+
+    <!-- Benefits Panel -->
+    <div class="reg-benefits">
+      <div class="rb-title">加入 Smart Archie</div>
+      <div class="rb-sub">與超過 500 位雲端架構師、PM 一起用 AI 加速雲端決策</div>
+      <div class="rb-items">
+        <div class="rb-item">
+          <div class="rb-check">✓</div>
+          <div class="rb-text">
+            <div class="rb-name">AI 自動 6R 策略判斷</div>
+            <div class="rb-desc">根據系統條件自動評估最適遷移策略，信心度量化顯示</div>
+          </div>
+        </div>
+        <div class="rb-item">
+          <div class="rb-check">✓</div>
+          <div class="rb-text">
+            <div class="rb-name">顧問級 Landing Zone 建議</div>
+            <div class="rb-desc">自動輸出帳號架構、Guardrails 與治理成熟度評估</div>
+          </div>
+        </div>
+        <div class="rb-item">
+          <div class="rb-check">✓</div>
+          <div class="rb-text">
+            <div class="rb-name">雙版本報告產出</div>
+            <div class="rb-desc">高層 Executive Summary 與技術 PM 執行建議，一鍵切換</div>
+          </div>
+        </div>
+        <div class="rb-item">
+          <div class="rb-check">✓</div>
+          <div class="rb-text">
+            <div class="rb-name">雲端成本 + 風險評估</div>
+            <div class="rb-desc">自動估算月費區間、列出風險雷達與降低建議</div>
+          </div>
+        </div>
+        <div class="rb-item">
+          <div class="rb-check">✓</div>
+          <div class="rb-text">
+            <div class="rb-name">歷史紀錄與統計分析</div>
+            <div class="rb-desc">所有分析結果自動存檔，可隨時查閱與比較</div>
+          </div>
+        </div>
+      </div>
+      <div class="rb-plan-highlight">
+        <div class="rb-plan-label">🎁 免費方案包含</div>
+        <div class="rb-plan-name">每月 3 次完整分析</div>
+        <div class="rb-plan-desc">無需信用卡 · 立即可用 · 隨時可升級 Pro 方案</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (Auth.isLoggedIn()) window.location.href = 'dashboard.html';
+});
+
+function togglePW(inputId, btn) {
+  const input = document.getElementById(inputId);
+  if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
+  else { input.type = 'password'; btn.textContent = '👁️'; }
+}
+
+function checkPwStrength() {
+  const pw = document.getElementById('regPw').value;
+  const fill = document.getElementById('strengthFill');
+  const label = document.getElementById('strengthLabel');
+  let score = 0;
+  if (pw.length >= 8)  score++;
+  if (pw.length >= 12) score++;
+  if (/[A-Z]/.test(pw)) score++;
+  if (/[0-9]/.test(pw)) score++;
+  if (/[^A-Za-z0-9]/.test(pw)) score++;
+  const levels = [
+    { w: '0%',   color: 'var(--c-border)',   text: '請輸入密碼' },
+    { w: '25%',  color: 'var(--c-danger)',    text: '弱（太短）' },
+    { w: '50%',  color: 'var(--c-warning)',   text: '普通' },
+    { w: '75%',  color: 'var(--c-gold)',      text: '良好' },
+    { w: '90%',  color: 'var(--c-success)',   text: '強' },
+    { w: '100%', color: 'var(--c-success)',   text: '非常強 💪' },
+  ];
+  const lvl = pw.length === 0 ? levels[0] : levels[Math.min(score, 5)];
+  fill.style.width = lvl.w;
+  fill.style.background = lvl.color;
+  label.textContent = lvl.text;
+  label.style.color = lvl.color;
+}
+
+async function handleRegister(e) {
+  e.preventDefault();
+  const name     = document.getElementById('regName').value.trim();
+  const email    = document.getElementById('regEmail').value.trim();
+  const company  = document.getElementById('regCompany').value.trim();
+  const pw       = document.getElementById('regPw').value;
+  const pwConfirm= document.getElementById('regPwConfirm').value;
+  const agreed   = document.getElementById('agreeTerms').checked;
+  const errDiv   = document.getElementById('regError');
+  const errMsg   = document.getElementById('regErrorMsg');
+
+  errDiv.style.display = 'none';
+  let valid = true;
+
+  if (!name) { document.getElementById('regName').closest('.form-group').classList.add('has-error'); valid = false; }
+  else document.getElementById('regName').closest('.form-group').classList.remove('has-error');
+
+  const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRe.test(email)) { document.getElementById('regEmail').closest('.form-group').classList.add('has-error'); valid = false; }
+  else document.getElementById('regEmail').closest('.form-group').classList.remove('has-error');
+
+  if (pw.length < 8) {
+    document.getElementById('regPw').closest('.form-group').classList.add('has-error');
+    document.getElementById('pwErr').textContent = '密碼至少需要 8 個字元';
+    valid = false;
+  } else document.getElementById('regPw').closest('.form-group').classList.remove('has-error');
+
+  if (pw !== pwConfirm) {
+    document.getElementById('regPwConfirm').closest('.form-group').classList.add('has-error');
+    document.getElementById('pwConfirmErr').textContent = '兩次密碼輸入不一致';
+    valid = false;
+  } else document.getElementById('regPwConfirm').closest('.form-group').classList.remove('has-error');
+
+  if (!agreed) { SA.Toast.warning('請同意服務條款', '需勾選同意服務條款才能完成註冊'); valid = false; }
+
+  if (!valid) return;
+
+  const btn = document.getElementById('regBtn');
+  const btnText = document.getElementById('regBtnText');
+  const spinner = document.getElementById('regBtnSpinner');
+
+  btn.disabled = true;
+  btnText.textContent = '建立帳號中…';
+  spinner.style.display = 'inline-block';
+
+  await new Promise(r => setTimeout(r, 700));
+
+  const result = Auth.register({ name, email, password: pw, company });
+
+  btn.disabled = false;
+  btnText.textContent = '🚀 免費建立帳號';
+  spinner.style.display = 'none';
+
+  if (result.success) {
+    SA.Toast.success('註冊成功！', `歡迎加入 Smart Archie，${name}！`);
+    setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+  } else {
+    errMsg.textContent = result.error;
+    errDiv.style.display = 'flex';
+  }
+}
+</script>
+</body>
+</html>

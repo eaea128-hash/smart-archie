@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>後台管理 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .admin-layout {
+      display: grid; grid-template-columns: 240px 1fr;
+      min-height: calc(100vh - var(--nav-h));
+    }
+    /* Admin Sidebar */
+    .admin-sidebar {
+      background: var(--c-primary); color: white;
+      padding: var(--sp-5) 0;
+      position: sticky; top: var(--nav-h);
+      height: calc(100vh - var(--nav-h)); overflow-y: auto;
+    }
+    .admin-sidebar-section { padding: 0 var(--sp-3) var(--sp-4); }
+    .admin-sidebar-title {
+      font-size: 10px; font-weight: var(--fw-bold); color: rgba(255,255,255,0.35);
+      text-transform: uppercase; letter-spacing: 1px;
+      padding: var(--sp-3) var(--sp-2) var(--sp-2);
+    }
+    .admin-nav-link {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 9px var(--sp-3); border-radius: var(--r-sm);
+      font-size: var(--fs-sm); font-weight: var(--fw-medium);
+      color: rgba(255,255,255,0.65); cursor: pointer;
+      transition: all var(--t-fast); text-decoration: none; user-select: none;
+    }
+    .admin-nav-link:hover { background: rgba(255,255,255,0.08); color: white; }
+    .admin-nav-link.active { background: rgba(26,155,181,0.2); color: var(--c-accent-teal); }
+    .admin-nav-link .anl-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+    .admin-nav-link .anl-badge { margin-left: auto; background: var(--c-danger); color: white; font-size: 9px; font-weight: var(--fw-bold); border-radius: var(--r-full); padding: 1px 6px; }
+    /* Main content */
+    .admin-main { padding: var(--sp-6); background: var(--c-bg); }
+    .admin-page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--sp-6);
+    }
+    .admin-page-title { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .admin-page-sub { font-size: var(--fs-sm); color: var(--c-text-muted); margin-top: 2px; }
+    /* Stats grid */
+    .admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+    .admin-stat {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-5);
+      box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+    }
+    .admin-stat::after {
+      content: attr(data-icon);
+      position: absolute; right: -8px; top: -8px;
+      font-size: 56px; opacity: 0.06; pointer-events: none;
+    }
+    .admin-stat-label { font-size: var(--fs-xs); color: var(--c-text-muted); font-weight: var(--fw-medium); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--sp-2); }
+    .admin-stat-value { font-size: var(--fs-3xl); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-2); line-height: 1; }
+    .admin-stat-delta { font-size: var(--fs-xs); font-weight: var(--fw-medium); display: flex; align-items: center; gap: 3px; }
+    /* Charts row */
+    .charts-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .chart-panel {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); padding: var(--sp-5); box-shadow: var(--shadow-sm);
+    }
+    .chart-panel-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between; }
+    /* Tables */
+    .admin-table-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-5); box-shadow: var(--shadow-sm);
+    }
+    .admin-table-header {
+      padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--c-border-light);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .admin-table-title { font-size: var(--fs-md); font-weight: var(--fw-semi); }
+    /* Industry / strategy tag pills */
+    .industry-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--c-info-bg); color: var(--c-info); border: 1px solid rgba(26,107,175,0.2); border-radius: var(--r-full); padding: 2px 8px; font-size: 11px; font-weight: 500; }
+    /* Alert row */
+    .alert-row {
+      display: flex; align-items: flex-start; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--c-border-light);
+      font-size: var(--fs-xs);
+    }
+    .alert-row:last-child { border: none; }
+    .alert-row-icon { font-size: 16px; flex-shrink: 0; }
+    .alert-row-content .alert-title { font-weight: var(--fw-semi); color: var(--c-text); }
+    .alert-row-content .alert-desc { color: var(--c-text-muted); margin-top: 2px; line-height: 1.5; }
+    .alert-row-time { margin-left: auto; color: var(--c-text-light); font-size: 11px; white-space: nowrap; }
+    /* User status */
+    .user-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .user-status.active { background: var(--c-success); }
+    .user-status.inactive { background: var(--c-text-light); }
+    /* Plan badge */
+    .plan-free       { background: var(--c-bg); color: var(--c-text-muted); border: 1px solid var(--c-border); }
+    .plan-pro        { background: var(--c-accent-teal-lt); color: var(--c-primary-light); }
+    .plan-enterprise { background: var(--c-gold-lt); color: #8B6A1F; }
+    /* Top bar summary */
+    .admin-topbar {
+      background: var(--c-primary);
+      padding: 10px var(--sp-6);
+      display: flex; align-items: center; gap: var(--sp-6);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .topbar-item { font-size: var(--fs-xs); color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 6px; }
+    .topbar-val { color: white; font-weight: var(--fw-semi); }
+    /* Tabs */
+    .admin-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--c-border-light); margin-bottom: var(--sp-5); }
+    .admin-tab { padding: 10px 18px; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all var(--t-fast); margin-bottom: -1px; }
+    .admin-tab:hover { color: var(--c-text); }
+    .admin-tab.active { color: var(--c-accent-teal); border-bottom-color: var(--c-accent-teal); font-weight: var(--fw-semi); }
+    /* Usage heatmap mock */
+    .usage-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
+    .usage-cell { height: 18px; border-radius: 3px; transition: opacity var(--t-fast); cursor: default; }
+    .usage-cell:hover { opacity: 0.7; }
+    @media (max-width: 1200px) {
+      .admin-stats { grid-template-columns: repeat(2, 1fr); }
+      .charts-row { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 900px) {
+      .admin-layout { grid-template-columns: 1fr; }
+      .admin-sidebar { display: none; }
+      .charts-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="dashboard.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">Smart Archie</span>
+        <span class="brand-tagline">Admin Console</span>
+      </div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="dashboard.html" class="nav-link">用戶儀表板</a>
+      <a href="analyze.html" class="nav-link">需求分析</a>
+      <a href="admin-dashboard.html" class="nav-link active">後台管理</a>
+    </nav>
+    <div class="navbar-actions">
+      <div class="navbar-quota" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.3);">
+        <span style="color:var(--c-gold);">⚙️ Admin</span>
+      </div>
+      <div class="navbar-avatar" id="nav-avatar" onclick="window.location.href='dashboard.html'">?</div>
+    </div>
+  </div>
+</nav>
+
+<!-- Top summary bar -->
+<div class="admin-topbar" style="margin-top:var(--nav-h);">
+  <div class="topbar-item">🟢 系統狀態 <span class="topbar-val">正常運行</span></div>
+  <div class="topbar-item">👥 總會員數 <span class="topbar-val" id="topTotalUsers">—</span></div>
+  <div class="topbar-item">📊 本月分析 <span class="topbar-val" id="topMonthlyAnalysis">—</span></div>
+  <div class="topbar-item">⚡ 今日分析 <span class="topbar-val" id="topTodayAnalysis">—</span></div>
+  <div class="topbar-item" style="margin-left:auto;">上次更新 <span class="topbar-val" id="topLastUpdated">—</span></div>
+</div>
+
+<div class="admin-layout">
+  <!-- Admin Sidebar -->
+  <aside class="admin-sidebar">
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-title">概覽</div>
+      <a class="admin-nav-link active" onclick="switchAdminTab('overview')"><span class="anl-icon">📊</span>整體概覽</a>
+      <a class="admin-nav-link" onclick="switchAdminTab('analytics')"><span class="anl-icon">📈</span>使用分析</a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-title">管理</div>
+      <a class="admin-nav-link" onclick="switchAdminTab('users')"><span class="anl-icon">👥</span>會員管理</a>
+      <a class="admin-nav-link" onclick="switchAdminTab('analyses')"><span class="anl-icon">📋</span>分析紀錄</a>
+      <a class="admin-nav-link" onclick="switchAdminTab('alerts')"><span class="anl-icon">🔔</span>異常警報 <span class="anl-badge" id="alertBadge">0</span></a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-title">設定</div>
+      <a class="admin-nav-link" onclick="SA.Toast.info('系統設定','此功能將於正式版開放')"><span class="anl-icon">⚙️</span>系統設定</a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('Prompt 管理','此功能將於正式版開放')"><span class="anl-icon">🤖</span>Prompt 管理</a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('產業模板','此功能將於正式版開放')"><span class="anl-icon">🏭</span>產業模板</a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('規則知識庫','此功能將於正式版開放')"><span class="anl-icon">📚</span>規則知識庫</a>
+    </div>
+    <div class="admin-sidebar-section">
+      <div class="admin-sidebar-title">帳號</div>
+      <a class="admin-nav-link" href="dashboard.html"><span class="anl-icon">🏠</span>返回用戶端</a>
+      <a class="admin-nav-link" onclick="Auth.logout()"><span class="anl-icon">🚪</span>登出</a>
+    </div>
+  </aside>
+
+  <!-- Admin Main -->
+  <main class="admin-main">
+
+    <!-- ── Overview Tab ── -->
+    <div id="adminTabOverview">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">整體概覽 Overview</div>
+          <div class="admin-page-sub" id="adminDateRange">載入中…</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="refreshData()">🔄 重新整理</button>
+          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出報表','此功能將於正式版開放')">📥 匯出報表</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="admin-stats animate-up">
+        <div class="admin-stat" data-icon="👥">
+          <div class="admin-stat-label">總會員數</div>
+          <div class="admin-stat-value" id="statUsers">—</div>
+          <div class="admin-stat-delta up" id="statUsersDelta"><span style="color:var(--c-success)">↑</span> 本月新增</div>
+        </div>
+        <div class="admin-stat" data-icon="📊">
+          <div class="admin-stat-label">本月分析總數</div>
+          <div class="admin-stat-value" id="statMonthAnalyses">—</div>
+          <div class="admin-stat-delta" id="statMonthDelta" style="color:var(--c-text-muted);">— 上月對比</div>
+        </div>
+        <div class="admin-stat" data-icon="🎯">
+          <div class="admin-stat-label">最熱門策略</div>
+          <div class="admin-stat-value" style="font-size:var(--fs-xl);" id="statTopStrategy">—</div>
+          <div class="admin-stat-delta" style="color:var(--c-text-muted);" id="statTopStratPct">— 佔比</div>
+        </div>
+        <div class="admin-stat" data-icon="⚡">
+          <div class="admin-stat-label">平均風險指數</div>
+          <div class="admin-stat-value" id="statAvgRiskAdmin">—</div>
+          <div class="admin-stat-delta" id="statRiskLevel" style="color:var(--c-text-muted);">整體評估</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row animate-up">
+        <div class="chart-panel">
+          <div class="chart-panel-title">
+            <span>📈 每月分析量趨勢</span>
+            <span class="badge badge-teal badge-sm">近 6 個月</span>
+          </div>
+          <canvas id="adminTrendChart" height="160"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">🎯 策略分佈</div>
+          <canvas id="adminStrategyChart" height="180"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">💳 方案分佈</div>
+          <canvas id="adminPlanChart" height="180"></canvas>
+        </div>
+      </div>
+
+      <!-- Second row: industry + usage heatmap -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-5);" class="animate-up">
+        <!-- Top Industries -->
+        <div class="chart-panel">
+          <div class="chart-panel-title">🏭 熱門使用情境</div>
+          <div id="industryList">
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">載入中…</div>
+          </div>
+        </div>
+        <!-- Usage heatmap (mock) -->
+        <div class="chart-panel">
+          <div class="chart-panel-title">
+            <span>🌡️ 近 12 週使用熱度</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;font-size:10px;color:var(--c-text-muted);">
+            <span>少</span>
+            <div style="width:12px;height:12px;border-radius:2px;background:#E8EEF4;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#A8D8E8;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#1A9BB5;"></div>
+            <div style="width:12px;height:12px;border-radius:2px;background:#0F2B3D;"></div>
+            <span>多</span>
+          </div>
+          <div class="usage-grid" id="usageHeatmap"></div>
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--c-text-muted);margin-top:6px;" id="heatmapLabels"></div>
+        </div>
+      </div>
+
+      <!-- Recent Analyses Table -->
+      <div class="admin-table-card animate-up">
+        <div class="admin-table-header">
+          <div class="admin-table-title">📋 最近分析記錄</div>
+          <button class="btn btn-outline btn-sm" onclick="switchAdminTab('analyses')">查看全部</button>
+        </div>
+        <div class="table-wrap" id="recentAnalysesAdmin">
+          <div class="empty-state" style="padding:40px;">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">尚無分析記錄</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Users Tab ── -->
+    <div id="adminTabUsers" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">👥 會員管理</div>
+          <div class="admin-page-sub">管理所有已註冊用戶</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" class="form-control" placeholder="搜尋用戶…" id="userSearch" style="width:200px;" oninput="filterUsers()">
+          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出用戶列表','此功能將於正式版開放')">📥 匯出</button>
+        </div>
+      </div>
+      <div class="admin-table-card animate-up">
+        <div class="table-wrap" id="usersTable"></div>
+      </div>
+    </div>
+
+    <!-- ── Analyses Tab ── -->
+    <div id="adminTabAnalyses" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">📋 所有分析記錄</div>
+          <div class="admin-page-sub">系統全部分析歷史紀錄</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <select class="form-select" id="stratFilter" onchange="filterAnalyses()" style="width:160px;">
+            <option value="">所有策略</option>
+            <option value="rehost">Rehost</option>
+            <option value="replatform">Replatform</option>
+            <option value="refactor">Refactor</option>
+            <option value="retain">Retain</option>
+            <option value="retire">Retire</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出分析記錄','此功能將於正式版開放')">📥 匯出</button>
+        </div>
+      </div>
+      <div class="admin-table-card animate-up">
+        <div class="table-wrap" id="analysesTable"></div>
+      </div>
+    </div>
+
+    <!-- ── Analytics Tab ── -->
+    <div id="adminTabAnalytics" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div class="admin-page-title">📈 使用分析</div>
+        <div class="admin-page-sub">深入了解平台使用模式</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);" class="animate-up">
+        <div class="chart-panel">
+          <div class="chart-panel-title">📊 報告風格分佈</div>
+          <canvas id="styleChart" height="200"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-panel-title">⚡ 風險指數分佈</div>
+          <canvas id="riskDistChart" height="200"></canvas>
+        </div>
+        <div class="chart-panel" style="grid-column:1/-1;">
+          <div class="chart-panel-title">📈 累積分析量（所有時間）</div>
+          <canvas id="cumulativeChart" height="140"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Alerts Tab ── -->
+    <div id="adminTabAlerts" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div class="admin-page-title">🔔 異常警報記錄</div>
+        <div class="admin-page-sub">系統異常與失敗事件摘要</div>
+      </div>
+      <div class="admin-table-card animate-up">
+        <div id="alertsList">
+          <!-- Injected by JS -->
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (!Auth.isLoggedIn()) { window.location.href = 'login.html'; return; }
+  const user = Auth.currentUser();
+  if (user.role !== 'admin') { SA.Toast.warning('無權限', '此頁面僅供管理員訪問'); window.location.href = 'dashboard.html'; return; }
+
+  Auth.injectNavUser();
+
+  const now = new Date();
+  document.getElementById('adminDateRange').textContent = `資料截止：${SA.fmt.datetime(now)}`;
+  document.getElementById('topLastUpdated').textContent = SA.fmt.datetime(now);
+
+  loadAdminData();
+});
+
+function refreshData() {
+  SA.Toast.info('資料已更新', '所有統計數據已重新載入');
+  loadAdminData();
+}
+
+function loadAdminData() {
+  const allUsers = Auth.getAllUsers();
+  const history  = SA.Store.get('history', []);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const today     = new Date().toISOString().slice(0, 10);
+
+  // Top bar
+  document.getElementById('topTotalUsers').textContent = allUsers.length;
+  document.getElementById('topMonthlyAnalysis').textContent = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
+  document.getElementById('topTodayAnalysis').textContent   = history.filter(h => h.timestamp?.startsWith(today)).length;
+
+  // Stats
+  document.getElementById('statUsers').textContent = allUsers.length;
+
+  const monthlyCount = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
+  document.getElementById('statMonthAnalyses').textContent = monthlyCount;
+
+  // Strategy stats
+  const stratCounts = {};
+  history.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
+  const sorted = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1]);
+  if (sorted.length) {
+    const topStrat = sorted[0];
+    const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
+    document.getElementById('statTopStrategy').textContent = stratLabels[topStrat[0]] || topStrat[0];
+    document.getElementById('statTopStratPct').textContent = history.length ? `${Math.round(topStrat[1]/history.length*100)}% 佔比` : '—';
+  }
+
+  // Risk avg
+  const risks = history.filter(h=>h.risk).map(h=>h.risk);
+  if (risks.length) {
+    const avg = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length);
+    document.getElementById('statAvgRiskAdmin').textContent = avg + '%';
+    document.getElementById('statRiskLevel').textContent = avg>=70?'🔴 高風險':avg>=50?'🟡 中等':' 🟢 可控';
+  }
+
+  // Alert badge (mock: show if high-risk analyses > 20%)
+  const highRiskCount = risks.filter(r => r >= 70).length;
+  document.getElementById('alertBadge').textContent = highRiskCount;
+
+  // Render tables
+  renderRecentAnalysesAdmin(history.slice(0, 8));
+  renderUsersTable(allUsers);
+  renderAnalysesTable(history);
+  renderAlertsTab(history, allUsers);
+
+  // Industry mock data
+  renderIndustryList();
+
+  // Heatmap
+  renderHeatmap();
+
+  // Charts
+  setTimeout(() => {
+    renderAdminCharts(history, allUsers, stratCounts);
+  }, 100);
+}
+
+function renderRecentAnalysesAdmin(history) {
+  const el = document.getElementById('recentAnalysesAdmin');
+  if (!history.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`; return; }
+  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  el.innerHTML = `<table>
+    <thead><tr><th>專案名稱</th><th>策略</th><th>風險</th><th>風格</th><th>時間</th><th>狀態</th></tr></thead>
+    <tbody>${history.map(h => `<tr>
+      <td><span style="font-weight:600;font-size:13px;">${h.projectName||'未命名'}</span></td>
+      <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
+      <td><span style="font-size:12px;font-weight:600;color:${(h.risk||0)>=70?'var(--c-danger)':(h.risk||0)>=50?'var(--c-warning)':'var(--c-success)'}">${h.risk||'—'}%</span></td>
+      <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術版':'完整版'}</span></td>
+      <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</td>
+      <td><span class="badge badge-success" style="font-size:10px;">✅ 成功</span></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+let allUsersData = [];
+function renderUsersTable(users) {
+  allUsersData = users;
+  displayUsersTable(users);
+}
+function filterUsers() {
+  const q = document.getElementById('userSearch').value.toLowerCase();
+  displayUsersTable(allUsersData.filter(u => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)));
+}
+function displayUsersTable(users) {
+  const el = document.getElementById('usersTable');
+  if (!users.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">👥</div><div class="empty-title">無符合條件的用戶</div></div>`; return; }
+  const planLabels = { free:'免費版', pro:'專業版', enterprise:'企業版' };
+  el.innerHTML = `<table>
+    <thead><tr><th>用戶</th><th>電子信箱</th><th>方案</th><th>角色</th><th>公司</th><th>加入時間</th><th>狀態</th></tr></thead>
+    <tbody>${users.map(u => `<tr>
+      <td><div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--c-primary-mid),var(--c-accent-teal));color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${u.avatar||u.name?.slice(0,2)||'?'}</div>
+        <span style="font-weight:600;font-size:13px;">${u.name||'—'}</span>
+      </div></td>
+      <td style="font-size:12px;color:var(--c-text-muted);">${u.email}</td>
+      <td><span class="badge plan-${u.plan}" style="font-size:10px;">${planLabels[u.plan]||u.plan}</span></td>
+      <td><span class="badge ${u.role==='admin'?'badge-danger':'badge-neutral'}" style="font-size:10px;">${u.role==='admin'?'管理員':'一般用戶'}</span></td>
+      <td style="font-size:12px;color:var(--c-text-muted);">${u.company||'—'}</td>
+      <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.date(u.createdAt)}</td>
+      <td><div style="display:flex;align-items:center;gap:6px;"><div class="user-status active"></div><span style="font-size:12px;color:var(--c-success);">活躍</span></div></td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+let allAnalysesData = [];
+function renderAnalysesTable(history) {
+  allAnalysesData = history;
+  displayAnalysesTable(history);
+}
+function filterAnalyses() {
+  const strat = document.getElementById('stratFilter').value;
+  displayAnalysesTable(strat ? allAnalysesData.filter(h => h.strategy === strat) : allAnalysesData);
+}
+function displayAnalysesTable(history) {
+  const el = document.getElementById('analysesTable');
+  if (!history.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`; return; }
+  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  el.innerHTML = `<table>
+    <thead><tr><th>分析 ID</th><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th>KPI 均分</th><th>分析時間</th></tr></thead>
+    <tbody>${history.map(h => {
+      const kpiAvg = h.kpi ? Math.round((h.kpi.compliance+h.kpi.lzReadiness+h.kpi.techDebt+h.kpi.roi+h.kpi.timeline)/5) : '—';
+      return `<tr>
+        <td style="font-size:11px;color:var(--c-text-muted);font-family:monospace;">${h.id?.slice(-8)||'—'}</td>
+        <td><span style="font-weight:600;font-size:13px;">${h.projectName||'未命名'}</span></td>
+        <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
+        <td><span style="font-size:12px;font-weight:600;color:${(h.risk||0)>=70?'var(--c-danger)':(h.risk||0)>=50?'var(--c-warning)':'var(--c-success)'}">${h.risk||'—'}%</span></td>
+        <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術版':'完整版'}</span></td>
+        <td><span style="font-size:13px;font-weight:600;color:${kpiAvg>=70?'var(--c-success)':kpiAvg>=50?'var(--c-warning)':'var(--c-danger)'}">${kpiAvg}${typeof kpiAvg==='number'?'%':''}</span></td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+function renderAlertsTab(history, users) {
+  const el = document.getElementById('alertsList');
+  const highRisk = history.filter(h => (h.risk||0) >= 70);
+  const mockAlerts = [
+    { icon: '🔴', title: '高風險分析偵測', desc: `共偵測到 ${highRisk.length} 筆高風險分析（風險指數 ≥ 70%），建議通知對應用戶`, time: '剛剛', level: 'danger' },
+    { icon: '💳', title: '免費額度接近上限', desc: `${users.filter(u=>u.plan==='free').length} 位免費用戶本月分析量接近 3 次上限，可發送升級邀請`, time: '1 小時前', level: 'warning' },
+    { icon: '✅', title: '系統運行正常', desc: '所有 API 服務正常運行，平均回應時間 2.3 秒', time: '持續監控中', level: 'success' },
+    { icon: 'ℹ️', title: '新功能提醒', desc: 'PDF 匯出功能預計下個版本上線，產業模板功能開發中', time: '系統公告', level: 'info' },
+  ];
+  if (!mockAlerts.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">✅</div><div class="empty-title">無異常警報</div></div>`; return; }
+  el.innerHTML = mockAlerts.map(a => `
+    <div class="alert-row">
+      <span class="alert-row-icon">${a.icon}</span>
+      <div class="alert-row-content">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-desc">${a.desc}</div>
+      </div>
+      <span class="alert-row-time">${a.time}</span>
+    </div>`).join('');
+}
+
+function renderIndustryList() {
+  const industries = [
+    { name: '金融 / 銀行 / 保險', pct: 38, color: 'var(--c-gold)' },
+    { name: '製造業 / 工業', pct: 22, color: 'var(--c-accent-teal)' },
+    { name: '零售 / 電商', pct: 15, color: 'var(--c-success)' },
+    { name: '醫療 / 生技', pct: 12, color: 'var(--c-info)' },
+    { name: '政府 / 公共事業', pct: 8, color: 'var(--c-warning)' },
+    { name: '其他', pct: 5, color: 'var(--c-text-light)' },
+  ];
+  const el = document.getElementById('industryList');
+  el.innerHTML = industries.map(i => `
+    <div style="margin-bottom:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:500;color:var(--c-text);">${i.name}</span>
+        <span style="font-size:12px;font-weight:700;color:${i.color}">${i.pct}%</span>
+      </div>
+      <div style="height:5px;background:var(--c-border);border-radius:9999px;overflow:hidden;">
+        <div style="height:100%;width:${i.pct}%;background:${i.color};border-radius:9999px;transition:width 1s ease;"></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderHeatmap() {
+  const el = document.getElementById('usageHeatmap');
+  const labels = document.getElementById('heatmapLabels');
+  const colors = ['#E8EEF4','#C8DDE8','#A8D0E0','#1A9BB5','#0F2B3D'];
+  const weeks = 12;
+  let html = '';
+  const monthLabels = [];
+  for (let w = 0; w < weeks; w++) {
+    const intensity = Math.floor(Math.random() * 5);
+    html += `<div class="usage-cell" style="background:${colors[intensity]};" title="週 ${w+1}：${intensity*3} 次分析"></div>`;
+    if (w % 4 === 0) {
+      const d = new Date(); d.setDate(d.getDate() - (weeks - w) * 7);
+      monthLabels.push(d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' }));
+    }
+  }
+  el.innerHTML = html;
+  labels.innerHTML = monthLabels.map(m => `<span>${m}</span>`).join('');
+}
+
+let adminChartsRendered = false;
+function renderAdminCharts(history, users, stratCounts) {
+  if (adminChartsRendered) return;
+  adminChartsRendered = true;
+
+  // Trend chart
+  const months = []; const counts = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const key = d.toISOString().slice(0, 7);
+    months.push(key.slice(5) + '月');
+    const cnt = history.filter(h => h.timestamp?.startsWith(key)).length;
+    counts.push(cnt > 0 ? cnt : (i === 0 ? history.length : Math.floor(Math.random() * 5)));
+  }
+  new Chart(document.getElementById('adminTrendChart'), {
+    type: 'line',
+    data: {
+      labels: months,
+      datasets: [{
+        label: '分析次數', data: counts,
+        backgroundColor: 'rgba(26,155,181,0.1)', borderColor: 'rgba(26,155,181,0.8)',
+        fill: true, tension: 0.4, pointBackgroundColor: 'rgba(26,155,181,1)', pointRadius: 5,
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Strategy pie
+  const stratData = ['rehost','replatform','refactor','retain','retire'].map(s => stratCounts[s]||0);
+  const total = stratData.reduce((a,b)=>a+b,0) || 5;
+  const displayData = total === 0 ? [2,1,1,1,0] : stratData;
+  new Chart(document.getElementById('adminStrategyChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Rehost','Replatform','Refactor','Retain','Retire'],
+      datasets: [{ data: displayData, backgroundColor: ['#1A9BB5','#C9A84C','#0F2B3D','#D97706','#6B7A8D'], borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+  });
+
+  // Plan chart
+  const planCounts = { free: 0, pro: 0, enterprise: 0 };
+  users.forEach(u => { planCounts[u.plan] = (planCounts[u.plan]||0)+1; });
+  new Chart(document.getElementById('adminPlanChart'), {
+    type: 'pie',
+    data: {
+      labels: ['免費版','專業版','企業版'],
+      datasets: [{ data: [planCounts.free, planCounts.pro, planCounts.enterprise], backgroundColor: ['#E8EEF4','#1A9BB5','#C9A84C'], borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
+  });
+
+  // Style distribution
+  const styleCounts = { executive: 0, techpm: 0, full: 0 };
+  history.forEach(h => { styleCounts[h.style||'full'] = (styleCounts[h.style||'full']||0)+1; });
+  new Chart(document.getElementById('styleChart'), {
+    type: 'bar',
+    data: {
+      labels: ['高層決策版','技術 PM 版','完整版'],
+      datasets: [{ data: [styleCounts.executive||1, styleCounts.techpm||0, styleCounts.full||0], backgroundColor: ['#C9A84C','#1A9BB5','#0F2B3D'], borderRadius: 6 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Risk distribution
+  const riskBuckets = [0,0,0,0]; // <30, 30-50, 50-70, 70+
+  history.forEach(h => {
+    const r = h.risk||0;
+    if (r < 30) riskBuckets[0]++; else if (r < 50) riskBuckets[1]++; else if (r < 70) riskBuckets[2]++; else riskBuckets[3]++;
+  });
+  if (riskBuckets.every(b=>b===0)) riskBuckets[1] = 1;
+  new Chart(document.getElementById('riskDistChart'), {
+    type: 'bar',
+    data: {
+      labels: ['低風險\n<30%','中低\n30-50%','中高\n50-70%','高風險\n≥70%'],
+      datasets: [{ data: riskBuckets, backgroundColor: ['#2D9D78','#1A9BB5','#D97706','#C53030'], borderRadius: 6 }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Cumulative
+  const cumData = []; let cum = 0;
+  const cumMonths = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const key = d.toISOString().slice(0, 7);
+    cumMonths.push(key.slice(5) + '月');
+    cum += history.filter(h => h.timestamp?.startsWith(key)).length || (Math.random() > 0.5 ? 1 : 0);
+    cumData.push(cum);
+  }
+  new Chart(document.getElementById('cumulativeChart'), {
+    type: 'line',
+    data: {
+      labels: cumMonths,
+      datasets: [{
+        label: '累積分析量', data: cumData,
+        backgroundColor: 'rgba(201,168,76,0.08)', borderColor: 'rgba(201,168,76,0.8)',
+        fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: 'rgba(201,168,76,1)',
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+function switchAdminTab(tab) {
+  const tabs = ['Overview','Users','Analyses','Analytics','Alerts'];
+  tabs.forEach(t => {
+    const el = document.getElementById(`adminTab${t}`);
+    if (el) el.style.display = t.toLowerCase() === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.admin-nav-link').forEach(l => l.classList.remove('active'));
+  event?.currentTarget?.classList?.add('active');
+  if (tab === 'analytics') setTimeout(() => { adminChartsRendered = false; renderAdminCharts(SA.Store.get('history',[]), Auth.getAllUsers(), {}); }, 50);
+}
+
+// strat-badge styles (reuse from dashboard)
+const style = document.createElement('style');
+style.textContent = `.strat-badge{font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600;}.strat-rehost{background:rgba(26,155,181,0.12);color:var(--c-accent-teal);}.strat-replatform{background:rgba(201,168,76,0.15);color:#8B6A1F;}.strat-refactor{background:rgba(15,43,61,0.10);color:var(--c-primary-mid);}.strat-retain{background:rgba(217,119,6,0.12);color:var(--c-warning);}.strat-retire{background:rgba(100,100,100,0.12);color:var(--c-text-muted);}`;
+document.head.appendChild(style);
+</script>
+</body>
+</html>

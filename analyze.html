@@ -1,0 +1,1564 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>雲端需求分析 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── Analyze Page Layout ── */
+    .analyze-layout {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 0;
+      min-height: calc(100vh - var(--nav-h));
+      align-items: start;
+    }
+    /* Left: Input Panel */
+    .input-panel {
+      background: var(--c-surface);
+      border-right: 1px solid var(--c-border-light);
+      min-height: calc(100vh - var(--nav-h));
+      position: sticky;
+      top: var(--nav-h);
+      overflow-y: auto;
+      max-height: calc(100vh - var(--nav-h));
+    }
+    .input-panel-header {
+      padding: var(--sp-5) var(--sp-6);
+      border-bottom: 1px solid var(--c-border-light);
+      background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-mid) 100%);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .input-panel-title { color: white; font-size: var(--fs-md); font-weight: var(--fw-bold); }
+    .input-panel-sub   { color: rgba(255,255,255,0.6); font-size: var(--fs-xs); margin-top: 2px; }
+    .input-panel-body  { padding: var(--sp-5) var(--sp-5); }
+    /* Right: Results Panel */
+    .result-panel {
+      background: var(--c-bg);
+      padding: var(--sp-6);
+      min-height: calc(100vh - var(--nav-h));
+    }
+    /* Input sections */
+    .input-section {
+      background: var(--c-surface-2);
+      border: 1px solid var(--c-border-light);
+      border-radius: var(--r-md);
+      margin-bottom: var(--sp-4);
+      overflow: hidden;
+    }
+    .input-section-header {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 12px var(--sp-4);
+      background: white;
+      cursor: pointer; user-select: none;
+      border-bottom: 1px solid var(--c-border-light);
+    }
+    .input-section-header:hover { background: var(--c-surface-2); }
+    .input-section-num {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: var(--c-primary-mid); color: white;
+      font-size: 11px; font-weight: var(--fw-bold);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .input-section-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); flex: 1; }
+    .input-section-arrow { font-size: 12px; color: var(--c-text-muted); transition: transform var(--t-fast); }
+    .input-section.collapsed .input-section-arrow { transform: rotate(-90deg); }
+    .input-section-body {
+      padding: var(--sp-4);
+      display: block;
+    }
+    .input-section.collapsed .input-section-body { display: none; }
+    /* Report style toggle */
+    .report-style-toggle {
+      display: flex; gap: var(--sp-2);
+      background: var(--c-bg);
+      border-radius: var(--r-md); padding: 4px;
+      border: 1px solid var(--c-border);
+    }
+    .style-btn {
+      flex: 1; padding: 8px 12px;
+      border-radius: var(--r-sm);
+      font-size: var(--fs-xs); font-weight: var(--fw-semi);
+      text-align: center; cursor: pointer;
+      transition: all var(--t-fast); border: none;
+      color: var(--c-text-muted); background: transparent;
+    }
+    .style-btn.active { background: var(--c-primary-mid); color: white; box-shadow: var(--shadow-sm); }
+
+    /* ── Result Sections ── */
+    .result-placeholder {
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      min-height: 60vh; text-align: center; gap: var(--sp-5);
+    }
+    .result-placeholder-icon {
+      width: 100px; height: 100px; border-radius: var(--r-xl);
+      background: linear-gradient(135deg, rgba(26,74,90,0.08), rgba(26,155,181,0.08));
+      border: 2px dashed var(--c-border);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 42px;
+    }
+    .result-container { display: none; }
+    .result-container.active { display: block; }
+
+    /* Executive Summary */
+    .exec-summary-card {
+      background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-mid) 60%, #1A6878 100%);
+      border-radius: var(--r-xl); padding: var(--sp-8);
+      color: white; margin-bottom: var(--sp-5);
+      position: relative; overflow: hidden;
+    }
+    .exec-summary-card::after {
+      content: '';
+      position: absolute; top: -40px; right: -40px;
+      width: 180px; height: 180px; border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+    .exec-badge {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      background: rgba(201,168,76,0.25);
+      border: 1px solid rgba(201,168,76,0.5);
+      color: var(--c-gold); border-radius: var(--r-full);
+      font-size: var(--fs-xs); font-weight: var(--fw-semi);
+      padding: 4px 12px; margin-bottom: var(--sp-4);
+    }
+    .exec-title { font-size: var(--fs-xl); font-weight: var(--fw-bold); margin-bottom: var(--sp-2); line-height: 1.3; }
+    .exec-subtitle { font-size: var(--fs-md); font-weight: var(--fw-semi); color: rgba(255,255,255,0.8); margin-bottom: var(--sp-4); }
+    .exec-desc { font-size: var(--fs-sm); color: rgba(255,255,255,0.7); line-height: 1.8; margin-bottom: var(--sp-5); }
+    .exec-meta { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+    .exec-meta-item { font-size: var(--fs-xs); color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 5px; }
+    .exec-meta-val { color: white; font-weight: var(--fw-semi); }
+    .exec-prereq-list { margin-top: var(--sp-4); }
+    .exec-prereq-item {
+      display: flex; align-items: flex-start; gap: var(--sp-2);
+      font-size: var(--fs-xs); color: rgba(255,255,255,0.75);
+      padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .exec-prereq-item:last-child { border: none; }
+    .exec-prereq-dot { color: var(--c-gold); font-size: 10px; margin-top: 4px; flex-shrink: 0; }
+
+    /* KPI Grid */
+    .kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+    .kpi-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-card-label { font-size: var(--fs-xs); color: var(--c-text-muted); font-weight: var(--fw-medium); margin-bottom: var(--sp-3); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-card-score { font-size: var(--fs-2xl); font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
+
+    /* Strategy section */
+    .strategy-banner {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); padding: var(--sp-6);
+      margin-bottom: var(--sp-5); box-shadow: var(--shadow-sm);
+    }
+    .strategy-rec-badge {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      background: var(--c-gold-lt); border: 1px solid rgba(201,168,76,0.4);
+      color: #8B6A1F; border-radius: var(--r-full);
+      font-size: var(--fs-xs); font-weight: var(--fw-semi); padding: 4px 12px;
+      margin-bottom: var(--sp-4);
+    }
+    .strategy-name {
+      font-size: var(--fs-2xl); font-weight: var(--fw-bold);
+      color: var(--c-primary); margin-bottom: var(--sp-2);
+    }
+    .strategy-desc { font-size: var(--fs-sm); color: var(--c-text-muted); line-height: 1.7; margin-bottom: var(--sp-4); }
+    .strategy-confidence {
+      display: flex; align-items: center; gap: var(--sp-3);
+      background: var(--c-bg); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+    }
+    .conf-label { font-size: var(--fs-xs); color: var(--c-text-muted); min-width: 80px; }
+    .conf-bar { flex: 1; height: 6px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; }
+    .conf-fill { height: 100%; background: linear-gradient(90deg, var(--c-gold), var(--c-accent-teal)); border-radius: var(--r-full); transition: width 1.5s ease; width: 0%; }
+    .conf-val { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-gold); min-width: 40px; text-align: right; }
+
+    /* 6R Comparison */
+    .strategy-compare {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-2);
+      margin-top: var(--sp-4);
+    }
+    .strategy-pill {
+      text-align: center; padding: var(--sp-2) var(--sp-1);
+      border-radius: var(--r-sm); border: 1.5px solid var(--c-border);
+      font-size: var(--fs-xs); cursor: default; transition: all var(--t-fast);
+    }
+    .strategy-pill.primary { border-color: var(--c-gold); background: var(--c-gold-lt); }
+    .strategy-pill.secondary { border-color: var(--c-accent-teal); background: var(--c-accent-teal-lt); }
+    .strategy-pill .sp-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+    .strategy-pill .sp-name { font-weight: var(--fw-semi); display: block; font-size: 10px; }
+    .strategy-pill .sp-score { color: var(--c-text-muted); font-size: 10px; }
+
+    /* Landing Zone */
+    .lz-accounts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .lz-account-card {
+      background: var(--c-surface-2); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+    }
+    .lz-account-type { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: var(--fw-bold); margin-bottom: 2px; }
+    .lz-account-type.core     { color: var(--c-primary-mid); }
+    .lz-account-type.security { color: var(--c-danger); }
+    .lz-account-type.network  { color: var(--c-info); }
+    .lz-account-type.service  { color: var(--c-warning); }
+    .lz-account-type.workload { color: var(--c-success); }
+    .lz-account-type.dr       { color: var(--c-accent-teal); }
+    .lz-account-type.compliance{ color: var(--c-gold); }
+    .lz-account-name { font-size: var(--fs-xs); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: 3px; }
+    .lz-account-desc { font-size: 11px; color: var(--c-text-muted); line-height: 1.4; }
+    .lz-account-icon { font-size: 20px; float: right; margin-left: var(--sp-2); }
+
+    /* Guardrails Table */
+    .guardrail-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px var(--sp-4); font-size: var(--fs-xs);
+      border-bottom: 1px solid var(--c-border-light);
+    }
+    .guardrail-item:last-child { border: none; }
+    .guardrail-name { font-weight: var(--fw-medium); color: var(--c-text); }
+    .guardrail-badges { display: flex; gap: var(--sp-2); }
+
+    /* Cost section */
+    .cost-hero {
+      background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-mid) 100%);
+      border-radius: var(--r-xl); padding: var(--sp-6);
+      color: white; text-align: center; margin-bottom: var(--sp-4);
+    }
+    .cost-hero-label { font-size: var(--fs-xs); opacity: 0.6; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: var(--sp-2); }
+    .cost-hero-amount { font-size: var(--fs-4xl); font-weight: var(--fw-bold); line-height: 1; }
+    .cost-hero-unit { font-size: var(--fs-sm); opacity: 0.7; margin-top: var(--sp-1); }
+    .cost-hero-range { font-size: var(--fs-sm); opacity: 0.6; margin-top: var(--sp-2); }
+    .cost-breakdown-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .cost-item {
+      background: var(--c-surface-2); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .cost-item-name { font-size: var(--fs-xs); color: var(--c-text-muted); }
+    .cost-item-val  { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-primary); }
+
+    /* Radar Chart */
+    .radar-container {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); padding: var(--sp-6);
+      margin-bottom: var(--sp-5); box-shadow: var(--shadow-sm);
+    }
+    .radar-canvas-wrap { max-width: 340px; margin: 0 auto; }
+
+    /* Risk bars */
+    .risk-items { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+    .risk-item { background: var(--c-surface-2); border-radius: var(--r-md); padding: var(--sp-3) var(--sp-4); border: 1px solid var(--c-border-light); }
+    .risk-item-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--sp-2); }
+    .risk-item-name { font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--c-text); }
+    .risk-item-score { font-size: var(--fs-sm); font-weight: var(--fw-bold); }
+
+    /* Decision points */
+    .decision-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .decision-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-5);
+      box-shadow: var(--shadow-sm);
+    }
+    .decision-card-type { font-size: var(--fs-xs); font-weight: var(--fw-bold); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--sp-3); }
+    .decision-card.inaction .decision-card-type { color: var(--c-danger); }
+    .decision-card.core .decision-card-type { color: var(--c-primary-mid); }
+    .decision-card.mvp .decision-card-type { color: var(--c-success); }
+    .decision-list-item {
+      display: flex; gap: var(--sp-2); align-items: flex-start;
+      font-size: var(--fs-xs); line-height: 1.6; padding: 5px 0;
+      border-bottom: 1px solid var(--c-border-light); color: var(--c-text-muted);
+    }
+    .decision-list-item:last-child { border: none; }
+    .decision-dot { width: 5px; height: 5px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+    .inaction .decision-dot { background: var(--c-danger); }
+    .core .decision-dot { background: var(--c-primary-mid); }
+    .mvp .decision-dot { background: var(--c-success); }
+
+    /* Presentation slides */
+    .slide-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .slide-item {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
+      box-shadow: var(--shadow-sm); display: flex; gap: var(--sp-4);
+    }
+    .slide-num {
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      background: var(--c-primary-mid); color: white;
+      font-size: var(--fs-sm); font-weight: var(--fw-bold);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 2px;
+    }
+    .slide-content .slide-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: var(--sp-2); }
+    .slide-points { padding-left: var(--sp-3); }
+    .slide-point {
+      font-size: var(--fs-xs); color: var(--c-text-muted);
+      line-height: 1.6; margin-bottom: 2px;
+      list-style: disc; list-style-position: outside;
+    }
+
+    /* Tech PM phases */
+    .phase-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .phase-item {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-sm);
+    }
+    .phase-header {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: var(--sp-3) var(--sp-5);
+      background: var(--c-primary);
+      color: white;
+    }
+    .phase-tag { font-size: var(--fs-xs); font-weight: var(--fw-bold); opacity: 0.7; }
+    .phase-name { font-size: var(--fs-sm); font-weight: var(--fw-semi); }
+    .phase-body { padding: var(--sp-4) var(--sp-5); }
+    .phase-task {
+      display: flex; gap: var(--sp-2); align-items: flex-start;
+      font-size: var(--fs-xs); color: var(--c-text-muted);
+      padding: 4px 0; border-bottom: 1px solid var(--c-border-light); line-height: 1.6;
+    }
+    .phase-task:last-child { border: none; }
+    .phase-task-dot { color: var(--c-accent-teal); font-size: 14px; margin-top: 1px; flex-shrink: 0; }
+
+    /* Next Steps */
+    .next-steps-list { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .next-step {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
+      box-shadow: var(--shadow-sm); display: flex; gap: var(--sp-4);
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 30px; height: 30px; border-radius: 50%;
+      font-size: var(--fs-xs); font-weight: var(--fw-bold);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .step-num.critical { background: var(--c-danger-bg); color: var(--c-danger); border: 1.5px solid var(--c-danger); }
+    .step-num.high     { background: var(--c-warning-bg); color: var(--c-warning); border: 1.5px solid var(--c-warning); }
+    .step-num.medium   { background: var(--c-info-bg); color: var(--c-info); border: 1.5px solid var(--c-info); }
+    .step-content .step-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: 4px; }
+    .step-desc { font-size: var(--fs-xs); color: var(--c-text-muted); line-height: 1.6; }
+    .step-meta { display: flex; gap: var(--sp-3); margin-top: var(--sp-2); }
+    .step-meta-item { font-size: var(--fs-xs); color: var(--c-text-muted); display: flex; align-items: center; gap: 3px; }
+
+    /* Result header action bar */
+    .result-actions {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: var(--sp-5);
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-5);
+      box-shadow: var(--shadow-sm);
+    }
+    .result-title-wrap .result-title { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .result-title-wrap .result-ts { font-size: var(--fs-xs); color: var(--c-text-muted); margin-top: 2px; }
+
+    /* Section title in results */
+    .result-section-title {
+      font-size: var(--fs-md); font-weight: var(--fw-bold);
+      color: var(--c-primary); margin-bottom: var(--sp-4);
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding-bottom: var(--sp-3); border-bottom: 2px solid var(--c-border-light);
+    }
+    .result-section-title .rst-icon {
+      width: 32px; height: 32px; border-radius: var(--r-sm);
+      background: var(--c-primary-mid); color: white;
+      display: flex; align-items: center; justify-content: center; font-size: 15px;
+      flex-shrink: 0;
+    }
+    .result-section { margin-bottom: var(--sp-8); }
+
+    /* Tech PM section tabs */
+    .techpm-section { background: var(--c-surface); border: 1px solid var(--c-border-light); border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-5); }
+    .techpm-tabs { display: flex; border-bottom: 1px solid var(--c-border-light); background: var(--c-surface-2); }
+    .techpm-tab { flex: 1; text-align: center; padding: 12px; font-size: var(--fs-xs); font-weight: var(--fw-semi); cursor: pointer; border-bottom: 2px solid transparent; transition: all var(--t-fast); color: var(--c-text-muted); }
+    .techpm-tab.active { color: var(--c-accent-teal); border-bottom-color: var(--c-accent-teal); }
+    .techpm-tab-panel { padding: var(--sp-5); display: none; }
+    .techpm-tab-panel.active { display: block; }
+    .collab-tag {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: var(--c-bg); border: 1px solid var(--c-border);
+      border-radius: var(--r-full); padding: 4px 10px;
+      font-size: var(--fs-xs); color: var(--c-text-muted); margin: 3px;
+    }
+
+    /* Mitigation list */
+    .mitigation-item {
+      display: flex; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4);
+      background: var(--c-warning-bg); border: 1px solid rgba(217,119,6,0.2);
+      border-radius: var(--r-md); margin-bottom: var(--sp-2); font-size: var(--fs-xs);
+      color: var(--c-text); line-height: 1.6;
+    }
+    .mitigation-icon { color: var(--c-warning); flex-shrink: 0; font-size: 14px; }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      .analyze-layout { grid-template-columns: 360px 1fr; }
+    }
+    @media (max-width: 900px) {
+      .analyze-layout { grid-template-columns: 1fr; }
+      .input-panel { position: static; max-height: none; }
+      .strategy-compare { grid-template-columns: repeat(5, 1fr); }
+      .decision-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .kpi-grid, .lz-accounts-grid, .cost-breakdown-grid, .risk-items { grid-template-columns: 1fr; }
+      .strategy-compare { grid-template-columns: repeat(3, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<!-- ── Navigation ── -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="dashboard.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">Smart Archie</span>
+        <span class="brand-tagline">Cloud Advisory Platform</span>
+      </div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="dashboard.html" class="nav-link">儀表板</a>
+      <a href="analyze.html" class="nav-link active">需求分析</a>
+      <a href="trends.html" class="nav-link">趨勢雷達</a>
+      <a href="dashboard.html#history" class="nav-link">歷史紀錄</a>
+    </nav>
+    <div class="navbar-actions">
+      <div class="navbar-quota">
+        <span class="quota-dot"></span>
+        <span id="nav-quota">0/3 次</span>
+      </div>
+      <div class="navbar-avatar" id="nav-avatar" onclick="window.location.href='dashboard.html'">?</div>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="analyze-layout">
+    <!-- ══════ Left: Input Panel ══════ -->
+    <aside class="input-panel">
+      <div class="input-panel-header">
+        <div class="input-panel-title">☁️ 雲端需求分析</div>
+        <div class="input-panel-sub">填寫下方資訊，生成顧問級雲端評估報告</div>
+      </div>
+      <div class="input-panel-body">
+
+        <!-- Section 1: 專案基本資訊 -->
+        <div class="input-section" id="sec1">
+          <div class="input-section-header" onclick="toggleSection('sec1')">
+            <span class="input-section-num">1</span>
+            <span class="input-section-title">專案基本資訊</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">專案名稱 <span class="required">*</span></label>
+              <input id="projectName" type="text" class="form-control" placeholder="例：核心帳務系統上雲評估" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">業務痛點與目標 <span class="required">*</span></label>
+              <textarea id="painPoints" class="form-control" placeholder="例：現有系統維護費用高、難以快速擴展，業務需要在新產品上線前完成上雲…" rows="3" required></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">上雲主要目標</label>
+              <select id="cloudGoal" class="form-select">
+                <option value="cost">💰 降低維運成本</option>
+                <option value="speed">⚡ 提升交付速度</option>
+                <option value="api">🔗 API 化轉型</option>
+                <option value="elastic">📈 彈性擴展</option>
+                <option value="ai">🤖 AI 應用落地</option>
+                <option value="compliance">🛡️ 法規合規</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">預期時程</label>
+              <div class="toggle-group" id="timeline">
+                <button class="toggle-btn" data-value="urgent">緊急 (&lt;6個月)</button>
+                <button class="toggle-btn active" data-value="medium">中期 (6–12個月)</button>
+                <button class="toggle-btn" data-value="flexible">彈性 (12個月+)</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">可接受的階段性策略</label>
+              <div class="toggle-group" id="phaseStrategy">
+                <button class="toggle-btn active" data-value="yes">接受分階段</button>
+                <button class="toggle-btn" data-value="no">一次到位</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: 系統評估 -->
+        <div class="input-section" id="sec2">
+          <div class="input-section-header" onclick="toggleSection('sec2')">
+            <span class="input-section-num">2</span>
+            <span class="input-section-title">系統層面評估</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">系統年齡（年）</label>
+              <div class="range-group">
+                <input type="range" id="systemAge" min="1" max="30" value="8" data-suffix=" 年" class="form-range">
+                <span class="range-value" data-for="systemAge">8 年</span>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否為核心系統</label>
+              <div class="toggle-group" id="isCoreSystem">
+                <button class="toggle-btn active" data-value="yes">是，核心系統</button>
+                <button class="toggle-btn" data-value="no">否，周邊系統</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">現行架構類型</label>
+              <select id="archType" class="form-select">
+                <option value="monolith">🧱 單體式架構 (Monolith)</option>
+                <option value="threelayer" selected>🔢 三層式架構 (3-Tier)</option>
+                <option value="api">🔗 API 化架構</option>
+                <option value="microservices">🔮 微服務架構</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">舊系統語言或平台</label>
+              <input id="techStack" type="text" class="form-control" placeholder="例：Java Spring Boot, .NET Framework, Oracle DB">
+            </div>
+            <div class="form-group">
+              <label class="form-label">技術債程度</label>
+              <div class="toggle-group" id="techDebt">
+                <button class="toggle-btn" data-value="low">低（乾淨）</button>
+                <button class="toggle-btn active" data-value="medium">中等</button>
+                <button class="toggle-btn" data-value="high">高（大量技術債）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否已虛擬化 (VM)</label>
+              <div class="toggle-group" id="isVirtualized">
+                <button class="toggle-btn active" data-value="yes">是 (VMware/HyperV)</button>
+                <button class="toggle-btn" data-value="no">否（實體機）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否有外部系統介接</label>
+              <div class="toggle-group" id="hasExternalIntegration">
+                <button class="toggle-btn active" data-value="yes">是</button>
+                <button class="toggle-btn" data-value="no">否</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: 資料層面 -->
+        <div class="input-section" id="sec3">
+          <div class="input-section-header" onclick="toggleSection('sec3')">
+            <span class="input-section-num">3</span>
+            <span class="input-section-title">資料與安全層面</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">是否含個人資料 (個資法)</label>
+              <div class="toggle-group" id="hasPersonalData">
+                <button class="toggle-btn active" data-value="yes">是</button>
+                <button class="toggle-btn" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否含敏感資料</label>
+              <div class="toggle-group" id="hasSensitiveData">
+                <button class="toggle-btn" data-value="yes">是</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否涉及金流 / 保單 / 核心交易</label>
+              <div class="toggle-group" id="hasFinancialData">
+                <button class="toggle-btn" data-value="yes">是</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">資料量級</label>
+              <select id="dataSize" class="form-select">
+                <option value="small">小型 (&lt; 100GB)</option>
+                <option value="medium" selected>中型 (100GB – 1TB)</option>
+                <option value="large">大型 (1TB – 10TB)</option>
+                <option value="very_large">超大型 (&gt; 10TB)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">歷史資料保留需求</label>
+              <select id="dataRetention" class="form-select">
+                <option value="short">短期 (&lt; 1年)</option>
+                <option value="medium" selected>中期 (1–5年)</option>
+                <option value="long">長期 (5–10年)</option>
+                <option value="permanent">永久保留</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 4: 可用性需求 -->
+        <div class="input-section" id="sec4">
+          <div class="input-section-header" onclick="toggleSection('sec4')">
+            <span class="input-section-num">4</span>
+            <span class="input-section-title">流量與可用性需求</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">預估交易量 / 流量規模</label>
+              <select id="txVolume" class="form-select">
+                <option value="low">低（&lt; 1,000 TPS / 小型內部系統）</option>
+                <option value="medium" selected>中（1,000–10,000 TPS）</option>
+                <option value="high">高（10,000–100,000 TPS）</option>
+                <option value="very_high">超高（&gt; 100,000 TPS）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">流量是否高度波動（高峰/離峰差異大）</label>
+              <div class="toggle-group" id="hasTrafficSpike">
+                <button class="toggle-btn" data-value="yes">是（明顯高峰）</button>
+                <button class="toggle-btn active" data-value="no">否（相對平穩）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">SLA 需求</label>
+              <select id="slaRequirement" class="form-select">
+                <option value="low">標準 99.0%（每月允許 7.2 小時停機）</option>
+                <option value="medium" selected>高 99.9%（每月允許 43 分鐘停機）</option>
+                <option value="high">極高 99.95%+（每月允許 &lt; 22 分鐘停機）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">可停機時間容忍度</label>
+              <div class="toggle-group" id="downtimeTolerance">
+                <button class="toggle-btn" data-value="none">不可停機</button>
+                <button class="toggle-btn active" data-value="low">短暫可接受（&lt;1hr）</button>
+                <button class="toggle-btn" data-value="medium">中等（&lt;4hr）</button>
+                <button class="toggle-btn" data-value="high">可接受計畫性停機</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否需要異地備援 (DR)</label>
+              <div class="toggle-group" id="needDR">
+                <button class="toggle-btn active" data-value="yes">是，需要 DR</button>
+                <button class="toggle-btn" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">系統規模（選擇最接近的）</label>
+              <select id="systemSize" class="form-select">
+                <option value="small">小型（&lt; 10台 VM / 單一服務）</option>
+                <option value="medium" selected>中型（10–50台 VM / 多個服務）</option>
+                <option value="large">大型（50–200台 VM / 多系統）</option>
+                <option value="enterprise">企業級（200台+ VM / 複雜系統群）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 5: 組織與治理 -->
+        <div class="input-section" id="sec5">
+          <div class="input-section-header" onclick="toggleSection('sec5')">
+            <span class="input-section-num">5</span>
+            <span class="input-section-title">組織與治理現況</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">團隊雲端能力成熟度</label>
+              <select id="cloudMaturity" class="form-select">
+                <option value="low">初階（無雲端工程師，剛起步）</option>
+                <option value="medium" selected>中階（有部分雲端經驗）</option>
+                <option value="high">進階（有專職 Cloud Team）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否已有 Landing Zone</label>
+              <div class="toggle-group" id="hasLandingZone">
+                <button class="toggle-btn" data-value="yes">是</button>
+                <button class="toggle-btn active" data-value="no">否，尚未建立</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否已有 IAM / 資安基線</label>
+              <div class="toggle-group" id="hasIAM">
+                <button class="toggle-btn" data-value="yes">是</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否已有多帳號治理架構</label>
+              <div class="toggle-group" id="hasMultiAccount">
+                <button class="toggle-btn" data-value="yes">是</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否涉及重大委外 / 稽核要求</label>
+              <div class="toggle-group" id="isMajorOutsource">
+                <button class="toggle-btn" data-value="yes">是（金融局稽核等）</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">合規等級</label>
+              <div class="toggle-group" id="complianceLevel">
+                <button class="toggle-btn" data-value="low">一般</button>
+                <button class="toggle-btn active" data-value="medium">中等合規</button>
+                <button class="toggle-btn" data-value="high">高度法遵（金融/醫療）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">環境數量需求</label>
+              <div class="range-group">
+                <input type="range" id="envCount" min="1" max="5" value="3" class="form-range">
+                <span class="range-value" data-for="envCount">3</span>
+              </div>
+              <div class="form-hint">Dev / Staging / Prod 計算</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 6: 預算 -->
+        <div class="input-section" id="sec6">
+          <div class="input-section-header" onclick="toggleSection('sec6')">
+            <span class="input-section-num">6</span>
+            <span class="input-section-title">預算條件</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">預算級距</label>
+              <div class="toggle-group" id="budget">
+                <button class="toggle-btn" data-value="tight">有限預算</button>
+                <button class="toggle-btn active" data-value="medium">合理預算</button>
+                <button class="toggle-btn" data-value="ample">充足預算</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Report Style -->
+        <div class="input-section" id="sec7">
+          <div class="input-section-header" onclick="toggleSection('sec7')">
+            <span class="input-section-num">7</span>
+            <span class="input-section-title">報告風格設定</span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">報告產出風格</label>
+              <div class="report-style-toggle">
+                <button class="style-btn active" data-style="executive" id="styleExec" onclick="setStyle('executive')">🎯 高層決策版</button>
+                <button class="style-btn" data-style="techpm" id="styleTech" onclick="setStyle('techpm')">⚙️ 技術 PM 版</button>
+                <button class="style-btn" data-style="full" id="styleFull" onclick="setStyle('full')">📋 完整版</button>
+              </div>
+              <div class="form-hint mt-2">完整版同時顯示高層摘要與技術執行建議</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate Button -->
+        <div style="padding: var(--sp-2) 0 var(--sp-6);">
+          <button class="btn-generate" id="btnGenerate" onclick="runAnalysis()">
+            <span id="btnGenerateText">🚀 生成 AI 雲端分析報告</span>
+            <span id="btnGenerateSpinner" class="spinner" style="display:none;"></span>
+          </button>
+          <div class="text-center mt-2 text-xs text-muted">分析需時約 3–5 秒，結果可儲存至歷史紀錄</div>
+        </div>
+
+      </div><!-- /input-panel-body -->
+    </aside>
+
+    <!-- ══════ Right: Result Panel ══════ -->
+    <main class="result-panel" id="resultPanel">
+
+      <!-- Placeholder -->
+      <div id="resultPlaceholder" class="result-placeholder">
+        <div class="result-placeholder-icon">☁️</div>
+        <div>
+          <div class="empty-title">填寫左側需求，生成分析報告</div>
+          <div class="empty-desc" style="margin-top:8px;">Smart Archie 將根據您的專案條件，輸出顧問級的 6R 策略建議、Landing Zone 架構、成本估算與風險評估報告。</div>
+        </div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+          <div class="tag">🎯 6R 策略判斷</div>
+          <div class="tag">🏛️ Landing Zone</div>
+          <div class="tag">💰 成本估算</div>
+          <div class="tag">⚡ 風險雷達</div>
+          <div class="tag">📊 KPI 分數</div>
+          <div class="tag">📋 簡報大綱</div>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div id="resultContainer" class="result-container">
+        <!-- Content injected by JS -->
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/analyze-engine.js"></script>
+<script src="js/api-client.js"></script>
+<script>
+// ── Init ──────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  Auth.injectNavUser();
+  SA.initRangeSliders();
+  // Init all toggle groups
+  document.querySelectorAll('.toggle-group').forEach(g => {
+    SA.initToggleGroup(g, false);
+  });
+  // Check API availability and show badge
+  _showAPIStatusBadge();
+});
+
+// Show a small status badge indicating API mode vs local mode
+async function _showAPIStatusBadge() {
+  const header = document.querySelector('.input-panel-header');
+  if (!header) return;
+  const health = await APIClient.healthCheck();
+  const badge = document.createElement('div');
+  badge.style.cssText = 'font-size:10px;margin-top:4px;opacity:0.75;display:flex;align-items:center;gap:4px;';
+  if (health.available) {
+    badge.innerHTML = '<span style="color:#4ADE80">●</span> Claude AI 引擎連線中';
+  } else {
+    badge.innerHTML = '<span style="color:#FCD34D">●</span> 本地分析引擎（API 未連線）';
+  }
+  header.appendChild(badge);
+}
+
+let reportStyle = 'executive';
+let currentResult = null;
+
+function setStyle(s) {
+  reportStyle = s;
+  document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector(`[data-style="${s}"]`)?.classList.add('active');
+}
+
+function toggleSection(id) {
+  const sec = document.getElementById(id);
+  sec.classList.toggle('collapsed');
+}
+
+function getToggleVal(id) {
+  const active = document.querySelector(`#${id} .toggle-btn.active`);
+  return active ? active.dataset.value : null;
+}
+
+function collectInputs() {
+  return {
+    projectName:           document.getElementById('projectName').value,
+    painPoints:            document.getElementById('painPoints').value,
+    cloudGoal:             document.getElementById('cloudGoal').value,
+    timeline:              getToggleVal('timeline'),
+    systemAge:             document.getElementById('systemAge').value,
+    isCoreSystem:          getToggleVal('isCoreSystem'),
+    archType:              document.getElementById('archType').value,
+    techStack:             document.getElementById('techStack').value,
+    techDebt:              getToggleVal('techDebt'),
+    isVirtualized:         getToggleVal('isVirtualized'),
+    hasExternalIntegration:getToggleVal('hasExternalIntegration'),
+    hasPersonalData:       getToggleVal('hasPersonalData'),
+    hasSensitiveData:      getToggleVal('hasSensitiveData'),
+    hasFinancialData:      getToggleVal('hasFinancialData'),
+    dataSize:              document.getElementById('dataSize').value,
+    dataRetention:         document.getElementById('dataRetention').value,
+    txVolume:              document.getElementById('txVolume').value,
+    hasTrafficSpike:       getToggleVal('hasTrafficSpike'),
+    slaRequirement:        document.getElementById('slaRequirement').value,
+    downtimeTolerance:     getToggleVal('downtimeTolerance'),
+    needDR:                getToggleVal('needDR'),
+    systemSize:            document.getElementById('systemSize').value,
+    cloudMaturity:         document.getElementById('cloudMaturity').value,
+    hasLandingZone:        getToggleVal('hasLandingZone'),
+    hasIAM:                getToggleVal('hasIAM'),
+    hasMultiAccount:       getToggleVal('hasMultiAccount'),
+    isMajorOutsource:      getToggleVal('isMajorOutsource'),
+    complianceLevel:       getToggleVal('complianceLevel'),
+    envCount:              document.getElementById('envCount').value,
+    budget:                getToggleVal('budget'),
+    reportStyle,
+  };
+}
+
+async function runAnalysis() {
+  const inputs = collectInputs();
+  if (!inputs.projectName.trim()) {
+    SA.Toast.warning('請填寫專案名稱', '專案名稱為必填欄位');
+    document.getElementById('projectName').focus();
+    return;
+  }
+  if (!inputs.painPoints.trim()) {
+    SA.Toast.warning('請填寫業務痛點', '說明業務痛點與目標，有助於提升分析品質');
+    document.getElementById('painPoints').focus();
+    return;
+  }
+
+  const btn       = document.getElementById('btnGenerate');
+  const btnText   = document.getElementById('btnGenerateText');
+  const btnSpinner= document.getElementById('btnGenerateSpinner');
+
+  btn.disabled = true;
+  btnText.textContent = '分析中，請稍候…';
+  btnSpinner.style.display = 'inline-block';
+
+  SA.Loading.show('AI 雲端顧問分析中…', '正在評估 6R 策略、Landing Zone、成本與風險');
+
+  // Progress messages — cycle while waiting
+  const msgs = [
+    ['連線至 Claude AI 引擎…',      '啟動 claude-opus-4-6 with Adaptive Thinking'],
+    ['深度分析系統架構與技術債…',    '評估系統年齡、架構類型、合規要求與遷移風險'],
+    ['計算 6R 策略可行性…',          '比對 Rehost / Replatform / Refactor 適合度'],
+    ['對照國際框架…',               '整合 AWS Well-Architected、MAS TRM、HKMA ORMiC'],
+    ['規劃 Landing Zone 架構…',      '依合規等級生成帳號結構與 Guardrails'],
+    ['估算雲端成本（3 情境）…',      '保守、建議、積極三種費用預測'],
+    ['產生顧問建議報告…',           '整合 Executive Summary 與 Tech PM 執行建議'],
+  ];
+  let msgIdx = 0;
+  const msgTimer = setInterval(() => {
+    if (msgIdx < msgs.length) {
+      SA.Loading.setText(msgs[msgIdx][0], msgs[msgIdx][1]);
+      msgIdx++;
+    }
+  }, APIClient.isAPIAvailable() ? 8000 : 600); // API takes ~60s, local takes ~3s
+
+  try {
+    // Map form inputs to API-friendly format
+    const apiInputs = _buildAPIInputs(inputs);
+
+    const result = await APIClient.analyze(apiInputs, {
+      onProgress: ({ stage, message }) => {
+        console.log('[analyze]', stage, message);
+        if (stage === 'fallback') SA.Toast.info('切換至本地引擎', message);
+      }
+    });
+
+    currentResult = result;
+    clearInterval(msgTimer);
+    SA.Loading.hide();
+    renderResult(result, reportStyle);
+    saveToHistory(result);
+
+    const sourceLabel = result.source === 'claude-api' ? 'Claude AI 分析完成！' : '本地分析完成！';
+    SA.Toast.success(sourceLabel, '報告已生成，可向下捲動查看詳細內容');
+
+  } catch (err) {
+    clearInterval(msgTimer);
+    SA.Loading.hide();
+    console.error('[runAnalysis]', err);
+
+    if (err.message?.includes('API_KEY_NOT_SET')) {
+      SA.Toast.warning('API 金鑰未設定', '使用本地分析引擎（功能完整，不需 API 金鑰）');
+      // Fallback to local engine directly
+      try {
+        const localResult = await AnalyzeEngine.analyze(inputs);
+        currentResult = localResult;
+        renderResult(localResult, reportStyle);
+        saveToHistory(localResult);
+        SA.Toast.success('本地分析完成！', '報告已生成');
+      } catch (localErr) {
+        SA.Toast.error('分析失敗', `錯誤：${localErr.message}`);
+      }
+    } else {
+      SA.Toast.error('分析失敗', `錯誤：${err.message}。請重新嘗試。`);
+    }
+  } finally {
+    btn.disabled = false;
+    btnText.textContent = '🔄 重新分析';
+    btnSpinner.style.display = 'none';
+  }
+}
+
+/**
+ * Map the analyze.html form inputs to the APIClient's expected format.
+ * The form uses Chinese toggle values / short keys; APIClient expects semantic English fields.
+ */
+function _buildAPIInputs(inputs) {
+  const industryMap = {
+    financial: 'Financial Services',
+    tech: 'Technology',
+    healthcare: 'Healthcare',
+    retail: 'Retail',
+    manufacturing: 'Manufacturing',
+    government: 'Government',
+  };
+  const sizeMap = {
+    small: 'small', medium: 'medium', large: 'large', enterprise: 'enterprise',
+  };
+  const cloudMap = {
+    aws: 'AWS', gcp: 'GCP', azure: 'Azure', multi: 'Multi-Cloud',
+  };
+
+  const complianceLevel = inputs.complianceLevel || 'medium';
+  const regulatoryReqs = [];
+  if (inputs.hasPersonalData === 'yes')  regulatoryReqs.push('PDPA/GDPR (Personal Data)');
+  if (inputs.hasFinancialData === 'yes') regulatoryReqs.push('Financial Data Regulations');
+  if (inputs.isMajorOutsource === 'yes') regulatoryReqs.push('Major Outsourcing (MAS/HKMA)');
+  if (complianceLevel === 'high')        regulatoryReqs.push('Financial-Grade Compliance');
+
+  const complianceFrameworks = [];
+  if (complianceLevel === 'high') {
+    complianceFrameworks.push('MAS TRM', 'HKMA ORMiC', 'AWS FSBP');
+    if (inputs.isMajorOutsource === 'yes') complianceFrameworks.push('DORA');
+  }
+
+  const timelineMonthsMap = { urgent: 6, medium: 12, flexible: 24 };
+  const budgetMap = { tight: 100000, medium: 500000, ample: 2000000 };
+  const sizeServerMap = { small: 10, medium: 50, large: 200, enterprise: 500 };
+  const dataClassMap = { no: 'internal', yes: 'confidential' };
+
+  return {
+    // Carry through original for local engine fallback
+    ...inputs,
+
+    // API-mapped fields
+    industry:      industryMap[inputs.industry] || 'Technology',
+    companySize:   sizeMap[inputs.systemSize] || 'medium',
+    targetCloud:   cloudMap[inputs.targetCloud] || 'AWS',
+    systemCount:   sizeServerMap[inputs.systemSize] || 20,
+    regulatoryRequirements: regulatoryReqs,
+    migrationDriver: inputs.cloudGoal || 'cost',
+    timelineMonths:  timelineMonthsMap[inputs.timeline] || 12,
+    budgetUSD:       budgetMap[inputs.budget] || 500000,
+    currentInfra:    inputs.isVirtualized === 'yes' ? 'virtualized-on-premises' : 'on-premises',
+    dataClassification: inputs.hasSensitiveData === 'yes' || inputs.hasFinancialData === 'yes'
+      ? 'highly-confidential' : dataClassMap[inputs.hasPersonalData] || 'internal',
+    drRequirements:  inputs.needDR === 'yes' ? 'rto4h' : 'rto24h',
+    teamSize:        inputs.cloudMaturity === 'high' ? 'large' : inputs.cloudMaturity === 'medium' ? 'medium' : 'small',
+    complianceFrameworks,
+    geography:       ['Singapore'],  // Default; user can extend in future
+    monthlyTrafficGB: inputs.txVolume === 'high' ? 5000 : inputs.txVolume === 'medium' ? 1000 : 200,
+    description: [
+      inputs.painPoints || '',
+      inputs.cloudGoal ? `Cloud Goal: ${inputs.cloudGoal}` : '',
+      inputs.techStack  ? `Tech Stack: ${inputs.techStack}` : '',
+      inputs.archType   ? `Architecture: ${inputs.archType}` : '',
+      `System Age: ${inputs.systemAge || 5} years`,
+      inputs.hasExternalIntegration === 'yes' ? 'Has external integrations' : '',
+    ].filter(Boolean).join('. '),
+  };
+}
+
+function saveToHistory(result) {
+  const history = SA.Store.get('history', []);
+  history.unshift({
+    id:          result.id,
+    projectName: result.inputs?.projectName || result.inputs?.description?.slice(0,30) || 'Untitled',
+    strategy:    result.strategy6R?.primary || 'replatform',
+    timestamp:   result.timestamp,
+    kpi:         result.kpi,
+    risk:        result.riskRadar?.overall || 0,
+    style:       result.inputs?.reportStyle || 'executive',
+    source:      result.source || 'local',
+  });
+  SA.Store.set('history', history.slice(0, 50));
+}
+
+// ── Render Results ────────────────────────────────────────────
+function renderResult(r, style) {
+  const container = document.getElementById('resultContainer');
+  document.getElementById('resultPlaceholder').style.display = 'none';
+  container.classList.add('active');
+
+  const showExec   = style === 'executive' || style === 'full';
+  const showTechPM = style === 'techpm'    || style === 'full';
+
+  const stratLabels = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
+  const stratIcons  = { rehost:'🔄', replatform:'⚡', refactor:'🏗️', retain:'🔒', retire:'🗑️' };
+
+  const { executiveSummary: exec, strategy6R, kpi, landingZone: lz, costEstimate: cost, riskRadar: risk, presentation, techPM, nextSteps, decisions } = r;
+
+  let html = `
+  <!-- Action Bar -->
+  <div class="result-actions animate-down">
+    <div class="result-title-wrap">
+      <div class="result-title">📋 ${r.inputs.projectName || '雲端分析報告'}</div>
+      <div class="result-ts">分析時間：${SA.fmt.datetime(r.timestamp)} ・ 策略：${stratLabels[strategy6R.primary]}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ 列印</button>
+      <button class="btn btn-outline btn-sm" onclick="SA.Toast.info('匯出 PDF', '此功能將在 Pro 版本開放')">📥 匯出 PDF</button>
+      <button class="btn btn-primary btn-sm" onclick="window.location.href='dashboard.html'">💾 查看歷史</button>
+    </div>
+  </div>`;
+
+  // ── 1. Executive Summary ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="exec-summary-card">
+      <div class="exec-badge">⭐ Executive Summary</div>
+      <div class="exec-title">${exec.title}</div>
+      <div class="exec-subtitle">${exec.strategyTitle}</div>
+      <div class="exec-desc">${exec.conclusion}</div>
+      <div class="exec-meta">
+        <div class="exec-meta-item">🎯 策略信心度：<span class="exec-meta-val">${strategy6R.confidence}%</span></div>
+        <div class="exec-meta-item">⚡ 整體風險：<span class="exec-meta-val">${risk.overall >= 70 ? '🔴 高' : risk.overall >= 50 ? '🟡 中' : '🟢 低'}（${risk.overall}%）</span></div>
+        <div class="exec-meta-item">🗓️ 建議時程：<span class="exec-meta-val">${exec.timing.split('，')[0]}</span></div>
+      </div>
+      ${exec.prerequisites.length ? `
+      <div class="exec-prereq-list" style="margin-top:20px;">
+        <div style="font-size:11px;color:rgba(255,255,255,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px;">前提條件 / Prerequisites</div>
+        ${exec.prerequisites.map(p => `<div class="exec-prereq-item"><span class="exec-prereq-dot">◆</span>${p}</div>`).join('')}
+      </div>` : ''}
+    </div>
+  </div>`;
+
+  // ── 2. KPI Scores ──
+  const kpiItems = [
+    { label: 'Compliance Readiness', val: kpi.compliance, key: 'comp' },
+    { label: 'Landing Zone 就緒度', val: kpi.lzReadiness, key: 'lz' },
+    { label: 'Technical Debt Score', val: kpi.techDebt, key: 'td' },
+    { label: 'ROI Potential', val: kpi.roi, key: 'roi' },
+    { label: 'Timeline Feasibility', val: kpi.timeline, key: 'tl' },
+  ];
+  const colorClass = v => v >= 70 ? 'high' : v >= 50 ? 'medium' : 'low';
+  const barClass   = v => v >= 70 ? 'success' : v >= 50 ? 'warning' : 'danger';
+
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">📊</span>KPI 評估分數</div>
+    <div class="kpi-grid">
+      ${kpiItems.map(item => `
+      <div class="kpi-card">
+        <div class="kpi-card-label">${item.label}</div>
+        <div class="kpi-card-score ${colorClass(item.val)}">${item.val}<small style="font-size:14px;font-weight:500;"> / 100</small></div>
+        <div class="kpi-bar"><div class="kpi-fill ${barClass(item.val)}" data-width="${item.val}%" style="--target:${item.val}%"></div></div>
+      </div>`).join('')}
+      <div class="kpi-card" style="background:var(--c-primary);border-color:transparent;">
+        <div class="kpi-card-label" style="color:rgba(255,255,255,0.6)">整體評分</div>
+        <div class="kpi-card-score" style="color:white">${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}<small style="font-size:14px;opacity:0.7;"> / 100</small></div>
+        <div class="kpi-bar" style="background:rgba(255,255,255,0.2)"><div class="kpi-fill" data-width="${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}%" style="--target:${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}%;background:linear-gradient(90deg,var(--c-gold),var(--c-accent-teal))"></div></div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── 3. 6R Strategy ──
+  const strategyJustifications = {
+    rehost:    '系統具備直接遷移條件，虛擬化程度高、技術債可控，在有限時程內以 Lift & Shift 方式快速建立雲端基礎，為後續 Replatform 奠定基礎。',
+    replatform:'現有架構已具備平台化潛力，透過資料庫受管服務化、容器化等中度改造，可在不動核心程式邏輯的前提下，顯著提升效能與可維運性。',
+    refactor:  '系統具備架構重構條件，雲原生化可大幅提升彈性、API 能力與未來擴充性，建議搭配 Strangler Fig 策略逐步重構，降低切換風險。',
+    retain:    '現階段評估顯示多項前提條件尚未達標（Landing Zone、IAM、合規基線），建議先完善治理基礎設施，後續再評估分批遷移路徑。',
+    retire:    '此系統功能已可由 SaaS 解決方案替代，退場可降低維運負擔，建議制訂資料遷移計畫後逐步退場。',
+  };
+
+  const allStrategies = [
+    { key: 'rehost', icon: '🔄', label: 'Rehost' },
+    { key: 'replatform', icon: '⚡', label: 'Replatform' },
+    { key: 'refactor', icon: '🏗️', label: 'Refactor' },
+    { key: 'retain', icon: '🔒', label: 'Retain' },
+    { key: 'retire', icon: '🗑️', label: 'Retire' },
+  ];
+  const maxScore = Math.max(...allStrategies.map(s => strategy6R.scores[s.key] || 0)) || 1;
+
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">🎯</span>6R 策略分析</div>
+    <div class="strategy-banner">
+      <div class="strategy-rec-badge">⭐ AI 建議策略</div>
+      <div class="strategy-name">${stratIcons[strategy6R.primary]} ${stratLabels[strategy6R.primary]}</div>
+      <div class="strategy-desc">${strategyJustifications[strategy6R.primary]}</div>
+      <div class="strategy-confidence">
+        <span class="conf-label">策略信心度</span>
+        <div class="conf-bar"><div class="conf-fill" data-width="${strategy6R.confidence}%" style="--target:${strategy6R.confidence}%"></div></div>
+        <span class="conf-val">${strategy6R.confidence}%</span>
+      </div>
+      <div class="strategy-compare" style="margin-top:var(--sp-4);">
+        ${allStrategies.map(s => {
+          const sc = strategy6R.scores[s.key] || 0;
+          const isPrimary = s.key === strategy6R.primary;
+          const isSecondary = s.key === strategy6R.secondary;
+          const pct = Math.round((sc / maxScore) * 100);
+          return `<div class="strategy-pill ${isPrimary ? 'primary' : isSecondary ? 'secondary' : ''}">
+            <span class="sp-icon">${s.icon}</span>
+            <span class="sp-name">${s.label}</span>
+            <span class="sp-score">${isPrimary ? '✓ 建議' : isSecondary ? '次選' : `${pct}%`}</span>
+          </div>`;
+        }).join('')}
+      </div>
+      <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-accent-teal-lt);border-radius:var(--r-md);border:1px solid rgba(26,155,181,0.2);">
+        <div style="font-size:11px;color:var(--c-accent-teal);font-weight:600;margin-bottom:6px;">次選策略：${stratLabels[strategy6R.secondary]}</div>
+        <div style="font-size:12px;color:var(--c-text-muted);line-height:1.6;">${strategy6R.secondary === 'replatform' ? '可作為 Rehost 完成後的演進方向' : strategy6R.secondary === 'refactor' ? '長期可向雲原生架構演進' : '作為備選方案或後期階段策略'}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── 4. Landing Zone ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">🏛️</span>Landing Zone 建議</div>
+    <div class="card mb-4">
+      <div class="card-header">
+        <div class="card-title">
+          <span style="margin-right:8px;">治理成熟度：${lz.maturityStage.name}</span>
+          <span class="badge badge-gold">${lz.maturityStage.level === 1 ? 'Level 1 基礎' : lz.maturityStage.level === 2 ? 'Level 2 標準' : 'Level 3 金融'}</span>
+        </div>
+        <span class="badge badge-teal">${lz.accounts.length} 個帳號</span>
+      </div>
+      <div class="card-body">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-4);">${lz.maturityStage.desc}</div>
+        <div class="lz-accounts-grid">
+          ${lz.accounts.map(acc => `
+          <div class="lz-account-card">
+            <span class="lz-account-icon">${acc.icon}</span>
+            <div class="lz-account-type ${acc.type}">${acc.type.toUpperCase()}</div>
+            <div class="lz-account-name">${acc.name}</div>
+            <div class="lz-account-desc">${acc.desc}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">🛡️ 必要 Guardrails</div>
+        <span class="badge badge-danger">${lz.guardrails.filter(g=>g.status==='required').length} 項必要</span>
+      </div>
+      <div>
+        ${lz.guardrails.map(g => `
+        <div class="guardrail-item">
+          <div class="guardrail-name">${g.name}</div>
+          <div class="guardrail-badges">
+            <span class="badge ${g.status === 'required' ? 'badge-danger' : 'badge-neutral'}">${g.status === 'required' ? '必要' : '建議'}</span>
+            <span class="badge ${g.risk === 'critical' ? 'badge-danger' : g.risk === 'high' ? 'badge-warning' : 'badge-neutral'}">${g.risk}</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  // ── 5. Cost Estimate ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本估算</div>
+    <div class="cost-hero">
+      <div class="cost-hero-label">每月預估費用 (USD)</div>
+      <div class="cost-hero-amount">$${cost.mid.toLocaleString()}</div>
+      <div class="cost-hero-unit">中估值（含基礎設施 + 安全工具 + 管理費用）</div>
+      <div class="cost-hero-range">低估：$${cost.low.toLocaleString()} ～ 高估：$${cost.high.toLocaleString()}</div>
+    </div>
+    <div class="cost-breakdown-grid">
+      <div class="cost-item"><span class="cost-item-name">🖥️ Compute / VM</span><span class="cost-item-val">$${cost.breakdown.compute.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🗄️ 資料庫 / RDS</span><span class="cost-item-val">$${cost.breakdown.database.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">💾 Storage / S3</span><span class="cost-item-val">$${cost.breakdown.storage.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🌐 Network / CDN</span><span class="cost-item-val">$${cost.breakdown.network.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🔒 安全工具</span><span class="cost-item-val">$${cost.breakdown.security.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">☁️ DR / Backup</span><span class="cost-item-val">$${cost.breakdown.dr_backup.toLocaleString()}</span></div>
+    </div>
+    <div class="card mb-4">
+      <div class="card-body">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);font-weight:600;">主要成本驅動因子</div>
+        ${cost.drivers.map(d => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c-border-light);font-size:12px;">
+          <span style="font-weight:500;">${d.name}</span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="color:var(--c-text-muted);">${d.note}</span>
+            <span class="badge ${d.impact==='high'?'badge-danger':d.impact==='medium'?'badge-warning':'badge-neutral'}">${d.impact}</span>
+          </div>
+        </div>`).join('')}
+        <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-info-bg);border-radius:var(--r-md);border:1px solid rgba(26,107,175,0.2);">
+          <div style="font-size:11px;color:var(--c-info);font-weight:600;margin-bottom:4px;">遷移一次性費用估算</div>
+          <div style="font-size:12px;color:var(--c-text-muted);">USD $${cost.migrationLow.toLocaleString()} – $${cost.migrationHigh.toLocaleString()}（含規劃、測試、切換與培訓）</div>
+        </div>
+        <div style="margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:var(--c-success-bg);border-radius:var(--r-md);border:1px solid rgba(45,157,120,0.2);">
+          <div style="font-size:11px;color:var(--c-success);font-weight:600;margin-bottom:4px;">💡 成本優化建議</div>
+          <div style="font-size:12px;color:var(--c-text-muted);">${cost.recommendation}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+
+  // ── 6. Risk Radar ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">⚡</span>雲端風險雷達</div>
+    <div class="radar-container">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4);">
+        <div>
+          <div style="font-size:var(--fs-md);font-weight:var(--fw-bold);color:var(--c-primary);">整體風險指數：<span style="color:${risk.overall>=70?'var(--c-danger)':risk.overall>=50?'var(--c-warning)':'var(--c-success)'}">${risk.overall}%</span></div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">${risk.overall >= 70 ? '高風險 — 建議優先處理前提條件再推進遷移' : risk.overall >= 50 ? '中等風險 — 依優先序處理高風險項目' : '風險可控 — 可依計畫推進遷移'}</div>
+        </div>
+        <span class="badge ${risk.overall>=70?'badge-danger':risk.overall>=50?'badge-warning':'badge-success'} " style="font-size:13px;padding:6px 14px;">${risk.overall>=70?'🔴 高風險':risk.overall>=50?'🟡 中等風險':'🟢 可控風險'}</span>
+      </div>
+      <div class="radar-canvas-wrap">
+        <canvas id="riskRadarChart" height="300"></canvas>
+      </div>
+      <div class="risk-items" style="margin-top:var(--sp-4);">
+        ${[
+          { name: '合規風險', val: risk.compRisk, icon: '🛡️' },
+          { name: '技術風險', val: risk.techRisk, icon: '⚙️' },
+          { name: '營運風險', val: risk.opRisk, icon: '🔧' },
+          { name: '時程風險', val: risk.timelineRisk, icon: '⏰' },
+          { name: '資料風險', val: risk.dataRisk, icon: '🗄️' },
+          { name: '業務風險', val: risk.bizRisk, icon: '💼' },
+        ].map(item => `
+        <div class="risk-item">
+          <div class="risk-item-top">
+            <div class="risk-item-name">${item.icon} ${item.name}</div>
+            <div class="risk-item-score" style="color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'}">${item.val}%</div>
+          </div>
+          <div class="kpi-bar">
+            <div class="kpi-fill ${item.val>=70?'danger':item.val>=50?'warning':'success'}" data-width="${item.val}%" style="--target:${item.val}%"></div>
+          </div>
+        </div>`).join('')}
+      </div>
+      ${risk.mitigations.length ? `
+      <div style="margin-top:var(--sp-4);">
+        <div style="font-size:var(--fs-xs);font-weight:var(--fw-semi);color:var(--c-text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:var(--sp-3);">風險降低建議</div>
+        ${risk.mitigations.map(m => `<div class="mitigation-item"><span class="mitigation-icon">⚠️</span>${m}</div>`).join('')}
+      </div>` : ''}
+    </div>
+  </div>`;
+
+  // ── 7. Decision Points ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">🎲</span>決策重點</div>
+    <div class="decision-grid">
+      <div class="decision-card inaction">
+        <div class="decision-card-type">⚠️ 不行動的代價</div>
+        ${decisions.notActingCost.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+      </div>
+      <div class="decision-card core">
+        <div class="decision-card-type">🎯 核心決策點</div>
+        ${decisions.coreDecisions.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+      </div>
+      <div class="decision-card mvp">
+        <div class="decision-card-type">🚀 MVP 必做項目</div>
+        ${decisions.mvpMust.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+
+  // ── 8. Presentation (Executive mode) ──
+  if (showExec) {
+    html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">📊</span>高層簡報大綱</div>
+    <div class="slide-list">
+      ${presentation.map(s => `
+      <div class="slide-item">
+        <div class="slide-num">S${s.slide}</div>
+        <div class="slide-content">
+          <div class="slide-title">${s.title}</div>
+          <ul class="slide-points">
+            ${s.points.map(p => `<li class="slide-point">${p}</li>`).join('')}
+          </ul>
+        </div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  }
+
+  // ── 9. Tech PM (Tech PM / Full mode) ──
+  if (showTechPM) {
+    html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">⚙️</span>技術 PM 執行建議</div>
+    <div class="techpm-section">
+      <div class="techpm-tabs" id="techpmTabs">
+        <div class="techpm-tab active" onclick="switchTechTab('phases')">📋 執行階段</div>
+        <div class="techpm-tab" onclick="switchTechTab('poc')">🔬 PoC 範圍</div>
+        <div class="techpm-tab" onclick="switchTechTab('collab')">👥 協作角色</div>
+        <div class="techpm-tab" onclick="switchTechTab('data')">📁 補充資料</div>
+        <div class="techpm-tab" onclick="switchTechTab('validation')">✅ 技術驗證</div>
+      </div>
+      <div id="tp-phases" class="techpm-tab-panel active">
+        <div class="phase-list">
+          ${techPM.phases.map(ph => `
+          <div class="phase-item">
+            <div class="phase-header">
+              <span class="phase-tag">${ph.phase}</span>
+              <span class="phase-name">${ph.name}</span>
+            </div>
+            <div class="phase-body">
+              ${ph.items.map(item => `<div class="phase-task"><span class="phase-task-dot">›</span>${item}</div>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>
+      <div id="tp-poc" class="techpm-tab-panel">
+        <div class="alert alert-info">
+          <span class="alert-icon">💡</span>
+          <div><strong>建議 PoC 範圍</strong><br>${techPM.pocScope}</div>
+        </div>
+      </div>
+      <div id="tp-collab" class="techpm-tab-panel">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);">建議在遷移計畫中納入以下角色：</div>
+        <div style="flex-wrap:wrap;display:flex;">
+          ${techPM.collaborators.map(c => `<span class="collab-tag">👤 ${c}</span>`).join('')}
+        </div>
+      </div>
+      <div id="tp-data" class="techpm-tab-panel">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);">啟動前建議補齊以下資料：</div>
+        ${techPM.dataNeeded.map((d,i) => `
+        <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--c-border-light);font-size:12px;">
+          <span style="width:18px;height:18px;border-radius:50%;background:var(--c-bg);border:1px solid var(--c-border);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;">${i+1}</span>
+          <span style="color:var(--c-text-muted);">${d}</span>
+        </div>`).join('')}
+      </div>
+      <div id="tp-validation" class="techpm-tab-panel">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);">技術驗證項目清單：</div>
+        ${techPM.techValidation.map((v,i) => `
+        <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--c-border-light);font-size:12px;">
+          <span style="color:var(--c-success);">☐</span>
+          <span style="color:var(--c-text-muted);">${v}</span>
+        </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+  }
+
+  // ── 10. Regulatory Guidance (API only) ──
+  if (r._api?.regulatory?.applicable_frameworks?.length > 0) {
+    const reg = r._api.regulatory;
+    html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">⚖️</span>法規合規指引</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);">
+      <div style="background:white;border:1px solid var(--c-border);border-radius:var(--r-lg);padding:var(--sp-4);">
+        <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">適用監管框架</div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--sp-2);">
+          ${(reg.applicable_frameworks||[]).map(f=>`<span class="badge badge-teal" style="font-size:11px;">${f}</span>`).join('')}
+        </div>
+      </div>
+      <div style="background:white;border:1px solid var(--c-border);border-radius:var(--r-lg);padding:var(--sp-4);">
+        <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">建議取得認證</div>
+        <div style="display:flex;flex-wrap:wrap;gap:var(--sp-2);">
+          ${(reg.recommended_certifications||[]).map(c=>`<span class="badge badge-warning" style="font-size:11px;">${c}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+    ${reg.gap_analysis ? `
+    <div style="margin-top:var(--sp-4);padding:var(--sp-4);background:rgba(26,155,181,0.05);border:1px solid rgba(26,155,181,0.2);border-radius:var(--r-lg);">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-accent-teal);margin-bottom:var(--sp-2);">差距分析（Gap Analysis）</div>
+      <div style="font-size:var(--fs-sm);color:var(--c-text);line-height:1.7;">${reg.gap_analysis}</div>
+    </div>` : ''}
+    ${reg.key_requirements?.length ? `
+    <div style="margin-top:var(--sp-4);">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">關鍵合規要求</div>
+      <div style="display:flex;flex-direction:column;gap:var(--sp-2);">
+        ${reg.key_requirements.map(req=>`
+        <div style="display:flex;gap:var(--sp-3);align-items:flex-start;padding:var(--sp-2) var(--sp-3);background:white;border-radius:var(--r-md);border:1px solid var(--c-border);">
+          <span style="color:var(--c-accent-teal);flex-shrink:0;margin-top:2px;">◆</span>
+          <span style="font-size:var(--fs-sm);color:var(--c-text);">${req}</span>
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>`;
+  }
+
+  // ── 11. Next Steps ──
+  html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">🚀</span>建議後續行動步驟</div>
+    <div class="next-steps-list">
+      ${nextSteps.map(s => {
+        // Handle both local engine format {step, title, desc, owner, timeline, priority}
+        // and API normalised format {priority (number), action, owner, timeline, effort}
+        const stepNum   = s.step || s.priority || '1';
+        const stepTitle = s.title  || s.action  || '';
+        const stepDesc  = s.desc   || s.effort  || '';
+        const stepOwner = s.owner  || '';
+        const stepTime  = s.timeline || '';
+        const prioStr   = s.priority === 1 || s.priority === 'critical' ? 'critical'
+          : s.priority === 2 || s.priority === 'high' ? 'high' : 'medium';
+        return `
+      <div class="next-step">
+        <div class="step-num ${prioStr}">${stepNum}</div>
+        <div class="step-content">
+          <div class="step-title">${stepTitle}</div>
+          ${stepDesc ? `<div class="step-desc">${stepDesc}</div>` : ''}
+          <div class="step-meta">
+            ${stepOwner ? `<div class="step-meta-item">👤 ${stepOwner}</div>` : ''}
+            ${stepTime  ? `<div class="step-meta-item">🗓️ ${stepTime}</div>` : ''}
+            <span class="badge ${prioStr==='critical'?'badge-danger':prioStr==='high'?'badge-warning':'badge-teal'}">${prioStr}</span>
+          </div>
+        </div>
+      </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <!-- API Source Badge -->
+  ${r.source === 'claude-api' ? `
+  <div style="text-align:center;padding:var(--sp-4);margin-top:var(--sp-2);">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:rgba(26,155,181,0.08);border:1px solid rgba(26,155,181,0.2);border-radius:20px;padding:8px 20px;font-size:var(--fs-xs);color:var(--c-accent-teal);">
+      🤖 由 <strong>claude-opus-4-6</strong> with Adaptive Thinking 分析生成
+      &nbsp;·&nbsp; Smart Archie AI 雲端顧問平台
+    </div>
+  </div>` : ''}
+
+  <div style="height:40px;"></div>`;
+
+  container.innerHTML = html;
+
+  // Animate fills
+  setTimeout(() => SA.animateKPI(container), 200);
+
+  // Render radar chart
+  setTimeout(() => renderRadarChart(r.riskRadar), 300);
+
+  // Scroll to top of results
+  document.getElementById('resultPanel').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function switchTechTab(tab) {
+  const panels = { phases:'tp-phases', poc:'tp-poc', collab:'tp-collab', data:'tp-data', validation:'tp-validation' };
+  document.querySelectorAll('.techpm-tab').forEach((t,i) => {
+    const keys = Object.keys(panels);
+    t.classList.toggle('active', keys[i] === tab);
+  });
+  Object.entries(panels).forEach(([k,v]) => {
+    const el = document.getElementById(v);
+    if (el) el.classList.toggle('active', k === tab);
+  });
+}
+
+let radarChartInstance = null;
+function renderRadarChart(risk) {
+  const canvas = document.getElementById('riskRadarChart');
+  if (!canvas) return;
+  if (radarChartInstance) radarChartInstance.destroy();
+  radarChartInstance = new Chart(canvas, {
+    type: 'radar',
+    data: {
+      labels: ['合規風險', '技術風險', '營運風險', '時程風險', '資料風險', '業務風險'],
+      datasets: [{
+        label: '風險指數 (%)',
+        data: [risk.compRisk, risk.techRisk, risk.opRisk, risk.timelineRisk, risk.dataRisk, risk.bizRisk],
+        backgroundColor: 'rgba(201,168,76,0.15)',
+        borderColor: 'rgba(201,168,76,0.8)',
+        pointBackgroundColor: 'rgba(201,168,76,1)',
+        borderWidth: 2,
+        pointRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        r: {
+          min: 0, max: 100,
+          ticks: { stepSize: 25, font: { size: 10 }, color: '#8A99AD' },
+          grid: { color: 'rgba(209,220,232,0.6)' },
+          angleLines: { color: 'rgba(209,220,232,0.6)' },
+          pointLabels: { font: { size: 11, weight: '500' }, color: '#5A6B7E' },
+        },
+      },
+    },
+  });
+}
+</script>
+</body>
+</html>

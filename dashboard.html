@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>儀表板 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .dash-layout {
+      display: grid; grid-template-columns: var(--sidebar-w) 1fr;
+      min-height: calc(100vh - var(--nav-h));
+    }
+    /* Sidebar */
+    .sidebar {
+      background: var(--c-surface); border-right: 1px solid var(--c-border-light);
+      padding: var(--sp-5) 0; position: sticky; top: var(--nav-h);
+      height: calc(100vh - var(--nav-h)); overflow-y: auto;
+    }
+    .sidebar-section { padding: 0 var(--sp-4) var(--sp-4); }
+    .sidebar-title { font-size: var(--fs-xs); font-weight: var(--fw-semi); color: var(--c-text-muted); text-transform: uppercase; letter-spacing: 0.8px; padding: var(--sp-3) var(--sp-2) var(--sp-2); }
+    .sidebar-link {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 9px var(--sp-3); border-radius: var(--r-sm);
+      font-size: var(--fs-sm); font-weight: var(--fw-medium);
+      color: var(--c-text-muted); cursor: pointer; transition: all var(--t-fast);
+      text-decoration: none; user-select: none;
+    }
+    .sidebar-link:hover { background: var(--c-bg); color: var(--c-text); }
+    .sidebar-link.active { background: var(--c-accent-teal-lt); color: var(--c-accent-teal); font-weight: var(--fw-semi); }
+    .sidebar-link .sl-icon { width: 28px; height: 28px; border-radius: var(--r-sm); display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+    .sidebar-link.active .sl-icon { background: var(--c-accent-teal); }
+    .sidebar-link .sl-badge { margin-left: auto; background: var(--c-accent-teal); color: white; font-size: 10px; font-weight: var(--fw-bold); border-radius: var(--r-full); padding: 1px 7px; }
+    .sidebar-user {
+      padding: var(--sp-4); border-top: 1px solid var(--c-border-light); margin-top: auto;
+      display: flex; align-items: center; gap: var(--sp-3);
+    }
+    .su-avatar { width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg,var(--c-primary-mid),var(--c-accent-teal)); color: white; font-size: var(--fs-xs); font-weight: var(--fw-bold); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .su-info .su-name { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); }
+    .su-info .su-plan { font-size: var(--fs-xs); color: var(--c-text-muted); }
+    /* Main content */
+    .dash-main { padding: var(--sp-6); background: var(--c-bg); }
+    .dash-header { margin-bottom: var(--sp-6); }
+    .dash-greeting { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .dash-sub { font-size: var(--fs-sm); color: var(--c-text-muted); margin-top: var(--sp-1); }
+    /* Stats row */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+    .stat-card-inner { display: flex; align-items: flex-start; gap: var(--sp-4); }
+    .stat-icon { width: 46px; height: 46px; border-radius: var(--r-md); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+    /* Quota card */
+    .quota-card {
+      background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-mid) 100%);
+      border-radius: var(--r-xl); padding: var(--sp-6); color: white;
+      margin-bottom: var(--sp-6);
+    }
+    .quota-bar-bg { height: 8px; background: rgba(255,255,255,0.2); border-radius: var(--r-full); overflow: hidden; margin: var(--sp-3) 0; }
+    .quota-bar-fill { height: 100%; border-radius: var(--r-full); background: linear-gradient(90deg, var(--c-gold), #E2B75A); transition: width 1s ease; }
+    /* History table */
+    .history-section { background: var(--c-surface); border: 1px solid var(--c-border-light); border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-5); box-shadow: var(--shadow-sm); }
+    .history-header { padding: var(--sp-5) var(--sp-6); border-bottom: 1px solid var(--c-border-light); display: flex; align-items: center; justify-content: space-between; }
+    .history-header-title { font-size: var(--fs-md); font-weight: var(--fw-semi); }
+    .history-search { display: flex; gap: var(--sp-2); }
+    /* Strategy badge */
+    .strat-badge { font-size: 10px; padding: 2px 8px; border-radius: var(--r-full); font-weight: 600; }
+    .strat-rehost     { background: rgba(26,155,181,0.12); color: var(--c-accent-teal); }
+    .strat-replatform { background: rgba(201,168,76,0.15); color: #8B6A1F; }
+    .strat-refactor   { background: rgba(15,43,61,0.10); color: var(--c-primary-mid); }
+    .strat-retain     { background: rgba(217,119,6,0.12); color: var(--c-warning); }
+    .strat-retire     { background: rgba(100,100,100,0.12); color: var(--c-text-muted); }
+    /* Plan upgrade card */
+    .upgrade-card {
+      background: var(--c-gold-lt); border: 1px solid rgba(201,168,76,0.3);
+      border-radius: var(--r-xl); padding: var(--sp-5) var(--sp-6);
+      margin-bottom: var(--sp-5); display: flex; align-items: center; justify-content: space-between;
+    }
+    /* Quick start card */
+    .quick-start { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .qs-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-5); text-align: center;
+      cursor: pointer; transition: all var(--t-base); box-shadow: var(--shadow-sm);
+    }
+    .qs-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); border-color: var(--c-accent-teal); }
+    .qs-icon { font-size: 28px; margin-bottom: var(--sp-3); }
+    .qs-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: var(--sp-1); }
+    .qs-desc { font-size: var(--fs-xs); color: var(--c-text-muted); line-height: 1.6; }
+    /* Chart container */
+    .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .chart-card { background: var(--c-surface); border: 1px solid var(--c-border-light); border-radius: var(--r-xl); padding: var(--sp-5); box-shadow: var(--shadow-sm); }
+    /* Risk bar in history */
+    .risk-mini { width: 60px; height: 5px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; display: inline-block; }
+    .risk-mini-fill { height: 100%; border-radius: var(--r-full); }
+    @media (max-width: 1024px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .chart-row { grid-template-columns: 1fr; }
+      .quick-start { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .dash-layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .quick-start { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="dashboard.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">Smart Archie</span>
+        <span class="brand-tagline">Cloud Advisory Platform</span>
+      </div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="dashboard.html" class="nav-link active">儀表板</a>
+      <a href="analyze.html" class="nav-link">需求分析</a>
+      <a href="trends.html" class="nav-link">趨勢雷達</a>
+      <a href="admin-dashboard.html" class="nav-link" id="adminLink" style="display:none;">後台管理</a>
+    </nav>
+    <div class="navbar-actions">
+      <div class="navbar-quota">
+        <span class="quota-dot"></span>
+        <span id="nav-quota">0/3 次</span>
+      </div>
+      <div class="navbar-avatar" id="nav-avatar">?</div>
+    </div>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="dash-layout">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-title">主要功能</div>
+        <a href="dashboard.html" class="sidebar-link active"><span class="sl-icon">🏠</span>儀表板</a>
+        <a href="analyze.html" class="sidebar-link"><span class="sl-icon">☁️</span>新增分析</a>
+        <a href="#history" class="sidebar-link" onclick="switchTab('history')"><span class="sl-icon">📋</span>歷史紀錄 <span class="sl-badge" id="historyCnt">0</span></a>
+        <a href="#charts" class="sidebar-link" onclick="switchTab('charts')"><span class="sl-icon">📊</span>分析統計</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-title">帳號管理</div>
+        <a href="#profile" class="sidebar-link" onclick="switchTab('profile')"><span class="sl-icon">👤</span>個人資料</a>
+        <a href="#plan" class="sidebar-link" onclick="switchTab('plan')"><span class="sl-icon">💳</span>方案與額度</a>
+        <a href="admin-dashboard.html" class="sidebar-link" id="sideAdminLink" style="display:none;"><span class="sl-icon">⚙️</span>後台管理</a>
+        <a href="#" class="sidebar-link" onclick="Auth.logout()"><span class="sl-icon">🚪</span>登出</a>
+      </div>
+      <div style="padding: 0 var(--sp-4); margin-top: var(--sp-4); border-top: 1px solid var(--c-border-light); padding-top: var(--sp-4);">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;">目前登入</div>
+        <div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);margin-top:4px;" id="sidebar-username">-</div>
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);" id="sidebar-plan">-</div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dash-main">
+
+      <!-- Header -->
+      <div class="dash-header animate-down">
+        <div class="dash-greeting" id="greeting">歡迎回來 👋</div>
+        <div class="dash-sub">以下是您的 Smart Archie 使用概覽</div>
+      </div>
+
+      <!-- Stats Row -->
+      <div class="stats-row animate-up">
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <div class="stat-icon" style="background:var(--c-accent-teal-lt);color:var(--c-accent-teal);">📊</div>
+            <div>
+              <div class="stat-label">本月分析次數</div>
+              <div class="stat-value" id="statMonthly">0</div>
+              <div class="stat-delta up" id="statMonthlyDelta">↑ 0 次（本月）</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <div class="stat-icon" style="background:var(--c-gold-lt);color:var(--c-gold);">📋</div>
+            <div>
+              <div class="stat-label">累計分析總數</div>
+              <div class="stat-value" id="statTotal">0</div>
+              <div class="stat-delta up">↑ 所有歷史記錄</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <div class="stat-icon" style="background:var(--c-success-bg);color:var(--c-success);">🎯</div>
+            <div>
+              <div class="stat-label">最常建議策略</div>
+              <div class="stat-value" style="font-size:var(--fs-lg);" id="statTopStrat">—</div>
+            </div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-card-inner">
+            <div class="stat-icon" style="background:var(--c-danger-bg);color:var(--c-danger);">⚡</div>
+            <div>
+              <div class="stat-label">平均風險指數</div>
+              <div class="stat-value" id="statAvgRisk">—</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab content wrapper -->
+      <div id="tabOverview">
+        <!-- Quota Card -->
+        <div class="quota-card animate-up" id="quotaCard">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+            <div>
+              <div style="font-size:var(--fs-xs);opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">本月分析額度</div>
+              <div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);"><span id="quotaUsed">0</span> / <span id="quotaLimit">3</span> 次</div>
+              <div style="font-size:var(--fs-xs);opacity:0.7;margin-top:4px;">方案：<span id="quotaPlan" style="font-weight:600;">免費版 (Free)</span> ・ 剩餘 <span id="quotaRemaining">3</span> 次</div>
+            </div>
+            <button class="btn btn-gold" onclick="switchTab('plan')">🚀 升級方案</button>
+          </div>
+          <div class="quota-bar-bg">
+            <div class="quota-bar-fill" id="quotaBarFill" style="width:0%"></div>
+          </div>
+        </div>
+
+        <!-- Quick Start -->
+        <div style="margin-bottom:var(--sp-4);font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text-muted);text-transform:uppercase;letter-spacing:0.5px;">快速操作</div>
+        <div class="quick-start">
+          <div class="qs-card" onclick="window.location.href='analyze.html'">
+            <div class="qs-icon">☁️</div>
+            <div class="qs-title">新增雲端分析</div>
+            <div class="qs-desc">輸入專案需求，立即生成顧問級雲端評估報告</div>
+          </div>
+          <div class="qs-card" onclick="switchTab('history')">
+            <div class="qs-icon">📋</div>
+            <div class="qs-title">查看歷史記錄</div>
+            <div class="qs-desc">瀏覽所有過去的分析結果與建議報告</div>
+          </div>
+          <div class="qs-card" onclick="switchTab('plan')">
+            <div class="qs-icon">💳</div>
+            <div class="qs-title">管理方案與額度</div>
+            <div class="qs-desc">了解目前方案，查看可升級選項</div>
+          </div>
+        </div>
+
+        <!-- Recent Analyses -->
+        <div class="history-section animate-up">
+          <div class="history-header">
+            <div class="history-header-title">最近分析紀錄</div>
+            <button class="btn btn-outline btn-sm" onclick="switchTab('history')">查看全部</button>
+          </div>
+          <div id="recentList">
+            <div class="empty-state" style="padding:40px;">
+              <div class="empty-icon">📭</div>
+              <div class="empty-title">尚無分析紀錄</div>
+              <div class="empty-desc">前往「需求分析」頁面，開始您的第一次雲端評估</div>
+              <a href="analyze.html" class="btn btn-primary btn-sm mt-4">立即開始分析</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div id="tabHistory" style="display:none;">
+        <div class="history-section animate-up">
+          <div class="history-header">
+            <div class="history-header-title">📋 所有分析紀錄</div>
+            <div class="history-search">
+              <input type="text" class="form-control" placeholder="搜尋專案名稱…" id="historySearch" style="width:200px;" oninput="filterHistory()">
+              <button class="btn btn-primary btn-sm" onclick="window.location.href='analyze.html'">+ 新增分析</button>
+            </div>
+          </div>
+          <div id="historyFull"></div>
+        </div>
+      </div>
+
+      <!-- Charts Tab -->
+      <div id="tabCharts" style="display:none;">
+        <div class="chart-row animate-up">
+          <div class="chart-card">
+            <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">📈 每月分析趨勢</div>
+            <canvas id="trendChart" height="180"></canvas>
+          </div>
+          <div class="chart-card">
+            <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">🎯 策略分佈</div>
+            <canvas id="strategyPieChart" height="200"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Tab -->
+      <div id="tabProfile" style="display:none;">
+        <div class="card animate-up" style="max-width:600px;">
+          <div class="card-header"><div class="card-title">👤 個人資料</div></div>
+          <div class="card-body">
+            <div class="form-group">
+              <label class="form-label">姓名</label>
+              <input type="text" id="profileName" class="form-control">
+            </div>
+            <div class="form-group">
+              <label class="form-label">電子信箱</label>
+              <input type="email" id="profileEmail" class="form-control" disabled style="background:var(--c-bg);">
+            </div>
+            <div class="form-group">
+              <label class="form-label">公司 / 組織</label>
+              <input type="text" id="profileCompany" class="form-control">
+            </div>
+            <button class="btn btn-primary" onclick="saveProfile()">儲存變更</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plan Tab -->
+      <div id="tabPlan" style="display:none;">
+        <div class="animate-up">
+          <div style="margin-bottom:var(--sp-5);font-size:var(--fs-lg);font-weight:var(--fw-bold);color:var(--c-primary);">💳 方案與額度</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);" class="plan-grid">
+            <!-- Free -->
+            <div class="card" style="border-color:var(--c-border);">
+              <div class="card-header"><div class="card-title">免費版 Free</div></div>
+              <div class="card-body">
+                <div style="font-size:var(--fs-3xl);font-weight:var(--fw-bold);color:var(--c-primary);">$0<small style="font-size:var(--fs-sm);font-weight:400;color:var(--c-text-muted);"> /月</small></div>
+                <ul style="margin:var(--sp-4) 0;display:flex;flex-direction:column;gap:var(--sp-2);">
+                  <li class="text-sm text-muted">✅ 每月 3 次分析</li>
+                  <li class="text-sm text-muted">✅ 基本 6R 策略建議</li>
+                  <li class="text-sm text-muted">✅ Landing Zone 建議</li>
+                  <li class="text-sm text-muted">❌ PDF 匯出</li>
+                  <li class="text-sm text-muted">❌ 歷史紀錄保存</li>
+                </ul>
+                <button class="btn btn-outline btn-block" disabled id="freePlanBtn">目前方案</button>
+              </div>
+            </div>
+            <!-- Pro -->
+            <div class="card" style="border-color:var(--c-accent-teal);box-shadow:0 0 0 2px rgba(26,155,181,0.15);">
+              <div class="card-header" style="background:var(--c-accent-teal-lt);">
+                <div class="card-title" style="color:var(--c-primary-mid);">專業版 Pro ⭐</div>
+                <span class="badge badge-teal">最受歡迎</span>
+              </div>
+              <div class="card-body">
+                <div style="font-size:var(--fs-3xl);font-weight:var(--fw-bold);color:var(--c-primary);">$1,990<small style="font-size:var(--fs-sm);font-weight:400;color:var(--c-text-muted);"> /月</small></div>
+                <ul style="margin:var(--sp-4) 0;display:flex;flex-direction:column;gap:var(--sp-2);">
+                  <li class="text-sm text-muted">✅ 每月 30 次分析</li>
+                  <li class="text-sm text-muted">✅ 完整報告 + 技術PM版</li>
+                  <li class="text-sm text-muted">✅ PDF / PPT 匯出</li>
+                  <li class="text-sm text-muted">✅ 歷史紀錄保存</li>
+                  <li class="text-sm text-muted">✅ 分析統計圖表</li>
+                </ul>
+                <button class="btn btn-accent btn-block" onclick="SA.Toast.info('升級方案', '即將開放，感謝您的支持！')">升級 Pro</button>
+              </div>
+            </div>
+            <!-- Enterprise -->
+            <div class="card" style="border-color:var(--c-gold);">
+              <div class="card-header" style="background:var(--c-gold-lt);">
+                <div class="card-title" style="color:#8B6A1F;">企業版 Enterprise</div>
+              </div>
+              <div class="card-body">
+                <div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);color:var(--c-primary);">聯繫洽詢</div>
+                <ul style="margin:var(--sp-4) 0;display:flex;flex-direction:column;gap:var(--sp-2);">
+                  <li class="text-sm text-muted">✅ 無限次分析</li>
+                  <li class="text-sm text-muted">✅ 多人協作帳號</li>
+                  <li class="text-sm text-muted">✅ 客製產業規則庫</li>
+                  <li class="text-sm text-muted">✅ 白標 / API 串接</li>
+                  <li class="text-sm text-muted">✅ 專屬顧問支援</li>
+                </ul>
+                <button class="btn btn-gold btn-block" onclick="SA.Toast.info('企業版洽詢', '請聯絡 contact@smartarchie.ai')">聯絡我們</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  Auth.injectNavUser();
+
+  const user = Auth.currentUser();
+  if (!user) { window.location.href = 'login.html'; return; }
+
+  // Show admin links
+  if (user.role === 'admin') {
+    document.getElementById('adminLink')?.style?.setProperty('display','flex');
+    document.getElementById('sideAdminLink')?.style?.setProperty('display','flex');
+  }
+
+  // Greeting
+  const hr = new Date().getHours();
+  const grt = hr < 12 ? '早安' : hr < 18 ? '午安' : '晚安';
+  document.getElementById('greeting').textContent = `${grt}，${user.name} 👋`;
+
+  // Sidebar user info
+  const planNames = { free:'免費版 (Free)', pro:'專業版 (Pro)', enterprise:'企業版' };
+  document.getElementById('sidebar-username').textContent = user.name;
+  document.getElementById('sidebar-plan').textContent = planNames[user.plan] || user.plan;
+
+  // Quota
+  const quota = Auth.getQuota(user.id);
+  const limit = Auth.PLAN_QUOTA[user.plan] || 3;
+  document.getElementById('quotaUsed').textContent = quota.used;
+  document.getElementById('quotaLimit').textContent = limit;
+  document.getElementById('quotaRemaining').textContent = Math.max(0, limit - quota.used);
+  document.getElementById('quotaPlan').textContent = planNames[user.plan] || user.plan;
+  setTimeout(() => {
+    const pct = Math.min(100, (quota.used / limit) * 100);
+    document.getElementById('quotaBarFill').style.width = pct + '%';
+  }, 300);
+
+  // Profile tab
+  document.getElementById('profileName').value = user.name;
+  document.getElementById('profileEmail').value = user.email;
+  document.getElementById('profileCompany').value = user.company || '';
+
+  // Load history
+  loadStats();
+  renderRecentHistory();
+  renderFullHistory();
+
+  // Handle hash nav
+  if (window.location.hash === '#history') switchTab('history');
+  if (window.location.hash === '#plan') switchTab('plan');
+});
+
+function switchTab(tab) {
+  ['Overview','History','Charts','Profile','Plan'].forEach(t => {
+    document.getElementById(`tab${t}`)?.style?.setProperty('display', t.toLowerCase() === tab ? 'block' : 'none');
+  });
+  document.querySelectorAll('.sidebar-link').forEach(l => l.classList.remove('active'));
+  if (tab === 'overview') document.querySelector('.sidebar-link[href="dashboard.html"]')?.classList.add('active');
+
+  if (tab === 'charts') setTimeout(renderCharts, 100);
+}
+
+function loadStats() {
+  const history = SA.Store.get('history', []);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthlyCount = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
+  const total = history.length;
+  document.getElementById('statMonthly').textContent = monthlyCount;
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statMonthlyDelta').textContent = `↑ ${monthlyCount} 次（本月）`;
+  document.getElementById('historyCnt').textContent = total;
+
+  // Top strategy
+  if (history.length > 0) {
+    const stratCounts = {};
+    history.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
+    const topStrat = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1])[0][0];
+    const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
+    document.getElementById('statTopStrat').textContent = stratLabels[topStrat] || topStrat;
+    // Avg risk
+    const risks = history.filter(h => h.risk).map(h => h.risk);
+    if (risks.length) document.getElementById('statAvgRisk').textContent = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length) + '%';
+  }
+}
+
+function buildHistoryRow(h) {
+  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  const riskColor = h.risk >= 70 ? '#C53030' : h.risk >= 50 ? '#D97706' : '#2D9D78';
+  return `<tr onclick="loadHistoryItem('${h.id}')" style="cursor:pointer;">
+    <td><div style="font-weight:600;font-size:13px;">${h.projectName || '未命名專案'}</div><div style="font-size:11px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</div></td>
+    <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
+    <td><div style="display:flex;align-items:center;gap:8px;">
+      <span class="risk-mini"><span class="risk-mini-fill" style="width:${h.risk||0}%;background:${riskColor};"></span></span>
+      <span style="font-size:12px;font-weight:600;color:${riskColor};">${h.risk||'—'}%</span>
+    </div></td>
+    <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術PM版':'完整版'}</span></td>
+    <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();loadHistoryItem('${h.id}')">查看</button></td>
+  </tr>`;
+}
+
+function renderRecentHistory() {
+  const history = SA.Store.get('history', []).slice(0, 5);
+  const el = document.getElementById('recentList');
+  if (!history.length) return;
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th></th></tr></thead>
+    <tbody>${history.map(buildHistoryRow).join('')}</tbody>
+  </table></div>`;
+}
+
+let allHistory = [];
+function renderFullHistory() {
+  allHistory = SA.Store.get('history', []);
+  renderHistoryTable(allHistory);
+}
+function filterHistory() {
+  const q = document.getElementById('historySearch').value.toLowerCase();
+  const filtered = allHistory.filter(h => (h.projectName||'').toLowerCase().includes(q));
+  renderHistoryTable(filtered);
+}
+function renderHistoryTable(list) {
+  const el = document.getElementById('historyFull');
+  if (!el) return;
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析紀錄</div><a href="analyze.html" class="btn btn-primary btn-sm mt-4">立即開始分析</a></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="table-wrap"><table>
+    <thead><tr><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th></th></tr></thead>
+    <tbody>${list.map(buildHistoryRow).join('')}</tbody>
+  </table></div>`;
+}
+function loadHistoryItem(id) {
+  SA.Toast.info('查看報告', '功能開發中，完整版將支援直接檢視歷史報告');
+}
+
+let chartsRendered = false;
+function renderCharts() {
+  if (chartsRendered) return;
+  chartsRendered = true;
+  const history = SA.Store.get('history', []);
+
+  // Trend chart (last 6 months)
+  const months = [];
+  const counts = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    const key = d.toISOString().slice(0, 7);
+    months.push(key.slice(5) + '月');
+    counts.push(history.filter(h => h.timestamp?.startsWith(key)).length);
+  }
+  new Chart(document.getElementById('trendChart'), {
+    type: 'bar',
+    data: { labels: months, datasets: [{ label: '分析次數', data: counts, backgroundColor: 'rgba(26,155,181,0.7)', borderRadius: 6 }] },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+  });
+
+  // Strategy pie
+  const stratCounts = { rehost:0, replatform:0, refactor:0, retain:0, retire:0 };
+  history.forEach(h => { if (stratCounts[h.strategy] !== undefined) stratCounts[h.strategy]++; });
+  new Chart(document.getElementById('strategyPieChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Rehost','Replatform','Refactor','Retain','Retire'],
+      datasets: [{ data: Object.values(stratCounts), backgroundColor: ['#1A9BB5','#C9A84C','#0F2B3D','#D97706','#6B7A8D'], borderWidth: 0 }]
+    },
+    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+}
+
+function saveProfile() {
+  const name = document.getElementById('profileName').value.trim();
+  const company = document.getElementById('profileCompany').value.trim();
+  if (!name) { SA.Toast.warning('請填寫姓名'); return; }
+  Auth.updateProfile({ name, company });
+  SA.Toast.success('儲存成功', '個人資料已更新');
+  document.getElementById('greeting').textContent = `您好，${name} 👋`;
+}
+</script>
+</body>
+</html>

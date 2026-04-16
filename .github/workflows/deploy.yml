@@ -1,0 +1,249 @@
+name: Deploy — Staging & Production
+
+on:
+  # Deploy to staging on every push to develop
+  push:
+    branches: [develop]
+  # Deploy to production on merge to main
+  push:
+    branches: [main]
+  # Manual deploy trigger
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deploy target'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false  # Never cancel in-flight deploys
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ── Pre-deploy Checks ──────────────────────────────────────────────────────
+  pre-deploy:
+    name: Pre-deploy Validation
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_env: ${{ steps.set-env.outputs.deploy_env }}
+      is_production: ${{ steps.set-env.outputs.is_production }}
+    steps:
+      - name: Determine deploy environment
+        id: set-env
+        run: |
+          if [[ "${{ github.ref_name }}" == "main" || "${{ inputs.environment }}" == "production" ]]; then
+            echo "deploy_env=production" >> $GITHUB_OUTPUT
+            echo "is_production=true" >> $GITHUB_OUTPUT
+          else
+            echo "deploy_env=staging" >> $GITHUB_OUTPUT
+            echo "is_production=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run smoke tests
+        run: npm test
+        env:
+          NODE_ENV: test
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  # ── Deploy to Staging ──────────────────────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: needs.pre-deploy.outputs.deploy_env == 'staging'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.deploy_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Deploy to Netlify (Staging)
+        id: deploy
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: '.'
+          production-deploy: false
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Staging deploy from ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+          enable-pull-request-comment: true
+          enable-commit-comment: true
+          overwrites-pull-request-comment: true
+          netlify-config-path: './netlify.toml'
+          functions-dir: './netlify/functions'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Comment staging URL on commit
+        uses: actions/github-script@v7
+        if: success()
+        with:
+          script: |
+            const url = '${{ steps.deploy.outputs.deploy-url }}';
+            const sha  = context.sha.substring(0, 7);
+            await github.rest.repos.createCommitComment({
+              owner:      context.repo.owner,
+              repo:       context.repo.repo,
+              commit_sha: context.sha,
+              body:       `🚀 **Staging deploy successful!**\n\n🔗 Preview: ${url}\n📦 Commit: \`${sha}\`\n\n_Smart Archie CI/CD_`
+            });
+
+      - name: Run post-deploy smoke test
+        if: success()
+        run: |
+          DEPLOY_URL="${{ steps.deploy.outputs.deploy-url }}"
+          echo "Testing staging deployment at $DEPLOY_URL..."
+
+          # Check trends endpoint
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/api/trends?category=cloud")
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Trends API returned HTTP $STATUS"
+            exit 1
+          fi
+          echo "✅ Trends API OK"
+
+          # Check index page
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$DEPLOY_URL/")
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Index page returned HTTP $STATUS"
+            exit 1
+          fi
+          echo "✅ Index page OK"
+
+  # ── Deploy to Production ───────────────────────────────────────────────────
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: pre-deploy
+    if: needs.pre-deploy.outputs.deploy_env == 'production'
+    environment:
+      name: production
+      url: https://smartarchie.ai
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create deployment record
+        uses: actions/github-script@v7
+        id: create-deployment
+        with:
+          script: |
+            const { data: deployment } = await github.rest.repos.createDeployment({
+              owner:       context.repo.owner,
+              repo:        context.repo.repo,
+              ref:         context.sha,
+              environment: 'production',
+              description: 'Smart Archie production deployment',
+              auto_merge:  false,
+              required_contexts: []
+            });
+            return deployment.id;
+          result-encoding: string
+
+      - name: Deploy to Netlify (Production)
+        id: deploy
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: '.'
+          production-deploy: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Production deploy ${{ github.sha }} — ${{ github.event.head_commit.message }}"
+          netlify-config-path: './netlify.toml'
+          functions-dir: './netlify/functions'
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID:    ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Mark deployment success
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner:          context.repo.owner,
+              repo:           context.repo.repo,
+              deployment_id:  ${{ steps.create-deployment.outputs.result }},
+              state:          'success',
+              environment_url: 'https://smartarchie.ai',
+              description:    'Production deployment successful'
+            });
+
+      - name: Mark deployment failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createDeploymentStatus({
+              owner:         context.repo.owner,
+              repo:          context.repo.repo,
+              deployment_id: ${{ steps.create-deployment.outputs.result }},
+              state:         'failure',
+              description:   'Production deployment failed'
+            });
+
+      - name: Post-deploy production smoke test
+        if: success()
+        run: |
+          echo "Running production smoke tests..."
+          sleep 10  # Brief wait for CDN propagation
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://smartarchie.ai/api/trends?category=cloud")
+          echo "Trends API: HTTP $STATUS"
+
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://smartarchie.ai/")
+          echo "Index page: HTTP $STATUS"
+
+          echo "✅ Production smoke tests complete"
+
+      - name: Notify production deploy
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status  = '${{ job.status }}';
+            const emoji   = status === 'success' ? '✅' : '❌';
+            const sha     = context.sha.substring(0, 7);
+            const msg     = context.payload.head_commit?.message || 'Manual deploy';
+
+            await github.rest.repos.createCommitComment({
+              owner:      context.repo.owner,
+              repo:       context.repo.repo,
+              commit_sha: context.sha,
+              body:       `${emoji} **Production deploy ${status}**\n\n🌐 https://smartarchie.ai\n📦 \`${sha}\`: ${msg}\n\n_Smart Archie CI/CD_`
+            });

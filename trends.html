@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>國際趨勢雷達 | Smart Archie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { background: var(--c-bg); }
+
+    /* ── Page header ── */
+    .trends-hero {
+      background: linear-gradient(150deg, var(--c-primary) 0%, var(--c-primary-mid) 60%, #1A6878 100%);
+      padding: var(--sp-12) var(--sp-8);
+      position: relative; overflow: hidden;
+    }
+    .trends-hero::before {
+      content: ''; position: absolute; width: 500px; height: 500px;
+      border-radius: 50%; background: rgba(26,155,181,0.08);
+      top: -200px; right: -100px;
+    }
+    .trends-hero-inner { max-width: 1200px; margin: 0 auto; position: relative; z-index: 1; }
+    .trends-hero h1 { font-size: 36px; font-weight: 800; color: white; margin-bottom: var(--sp-3); }
+    .trends-hero h1 span { color: var(--c-gold); }
+    .trends-hero p { color: rgba(255,255,255,0.7); font-size: var(--fs-md); max-width: 600px; line-height: 1.7; }
+    .trends-meta { display: flex; gap: var(--sp-4); margin-top: var(--sp-5); flex-wrap: wrap; }
+    .trends-meta-badge {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 20px; padding: 6px 14px; font-size: var(--fs-xs); color: rgba(255,255,255,0.8);
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    /* ── Layout ── */
+    .trends-layout { max-width: 1200px; margin: 0 auto; padding: var(--sp-8); }
+
+    /* ── Filter bar ── */
+    .filter-bar {
+      display: flex; gap: var(--sp-3); flex-wrap: wrap;
+      margin-bottom: var(--sp-6); align-items: center;
+    }
+    .filter-label { font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: var(--fw-semi); white-space: nowrap; }
+    .filter-btn {
+      padding: 8px 18px; border-radius: 20px; border: 1.5px solid var(--c-border);
+      background: white; color: var(--c-text-muted); font-size: var(--fs-sm);
+      font-weight: var(--fw-semi); cursor: pointer; transition: all var(--t-fast);
+      white-space: nowrap;
+    }
+    .filter-btn:hover { border-color: var(--c-accent-teal); color: var(--c-accent-teal); }
+    .filter-btn.active {
+      background: var(--c-accent-teal); border-color: var(--c-accent-teal);
+      color: white; box-shadow: 0 2px 8px rgba(26,155,181,0.3);
+    }
+
+    /* ── Summary cards row ── */
+    .summary-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
+    .summary-card {
+      background: white; border-radius: var(--r-lg); border: 1px solid var(--c-border);
+      padding: var(--sp-4) var(--sp-5); display: flex; align-items: center; gap: var(--sp-3);
+    }
+    .summary-icon { font-size: 24px; width: 44px; height: 44px; border-radius: var(--r-md);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .summary-icon.red    { background: #FEF2F2; }
+    .summary-icon.blue   { background: #EFF6FF; }
+    .summary-icon.green  { background: #F0FDF4; }
+    .summary-icon.purple { background: #FAF5FF; }
+    .summary-value { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .summary-label { font-size: var(--fs-xs); color: var(--c-text-muted); }
+
+    /* ── Trend cards ── */
+    .trends-grid { display: flex; flex-direction: column; gap: var(--sp-5); }
+
+    .trend-card {
+      background: white; border-radius: var(--r-xl); border: 1px solid var(--c-border);
+      overflow: hidden; transition: box-shadow var(--t-base), transform var(--t-fast);
+    }
+    .trend-card:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+
+    .trend-header {
+      display: grid; grid-template-columns: auto 1fr auto;
+      gap: var(--sp-4); align-items: flex-start;
+      padding: var(--sp-5) var(--sp-6);
+    }
+    .trend-source-logo { font-size: 28px; line-height: 1; }
+    .trend-header-mid { flex: 1; }
+    .trend-title { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: 4px; }
+    .trend-meta { display: flex; gap: var(--sp-3); flex-wrap: wrap; align-items: center; }
+    .trend-source { font-size: var(--fs-xs); color: var(--c-text-muted); }
+    .trend-date   { font-size: var(--fs-xs); color: var(--c-text-light); }
+    .trend-region { font-size: var(--fs-xs); background: var(--c-bg); border: 1px solid var(--c-border);
+      border-radius: 10px; padding: 2px 8px; color: var(--c-text-muted); }
+
+    .impact-badge {
+      border-radius: 20px; padding: 5px 14px; font-size: 11px; font-weight: 700;
+      letter-spacing: 0.04em; text-transform: uppercase; white-space: nowrap;
+    }
+    .impact-critical      { background: #FEF2F2; color: #991B1B; border: 1px solid #FECACA; }
+    .impact-high          { background: #FFF7ED; color: #9A3412; border: 1px solid #FDBA74; }
+    .impact-medium        { background: #FEFCE8; color: #854D0E; border: 1px solid #FDE68A; }
+    .impact-transformational { background: #EDE9FE; color: #5B21B6; border: 1px solid #C4B5FD; }
+
+    .trend-body { padding: 0 var(--sp-6) var(--sp-5); }
+    .trend-summary { font-size: var(--fs-sm); color: var(--c-text); line-height: 1.7; margin-bottom: var(--sp-4); }
+
+    .trend-tags { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+    .trend-tag {
+      font-size: 11px; padding: 3px 10px; border-radius: 10px;
+      background: var(--c-primary-lt); color: var(--c-primary-mid);
+      border: 1px solid rgba(26,74,90,0.12); font-weight: var(--fw-semi);
+    }
+
+    /* Expandable requirements */
+    .trend-requirements-toggle {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-accent-teal);
+      cursor: pointer; border: none; background: none; padding: 0;
+      margin-bottom: var(--sp-3);
+    }
+    .trend-requirements-toggle:hover { text-decoration: underline; }
+    .toggle-icon { transition: transform var(--t-fast); display: inline-block; }
+    .toggle-icon.open { transform: rotate(90deg); }
+
+    .trend-requirements {
+      display: none; background: var(--c-bg); border-radius: var(--r-lg);
+      padding: var(--sp-4); margin-bottom: var(--sp-4);
+    }
+    .trend-requirements.open { display: block; }
+    .trend-requirements ul { margin: 0; padding-left: var(--sp-5); }
+    .trend-requirements li { font-size: var(--fs-sm); color: var(--c-text); line-height: 1.7; margin-bottom: 4px; }
+    .trend-requirements li:last-child { margin-bottom: 0; }
+
+    /* Pattern cards inside trends */
+    .pattern-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--sp-3); margin-top: var(--sp-3); }
+    .pattern-card {
+      background: white; border: 1px solid var(--c-border); border-radius: var(--r-lg);
+      padding: var(--sp-4);
+    }
+    .pattern-name { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: 6px; }
+    .pattern-desc { font-size: var(--fs-xs); color: var(--c-text-muted); line-height: 1.6; }
+    .pattern-applies { font-size: 10px; color: var(--c-accent-teal); margin-top: 6px; font-weight: var(--fw-semi); }
+
+    .trend-footer { display: flex; align-items: center; justify-content: space-between;
+      padding: var(--sp-3) var(--sp-6); border-top: 1px solid var(--c-border);
+      background: var(--c-bg); }
+    .trend-ref-link {
+      font-size: var(--fs-xs); color: var(--c-accent-teal); font-weight: var(--fw-semi);
+      text-decoration: none;
+    }
+    .trend-ref-link:hover { text-decoration: underline; }
+    .trend-archie-note { font-size: 11px; color: var(--c-text-muted); font-style: italic; }
+
+    /* ── Loading state ── */
+    .trends-loading { text-align: center; padding: var(--sp-12); color: var(--c-text-muted); }
+    .trends-loading .spinner { width: 36px; height: 36px; margin: 0 auto var(--sp-4); }
+
+    /* ── Empty state ── */
+    .trends-empty { text-align: center; padding: var(--sp-12); color: var(--c-text-muted); }
+    .trends-empty-icon { font-size: 48px; margin-bottom: var(--sp-4); }
+
+    /* ── Sidebar layout for larger screens ── */
+    @media (min-width: 1100px) {
+      .trends-content { display: grid; grid-template-columns: 1fr 300px; gap: var(--sp-6); align-items: start; }
+      .trends-sidebar { position: sticky; top: var(--sp-6); }
+    }
+
+    .sidebar-card {
+      background: white; border-radius: var(--r-xl); border: 1px solid var(--c-border);
+      padding: var(--sp-5); margin-bottom: var(--sp-4);
+    }
+    .sidebar-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-4); }
+
+    .reg-timeline { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .reg-item { display: flex; gap: var(--sp-3); align-items: flex-start; }
+    .reg-dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+    .reg-dot.live { background: #22C55E; }
+    .reg-dot.upcoming { background: var(--c-gold); }
+    .reg-dot.review { background: var(--c-accent-teal); }
+    .reg-name { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .reg-date { font-size: 11px; color: var(--c-text-muted); }
+    .reg-status { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .reg-status.live     { color: #22C55E; }
+    .reg-status.upcoming { color: #D97706; }
+    .reg-status.review   { color: var(--c-accent-teal); }
+
+    .framework-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .framework-item { display: flex; justify-content: space-between; align-items: center;
+      padding: var(--sp-2) 0; border-bottom: 1px solid var(--c-border); }
+    .framework-item:last-child { border-bottom: none; }
+    .framework-name { font-size: var(--fs-xs); font-weight: var(--fw-semi); color: var(--c-text); }
+    .framework-score { font-size: var(--fs-xs); color: var(--c-accent-teal); font-weight: var(--fw-bold); }
+
+    @media (max-width: 768px) {
+      .summary-row { grid-template-columns: repeat(2, 1fr); }
+      .trend-header { grid-template-columns: auto 1fr; }
+      .trend-header > *:last-child { grid-column: 1/-1; }
+      .trends-hero h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Navbar -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <div class="navbar-brand">
+      <div class="brand-icon">A</div>
+      <span class="brand-name">Smart Archie</span>
+    </div>
+    <ul class="nav-links">
+      <li><a href="index.html">首頁</a></li>
+      <li><a href="analyze.html">雲端分析</a></li>
+      <li><a href="trends.html" class="active">趨勢雷達</a></li>
+      <li><a href="dashboard.html">儀表板</a></li>
+    </ul>
+    <div class="navbar-right">
+      <div id="navUserArea">
+        <a href="login.html" class="btn btn-sm btn-ghost">登入</a>
+        <a href="register.html" class="btn btn-sm btn-primary">免費開始</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="trends-hero">
+  <div class="trends-hero-inner">
+    <h1>國際雲端<span>趨勢雷達</span></h1>
+    <p>即時追蹤全球主要金融機構、雲端原廠與監管機構的最新動向——HSBC、AWS、GCP、MAS、HKMA、FCA、DORA，轉化為您可直接行動的架構建議。</p>
+    <div class="trends-meta">
+      <div class="trends-meta-badge">📅 資料版本：2026-Q1</div>
+      <div class="trends-meta-badge">🔄 每季更新</div>
+      <div class="trends-meta-badge">🌏 涵蓋 SG · HK · UK · EU · Global</div>
+      <div class="trends-meta-badge">🤖 由 Smart Archie AI 分析整合</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="trends-layout">
+
+  <!-- Filter Bar -->
+  <div class="filter-bar">
+    <span class="filter-label">篩選：</span>
+    <button class="filter-btn active" onclick="filterTrends('all', this)">🌐 全部</button>
+    <button class="filter-btn" onclick="filterTrends('regulatory', this)">⚖️ 法規監管</button>
+    <button class="filter-btn" onclick="filterTrends('cloud', this)">☁️ 雲端平台</button>
+    <button class="filter-btn" onclick="filterTrends('financial', this)">🏦 金融機構</button>
+    <button class="filter-btn" onclick="filterTrends('emerging', this)">🚀 新興趨勢</button>
+  </div>
+
+  <div class="trends-content">
+    <!-- Main Feed -->
+    <div>
+      <!-- Summary row -->
+      <div class="summary-row" id="summaryRow">
+        <div class="summary-card">
+          <div class="summary-icon red">⚖️</div>
+          <div><div class="summary-value" id="countRegulatory">4</div><div class="summary-label">法規更新</div></div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon blue">☁️</div>
+          <div><div class="summary-value" id="countCloud">4</div><div class="summary-label">雲端平台動態</div></div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon green">🏦</div>
+          <div><div class="summary-value" id="countFinancial">3</div><div class="summary-label">金融機構案例</div></div>
+        </div>
+        <div class="summary-card">
+          <div class="summary-icon purple">🚀</div>
+          <div><div class="summary-value" id="countEmerging">2</div><div class="summary-label">新興趨勢</div></div>
+        </div>
+      </div>
+
+      <!-- Trends feed -->
+      <div class="trends-grid" id="trendsGrid">
+        <div class="trends-loading">
+          <div class="spinner"></div>
+          <div>正在載入最新趨勢資料…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="trends-sidebar">
+      <!-- Regulatory Calendar -->
+      <div class="sidebar-card">
+        <div class="sidebar-title">📅 監管日程</div>
+        <div class="reg-timeline">
+          <div class="reg-item">
+            <div class="reg-dot live"></div>
+            <div>
+              <div class="reg-name">EU DORA</div>
+              <div class="reg-date">2025年1月17日</div>
+              <div class="reg-status live">🟢 已生效</div>
+            </div>
+          </div>
+          <div class="reg-item">
+            <div class="reg-dot live"></div>
+            <div>
+              <div class="reg-name">FCA/PRA 運營韌性</div>
+              <div class="reg-date">2025年3月31日</div>
+              <div class="reg-status live">🟢 已生效</div>
+            </div>
+          </div>
+          <div class="reg-item">
+            <div class="reg-dot live"></div>
+            <div>
+              <div class="reg-name">HKMA ORMiC (GenAI)</div>
+              <div class="reg-date">2025年9月30日</div>
+              <div class="reg-status live">🟢 已生效</div>
+            </div>
+          </div>
+          <div class="reg-item">
+            <div class="reg-dot live"></div>
+            <div>
+              <div class="reg-name">MAS TRM 2025修訂</div>
+              <div class="reg-date">2025年11月15日</div>
+              <div class="reg-status live">🟢 已生效</div>
+            </div>
+          </div>
+          <div class="reg-item">
+            <div class="reg-dot upcoming"></div>
+            <div>
+              <div class="reg-name">Basel III Final (全面)</div>
+              <div class="reg-date">2026年1月1日</div>
+              <div class="reg-status upcoming">🟡 即將生效</div>
+            </div>
+          </div>
+          <div class="reg-item">
+            <div class="reg-dot review"></div>
+            <div>
+              <div class="reg-name">MAS GenAI 監管框架</div>
+              <div class="reg-date">2026年 Q3（預期）</div>
+              <div class="reg-status review">🔵 諮詢中</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cloud Framework Maturity -->
+      <div class="sidebar-card">
+        <div class="sidebar-title">📊 框架成熟度指數</div>
+        <div class="framework-list">
+          <div class="framework-item">
+            <div class="framework-name">AWS Well-Architected</div>
+            <div class="framework-score">成熟 ★★★★★</div>
+          </div>
+          <div class="framework-item">
+            <div class="framework-name">GCP Architecture Framework</div>
+            <div class="framework-score">成熟 ★★★★☆</div>
+          </div>
+          <div class="framework-item">
+            <div class="framework-name">Azure CAF FSI</div>
+            <div class="framework-score">成長 ★★★☆☆</div>
+          </div>
+          <div class="framework-item">
+            <div class="framework-name">MAS TRM Cloud</div>
+            <div class="framework-score">成熟 ★★★★☆</div>
+          </div>
+          <div class="framework-item">
+            <div class="framework-name">HKMA ORMiC</div>
+            <div class="framework-score">成長 ★★★☆☆</div>
+          </div>
+          <div class="framework-item">
+            <div class="framework-name">EU DORA ICT</div>
+            <div class="framework-score">新興 ★★☆☆☆</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="sidebar-card" style="background: linear-gradient(135deg, var(--c-primary), var(--c-primary-mid)); border: none;">
+        <div style="font-size: 20px; margin-bottom: var(--sp-3);">🎯</div>
+        <div style="font-size: var(--fs-sm); font-weight: var(--fw-bold); color: white; margin-bottom: var(--sp-2);">將趨勢轉化為行動</div>
+        <div style="font-size: var(--fs-xs); color: rgba(255,255,255,0.7); margin-bottom: var(--sp-4); line-height: 1.6;">
+          Smart Archie 自動將這些最新趨勢整合至您的雲端遷移分析中
+        </div>
+        <a href="analyze.html" class="btn btn-sm" style="background: var(--c-gold); color: var(--c-primary); border: none; font-weight: var(--fw-bold); width: 100%; text-align: center;">
+          立即開始分析 →
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api-client.js"></script>
+<script>
+// ── Auth nav injection ────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  if (typeof Auth !== 'undefined') Auth.injectNavUser?.();
+  await loadTrends('all');
+});
+
+// ── Current filter state ──────────────────────────────────────────────────────
+let currentCategory = 'all';
+let allItems = [];
+
+async function loadTrends(category) {
+  currentCategory = category;
+  const grid = document.getElementById('trendsGrid');
+  grid.innerHTML = `
+    <div class="trends-loading">
+      <div class="spinner"></div>
+      <div>正在載入最新趨勢資料…</div>
+    </div>`;
+
+  try {
+    const data = await APIClient.getTrends(category);
+    allItems = data.items || [];
+    renderTrends(allItems);
+  } catch (err) {
+    grid.innerHTML = `
+      <div class="trends-empty">
+        <div class="trends-empty-icon">📡</div>
+        <div style="font-size:var(--fs-md);font-weight:600;color:var(--c-primary);margin-bottom:8px;">
+          無法載入即時趨勢
+        </div>
+        <div style="color:var(--c-text-muted);font-size:var(--fs-sm);">
+          顯示本地快取資料。請確認您的網路連線。
+        </div>
+      </div>`;
+    // Render static fallback
+    renderStaticFallback();
+  }
+}
+
+function filterTrends(category, btn) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  loadTrends(category);
+}
+
+function renderTrends(items) {
+  const grid = document.getElementById('trendsGrid');
+  if (!items.length) {
+    grid.innerHTML = `
+      <div class="trends-empty">
+        <div class="trends-empty-icon">🔍</div>
+        <div>此分類目前沒有趨勢資料</div>
+      </div>`;
+    return;
+  }
+  grid.innerHTML = items.map(item => buildTrendCard(item)).join('');
+}
+
+function buildTrendCard(item) {
+  const impactLabel = {
+    critical:          '🔴 關鍵',
+    high:              '🟠 高度影響',
+    medium:            '🟡 中度影響',
+    transformational:  '🟣 轉型性',
+  }[item.impact] || item.impact;
+
+  const impactClass = `impact-${item.impact}`;
+
+  const tagsHTML = (item.tags || []).slice(0, 6).map(t =>
+    `<span class="trend-tag">${t}</span>`).join('');
+
+  // Key requirements / features list
+  const reqList = item.key_requirements || item.new_controls || item.key_features || item.key_additions || [];
+  const reqHTML = reqList.length > 0 ? `
+    <button class="trend-requirements-toggle" onclick="toggleReq(this)">
+      <span class="toggle-icon">▶</span>
+      查看 ${reqList.length} 項關鍵要求 / 功能
+    </button>
+    <div class="trend-requirements">
+      <ul>${reqList.map(r => `<li>${r}</li>`).join('')}</ul>
+    </div>` : '';
+
+  // Architecture patterns
+  const patterns = item.architecture_patterns || [];
+  const patternsHTML = patterns.length > 0 ? `
+    <div style="margin-top:var(--sp-3);">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:0.05em;">架構模式</div>
+      <div class="pattern-grid">
+        ${patterns.map(p => `
+          <div class="pattern-card">
+            <div class="pattern-name">${p.pattern}</div>
+            <div class="pattern-desc">${p.description}</div>
+            ${p.applicability ? `<div class="pattern-applies">適用：${p.applicability}</div>` : ''}
+          </div>`).join('')}
+      </div>
+    </div>` : '';
+
+  // Key lessons
+  const lessons = item.key_lessons || [];
+  const lessonsHTML = lessons.length > 0 ? `
+    <div style="margin-top:var(--sp-3);background:var(--c-gold-lt);border-radius:var(--r-lg);padding:var(--sp-3) var(--sp-4);">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:#8B6A1F;margin-bottom:var(--sp-2);">💡 關鍵學習</div>
+      <ul style="margin:0;padding-left:var(--sp-5);">
+        ${lessons.map(l => `<li style="font-size:var(--fs-xs);color:#78491A;line-height:1.6;margin-bottom:4px;">${l}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+  // Sequoia implications
+  const implications = item.implications_for_cloud_advisory || [];
+  const implicationsHTML = implications.length > 0 ? `
+    <div style="margin-top:var(--sp-3);background:#FAF5FF;border-radius:var(--r-lg);border:1px solid #E9D5FF;padding:var(--sp-3) var(--sp-4);">
+      <div style="font-size:var(--fs-xs);font-weight:700;color:#6B21A8;margin-bottom:var(--sp-2);">🌱 對雲端顧問服務的影響</div>
+      <ul style="margin:0;padding-left:var(--sp-5);">
+        ${implications.map(i => `<li style="font-size:var(--fs-xs);color:#581C87;line-height:1.6;margin-bottom:4px;">${i}</li>`).join('')}
+      </ul>
+    </div>` : '';
+
+  const archieNote = item.action_for_archie
+    ? `<div class="trend-archie-note">🤖 Smart Archie：${item.action_for_archie}</div>` : '';
+
+  const refLink = item.reference_url
+    ? `<a href="${item.reference_url}" target="_blank" rel="noopener" class="trend-ref-link">📄 官方參考文件 →</a>` : '<span></span>';
+
+  const dateStr = item.date ? new Date(item.date).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
+
+  return `
+  <div class="trend-card animate-up">
+    <div class="trend-header">
+      <div class="trend-source-logo">${item.source_logo || '📋'}</div>
+      <div class="trend-header-mid">
+        <div class="trend-title">${item.title}</div>
+        <div class="trend-meta">
+          <span class="trend-source">${item.source}</span>
+          <span class="trend-date">${dateStr}</span>
+          ${item.region ? `<span class="trend-region">🌏 ${item.region}</span>` : ''}
+        </div>
+      </div>
+      <div><span class="impact-badge ${impactClass}">${impactLabel}</span></div>
+    </div>
+    <div class="trend-body">
+      <div class="trend-summary">${item.summary}</div>
+      <div class="trend-tags">${tagsHTML}</div>
+      ${reqHTML}
+      ${patternsHTML}
+      ${lessonsHTML}
+      ${implicationsHTML}
+      ${item.adoption_curve ? `
+        <div style="margin-top:var(--sp-3);font-size:var(--fs-xs);color:var(--c-text-muted);background:var(--c-bg);border-radius:var(--r-md);padding:var(--sp-2) var(--sp-3);">
+          📈 <strong>採用曲線：</strong>${item.adoption_curve}
+        </div>` : ''}
+    </div>
+    <div class="trend-footer">
+      ${refLink}
+      ${archieNote}
+    </div>
+  </div>`;
+}
+
+function toggleReq(btn) {
+  const icon = btn.querySelector('.toggle-icon');
+  const req  = btn.nextElementSibling;
+  const open = req.classList.toggle('open');
+  icon.classList.toggle('open', open);
+}
+
+// ── Static fallback (used when API is unavailable) ────────────────────────────
+function renderStaticFallback() {
+  const grid = document.getElementById('trendsGrid');
+  grid.innerHTML = buildTrendCard({
+    title:       'EU DORA — 數位運營韌性法案（已生效）',
+    source:      'European Banking Authority',
+    source_logo: '🇪🇺',
+    category:    'regulatory',
+    region:      'European Union',
+    date:        '2025-01-17',
+    impact:      'critical',
+    tags:        ['DORA', 'EU', 'ICT Risk', 'Third-Party Risk', 'Resilience Testing'],
+    summary:     'DORA 已於 2025年1月17日正式生效，適用於所有歐盟金融機構。被歐洲監管機構（ESAs）指定為關鍵 ICT 第三方服務提供商（CTPPs）的雲端服務商，將面臨直接監管。金融機構須每年進行 TLPT（威脅導向滲透測試）。',
+    key_requirements: [
+      'ICT 風險管理框架必須全面覆蓋雲端工作負載',
+      'CTPP 登記冊：所有雲端供應商須依 DORA 第28條要求評估',
+      '主要機構須每年進行威脅導向滲透測試（TLPT）',
+      '重大 ICT 事件須在4小時內向 NCA 通報',
+      '與 CSPs 須簽訂標準化合約條款'
+    ],
+    action_for_archie: '歐盟管轄區分析必須包含完整 DORA 合規路線圖與 CTPP 風險登記冊。',
+    reference_url: 'https://www.eba.europa.eu/regulation-and-policy/digital-operational-resilience-act-dora'
+  }) + buildTrendCard({
+    title:       'AWS Control Tower — AFT（Account Factory for Terraform）正式版',
+    source:      'Amazon Web Services',
+    source_logo: '🟠',
+    category:    'cloud',
+    region:      'Global',
+    date:        '2025-10-01',
+    impact:      'high',
+    tags:        ['AWS', 'Control Tower', 'Landing Zone', 'Terraform', 'IaC'],
+    summary:     'AWS 官方推薦使用 Account Factory for Terraform（AFT）作為 Landing Zone 的帳號佈建方式，取代手動 Account Vending Machine。AFT 提供以 GitOps 驅動的帳號佈建流程，內建 Guardrail 繼承機制。',
+    key_requirements: [
+      'AFT pipeline：以 Terraform 進行帳號佈建，具備漂移偵測功能',
+      '透過 account-request 與 account-customisations 儲存庫進行帳號客製化',
+      '與 AWS Organizations 整合，實現 SCP 繼承',
+      '主動式控制（AWS Config + Security Hub 整合）',
+      '不可變基礎設施：所有變更透過 Pull Request，生產環境禁止控制台直接操作'
+    ],
+    action_for_archie: '所有新 Landing Zone 部署均應使用 AFT。現有部署應在 12 個月內完成遷移。',
+    reference_url: 'https://docs.aws.amazon.com/controltower/latest/userguide/aft-overview.html'
+  });
+}
+</script>
+</body>
+</html>
