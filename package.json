@@ -11,7 +11,8 @@
     "format": "prettier --write '**/*.{js,json,css,html,md}' --ignore-path .gitignore"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.40.0"
+    "@anthropic-ai/sdk": "^0.40.0",
+    "@supabase/supabase-js": "^2.47.0"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

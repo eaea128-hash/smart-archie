@@ -369,13 +369,25 @@
   </main>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load config (enables Supabase)
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    window.__SA_CONFIG__ = cfg;
+  } catch {}
+
   if (!Auth.isLoggedIn()) { window.location.href = 'login.html'; return; }
-  const user = Auth.currentUser();
-  if (user.role !== 'admin') { SA.Toast.warning('無權限', '此頁面僅供管理員訪問'); window.location.href = 'dashboard.html'; return; }
+  const user = await Auth.currentUserAsync();
+  if (!user || user.role !== 'admin') {
+    SA.Toast.warning('無權限', '此頁面僅供管理員訪問');
+    window.location.href = 'dashboard.html';
+    return;
+  }
 
   Auth.injectNavUser();
 
@@ -387,66 +399,125 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function refreshData() {
-  SA.Toast.info('資料已更新', '所有統計數據已重新載入');
+  adminChartsRendered = false;
+  SA.Toast.info('資料更新中', '');
   loadAdminData();
 }
 
-function loadAdminData() {
-  const allUsers = Auth.getAllUsers();
+async function loadAdminData() {
+  // Try Supabase API first
+  if (typeof SupabaseClient !== 'undefined' && SupabaseClient.isConfigured()) {
+    try {
+      const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+      if (session?.access_token) {
+        const hdrs = { 'Authorization': `Bearer ${session.access_token}` };
+        const [overviewResp, usersResp, analysesResp] = await Promise.all([
+          fetch('/api/admin-data?type=overview',  { headers: hdrs }),
+          fetch('/api/admin-data?type=users',     { headers: hdrs }),
+          fetch('/api/admin-data?type=analyses',  { headers: hdrs }),
+        ]);
+        if (overviewResp.ok && usersResp.ok && analysesResp.ok) {
+          const overview  = await overviewResp.json();
+          const usersData = await usersResp.json();
+          const analysesData = await analysesResp.json();
+          _renderAdminFromAPI(overview, usersData.users || [], analysesData.analyses || []);
+          return;
+        }
+      }
+    } catch (err) { console.warn('[admin] API fetch failed, using localStorage:', err.message); }
+  }
+
+  // localStorage fallback
+  const allUsers = await Auth.getAllUsers();
   const history  = SA.Store.get('history', []);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const today     = new Date().toISOString().slice(0, 10);
+  const fakeOverview = {
+    totalUsers: allUsers.length,
+    totalAnalyses: history.length,
+    monthlyAnalyses: history.filter(h => h.timestamp?.startsWith(thisMonth)).length,
+    todayAnalyses: history.filter(h => h.timestamp?.startsWith(today)).length,
+    strategyBreakdown: {},
+  };
+  history.forEach(h => {
+    fakeOverview.strategyBreakdown[h.strategy] = (fakeOverview.strategyBreakdown[h.strategy]||0)+1;
+  });
+  _renderAdminFromAPI(fakeOverview, allUsers, history);
+}
+
+function _renderAdminFromAPI(overview, users, analyses) {
   const thisMonth = new Date().toISOString().slice(0, 7);
   const today     = new Date().toISOString().slice(0, 10);
 
   // Top bar
-  document.getElementById('topTotalUsers').textContent = allUsers.length;
-  document.getElementById('topMonthlyAnalysis').textContent = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
-  document.getElementById('topTodayAnalysis').textContent   = history.filter(h => h.timestamp?.startsWith(today)).length;
+  document.getElementById('topTotalUsers').textContent = overview.totalUsers ?? users.length;
+  document.getElementById('topMonthlyAnalysis').textContent = overview.monthlyAnalyses ?? analyses.filter(a => (a.created_at||a.timestamp)?.startsWith(thisMonth)).length;
+  document.getElementById('topTodayAnalysis').textContent   = overview.todayAnalyses   ?? analyses.filter(a => (a.created_at||a.timestamp)?.startsWith(today)).length;
 
   // Stats
-  document.getElementById('statUsers').textContent = allUsers.length;
+  document.getElementById('statUsers').textContent = overview.totalUsers ?? users.length;
+  document.getElementById('statMonthAnalyses').textContent = overview.monthlyAnalyses ?? '—';
 
-  const monthlyCount = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
-  document.getElementById('statMonthAnalyses').textContent = monthlyCount;
-
-  // Strategy stats
-  const stratCounts = {};
-  history.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
-  const sorted = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1]);
+  // Strategy breakdown
+  const stratBreak = overview.strategyBreakdown || {};
+  const totalA     = overview.totalAnalyses || analyses.length || 1;
+  const sorted     = Object.entries(stratBreak).sort((a,b)=>b[1]-a[1]);
   if (sorted.length) {
-    const topStrat = sorted[0];
     const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
-    document.getElementById('statTopStrategy').textContent = stratLabels[topStrat[0]] || topStrat[0];
-    document.getElementById('statTopStratPct').textContent = history.length ? `${Math.round(topStrat[1]/history.length*100)}% 佔比` : '—';
+    document.getElementById('statTopStrategy').textContent = stratLabels[sorted[0][0]] || sorted[0][0];
+    document.getElementById('statTopStratPct').textContent = `${Math.round(sorted[0][1]/totalA*100)}% 佔比`;
   }
 
-  // Risk avg
-  const risks = history.filter(h=>h.risk).map(h=>h.risk);
+  // Risk avg (from analyses list)
+  const histForRisk = analyses.map(a => ({ risk: a.risk_score ?? a.risk ?? 0 }));
+  const risks = histForRisk.map(h => h.risk).filter(Boolean);
   if (risks.length) {
     const avg = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length);
     document.getElementById('statAvgRiskAdmin').textContent = avg + '%';
-    document.getElementById('statRiskLevel').textContent = avg>=70?'🔴 高風險':avg>=50?'🟡 中等':' 🟢 可控';
+    document.getElementById('statRiskLevel').textContent = avg>=70?'🔴 高風險':avg>=50?'🟡 中等':'🟢 可控';
   }
 
-  // Alert badge (mock: show if high-risk analyses > 20%)
+  // Normalize analyses for table renderers (support both API shape and localStorage shape)
+  const normAnalyses = analyses.map(a => ({
+    id:          a.id,
+    projectName: a.project_name || a.projectName,
+    strategy:    a.strategy,
+    risk:        a.risk_score ?? a.risk ?? 0,
+    timestamp:   a.created_at || a.timestamp,
+    style:       a.inputs?.reportStyle || a.style || 'executive',
+    kpi:         a.kpi || null,
+    source:      a.source || 'local',
+    userName:    a.user_name || a.user?.name || '—',
+  }));
+
+  // Alert badge
   const highRiskCount = risks.filter(r => r >= 70).length;
   document.getElementById('alertBadge').textContent = highRiskCount;
 
+  // Normalize users for table
+  const normUsers = users.map(u => ({
+    id:        u.id,
+    name:      u.name || u.user_name || '—',
+    email:     u.email || '—',
+    plan:      u.plan || 'free',
+    role:      u.role || 'user',
+    company:   u.company || '—',
+    createdAt: u.created_at || u.createdAt,
+    avatar:    (u.name || u.user_name || '?').slice(0, 2).toUpperCase(),
+  }));
+
   // Render tables
-  renderRecentAnalysesAdmin(history.slice(0, 8));
-  renderUsersTable(allUsers);
-  renderAnalysesTable(history);
-  renderAlertsTab(history, allUsers);
-
-  // Industry mock data
+  renderRecentAnalysesAdmin(normAnalyses.slice(0, 8));
+  renderUsersTable(normUsers);
+  renderAnalysesTable(normAnalyses);
+  renderAlertsTab(normAnalyses, normUsers);
   renderIndustryList();
-
-  // Heatmap
   renderHeatmap();
 
-  // Charts
-  setTimeout(() => {
-    renderAdminCharts(history, allUsers, stratCounts);
-  }, 100);
+  // Charts using normalised data
+  const stratCounts = {};
+  normAnalyses.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
+  setTimeout(() => { renderAdminCharts(normAnalyses, normUsers, stratCounts); }, 100);
 }
 
 function renderRecentAnalysesAdmin(history) {
@@ -700,7 +771,7 @@ function switchAdminTab(tab) {
   });
   document.querySelectorAll('.admin-nav-link').forEach(l => l.classList.remove('active'));
   event?.currentTarget?.classList?.add('active');
-  if (tab === 'analytics') setTimeout(() => { adminChartsRendered = false; renderAdminCharts(SA.Store.get('history',[]), Auth.getAllUsers(), {}); }, 50);
+  if (tab === 'analytics') { adminChartsRendered = false; loadAdminData(); }
 }
 
 // strat-badge styles (reuse from dashboard)

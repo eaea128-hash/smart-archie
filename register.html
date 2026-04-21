@@ -215,10 +215,16 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    window.__SA_CONFIG__ = cfg;
+  } catch { /* localStorage 模式 */ }
   if (Auth.isLoggedIn()) window.location.href = 'dashboard.html';
 });
 
@@ -300,19 +306,50 @@ async function handleRegister(e) {
 
   await new Promise(r => setTimeout(r, 700));
 
-  const result = Auth.register({ name, email, password: pw, company });
+  const result = await Auth.register({ name, email, password: pw, company });
 
   btn.disabled = false;
   btnText.textContent = '🚀 免費建立帳號';
   spinner.style.display = 'none';
 
   if (result.success) {
-    SA.Toast.success('註冊成功！', `歡迎加入 Smart Archie，${name}！`);
-    setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+    if (result.needsVerification) {
+      // Supabase 模式：需要 Email 驗證
+      SA.Toast.success('註冊成功！', `驗證信已寄至 ${email}，請點擊信中連結啟用帳號`);
+      // 顯示驗證提示畫面
+      document.querySelector('.register-layout').innerHTML = `
+        <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--c-primary);padding:var(--sp-8);">
+          <div style="background:white;border-radius:var(--r-xl);padding:var(--sp-10);max-width:480px;width:100%;text-align:center;">
+            <div style="font-size:56px;margin-bottom:var(--sp-5);">📧</div>
+            <h2 style="font-size:var(--fs-xl);font-weight:800;color:var(--c-primary);margin-bottom:var(--sp-3);">請確認您的 Email</h2>
+            <p style="color:var(--c-text-muted);line-height:1.7;margin-bottom:var(--sp-6);">
+              我們已傳送驗證信至<br>
+              <strong style="color:var(--c-primary);">${email}</strong><br><br>
+              請點擊信中的「確認帳號」按鈕，然後回到登入頁面。
+            </p>
+            <a href="login.html" class="btn btn-primary" style="display:block;padding:14px;font-size:var(--fs-md);font-weight:700;">前往登入頁面</a>
+            <div style="margin-top:var(--sp-4);font-size:var(--fs-xs);color:var(--c-text-light);">
+              沒收到？請檢查垃圾信件夾，或
+              <a href="#" onclick="resendVerification('${email}')" style="color:var(--c-accent-teal);">重新寄送</a>
+            </div>
+          </div>
+        </div>`;
+    } else {
+      // localStorage 模式：直接登入
+      SA.Toast.success('註冊成功！', `歡迎加入 Smart Archie，${name}！`);
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 800);
+    }
   } else {
-    errMsg.textContent = result.error;
+    errMsg.textContent = result.error || '註冊失敗，請重試';
     errDiv.style.display = 'flex';
   }
+}
+
+async function resendVerification(email) {
+  if (!Auth.useSupabase()) return;
+  const client = SupabaseClient.getClient();
+  await client?.auth.resend({ type: 'signup', email });
+  SA.Toast.success('已重新寄送', '請查看您的信箱');
 }
 </script>
 </body>

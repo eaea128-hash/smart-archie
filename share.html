@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>共享報告 | Smart Archie</title>
+  <meta property="og:title" content="Smart Archie 雲端分析報告">
+  <meta property="og:description" content="AI 驅動的雲端遷移策略建議 — 6R 策略、Landing Zone 架構、風險評估">
+  <meta property="og:image" content="/assets/og-share.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    body { background: var(--c-bg); }
+    .share-topbar {
+      background: var(--c-primary); padding: var(--sp-4) var(--sp-8);
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .share-brand { display: flex; align-items: center; gap: 10px; color: white; text-decoration: none; }
+    .share-brand-icon { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--c-accent-teal), var(--c-gold)); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: white; }
+    .share-topbar-right { display: flex; align-items: center; gap: var(--sp-3); }
+    .share-badge { background: rgba(26,155,181,0.2); border: 1px solid rgba(26,155,181,0.4); border-radius: 20px; padding: 4px 14px; font-size: var(--fs-xs); color: rgba(255,255,255,0.8); }
+
+    .share-hero { background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-primary-mid) 100%); padding: var(--sp-10) var(--sp-8); }
+    .share-hero-inner { max-width: 900px; margin: 0 auto; }
+    .share-project-name { font-size: 28px; font-weight: 800; color: white; margin-bottom: var(--sp-2); }
+    .share-meta { display: flex; gap: var(--sp-4); flex-wrap: wrap; margin-top: var(--sp-3); }
+    .share-meta-item { background: rgba(255,255,255,0.1); border-radius: 20px; padding: 4px 14px; font-size: var(--fs-xs); color: rgba(255,255,255,0.75); }
+
+    .share-content { max-width: 900px; margin: 0 auto; padding: var(--sp-8); }
+
+    .share-section { background: white; border-radius: var(--r-xl); border: 1px solid var(--c-border); padding: var(--sp-6); margin-bottom: var(--sp-5); }
+    .share-section-title { font-size: var(--fs-md); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-4); display: flex; align-items: center; gap: var(--sp-2); }
+
+    .kpi-grid-share { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--sp-3); }
+    .kpi-card-share { text-align: center; padding: var(--sp-4); background: var(--c-bg); border-radius: var(--r-lg); border: 1px solid var(--c-border); }
+    .kpi-val-share { font-size: var(--fs-2xl); font-weight: 800; color: var(--c-primary); }
+    .kpi-label-share { font-size: 11px; color: var(--c-text-muted); margin-top: 4px; }
+
+    .strategy-pill-share { display: inline-flex; align-items: center; gap: var(--sp-2); background: linear-gradient(135deg, var(--c-primary), var(--c-primary-mid)); color: white; border-radius: 30px; padding: 10px 24px; font-size: var(--fs-md); font-weight: var(--fw-bold); margin-bottom: var(--sp-4); }
+
+    .risk-grid-share { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+    .risk-item-share { display: flex; flex-direction: column; gap: 6px; }
+    .risk-label-share { font-size: var(--fs-xs); color: var(--c-text-muted); display: flex; justify-content: space-between; }
+    .risk-bar-share { height: 8px; background: var(--c-border); border-radius: 4px; overflow: hidden; }
+    .risk-fill-share { height: 100%; border-radius: 4px; transition: width 1s ease; }
+
+    .accounts-grid-share { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--sp-3); }
+    .account-card-share { background: var(--c-bg); border: 1px solid var(--c-border); border-radius: var(--r-lg); padding: var(--sp-3); }
+    .account-name-share { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .account-desc-share { font-size: 11px; color: var(--c-text-muted); margin-top: 4px; }
+
+    .loading-state { text-align: center; padding: var(--sp-16); }
+    .error-state   { text-align: center; padding: var(--sp-16); }
+    .cta-section { background: linear-gradient(135deg, var(--c-primary), var(--c-primary-mid)); border-radius: var(--r-xl); padding: var(--sp-8); text-align: center; margin-bottom: var(--sp-5); }
+
+    @media(max-width:768px) {
+      .kpi-grid-share { grid-template-columns: repeat(3,1fr); }
+      .risk-grid-share { grid-template-columns: 1fr; }
+      .share-hero { padding: var(--sp-6) var(--sp-4); }
+      .share-content { padding: var(--sp-4); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="share-topbar">
+  <a href="index.html" class="share-brand">
+    <div class="share-brand-icon">A</div>
+    <span style="font-weight:700;font-size:var(--fs-md);">Smart Archie</span>
+  </a>
+  <div class="share-topbar-right">
+    <span class="share-badge">🔗 共享報告</span>
+    <a href="analyze.html" class="btn btn-sm btn-primary">免費開始分析 →</a>
+  </div>
+</div>
+
+<!-- Hero / Loading -->
+<div id="shareHero" class="share-hero" style="display:none;">
+  <div class="share-hero-inner">
+    <div style="font-size:11px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.1em;margin-bottom:var(--sp-2);">Smart Archie 雲端分析報告</div>
+    <div class="share-project-name" id="shareProjectName">載入中…</div>
+    <div class="share-meta">
+      <span class="share-meta-item" id="shareStrategy">策略：—</span>
+      <span class="share-meta-item" id="shareDate">分析時間：—</span>
+      <span class="share-meta-item" id="shareSource">分析引擎：—</span>
+      <span class="share-meta-item" id="shareRisk">整體風險：—</span>
+    </div>
+  </div>
+</div>
+
+<!-- Loading -->
+<div id="loadingState" class="loading-state">
+  <div class="spinner" style="width:48px;height:48px;margin:0 auto var(--sp-5);"></div>
+  <div style="color:var(--c-text-muted);">正在載入共享報告…</div>
+</div>
+
+<!-- Error -->
+<div id="errorState" class="error-state" style="display:none;">
+  <div style="font-size:56px;margin-bottom:var(--sp-4);">🔒</div>
+  <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">報告不存在或已停止分享</div>
+  <div style="color:var(--c-text-muted);margin-bottom:var(--sp-6);">此連結可能已過期，或分享者已取消分享</div>
+  <a href="analyze.html" class="btn btn-primary">建立自己的分析報告</a>
+</div>
+
+<!-- Main Content -->
+<div id="shareContent" class="share-content" style="display:none;">
+
+  <!-- 1. KPIs -->
+  <div class="share-section">
+    <div class="share-section-title">📊 KPI 就緒分數</div>
+    <div class="kpi-grid-share" id="kpiGrid"></div>
+  </div>
+
+  <!-- 2. Strategy -->
+  <div class="share-section">
+    <div class="share-section-title">🎯 建議遷移策略</div>
+    <div id="strategyBanner"></div>
+  </div>
+
+  <!-- 3. Risk Radar -->
+  <div class="share-section">
+    <div class="share-section-title">⚡ 風險雷達</div>
+    <div style="max-width:400px;margin:0 auto var(--sp-4);">
+      <canvas id="shareRadarChart"></canvas>
+    </div>
+    <div class="risk-grid-share" id="riskGrid"></div>
+  </div>
+
+  <!-- 4. Landing Zone -->
+  <div class="share-section" id="lzSection">
+    <div class="share-section-title">🏛️ Landing Zone 帳號架構</div>
+    <div class="accounts-grid-share" id="accountsGrid"></div>
+  </div>
+
+  <!-- 5. Cost -->
+  <div class="share-section" id="costSection">
+    <div class="share-section-title">💰 成本估算</div>
+    <div id="costContent"></div>
+  </div>
+
+  <!-- 6. CTA -->
+  <div class="cta-section">
+    <div style="font-size:var(--fs-xl);font-weight:800;color:white;margin-bottom:var(--sp-3);">
+      為您的企業建立專屬分析報告
+    </div>
+    <div style="color:rgba(255,255,255,0.7);font-size:var(--fs-sm);margin-bottom:var(--sp-5);max-width:500px;margin-left:auto;margin-right:auto;">
+      Smart Archie AI 雲端顧問平台，整合 AWS、GCP、MAS、HKMA 等國際框架，5 分鐘生成顧問級分析報告
+    </div>
+    <div style="display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap;">
+      <a href="register.html" class="btn" style="background:var(--c-gold);color:var(--c-primary);font-weight:700;padding:12px 28px;">免費開始使用</a>
+      <a href="analyze.html" class="btn btn-outline" style="border-color:rgba(255,255,255,0.4);color:white;padding:12px 28px;">試用分析工具</a>
+    </div>
+  </div>
+
+  <div style="text-align:center;padding:var(--sp-4);color:var(--c-text-muted);font-size:var(--fs-xs);">
+    此報告由 <strong>Smart Archie</strong> AI 雲端顧問平台生成 ·
+    <a href="index.html" style="color:var(--c-accent-teal);">了解更多</a>
+  </div>
+</div>
+
+<script src="js/utils.js"></script>
+<script>
+const stratLabels = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)', repurchase:'替換採購 (Repurchase)' };
+const stratIcons  = { rehost:'🔄', replatform:'⚡', refactor:'🏗️', retain:'🔒', retire:'🗑️', repurchase:'🛒' };
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+
+  if (!token) { showError(); return; }
+
+  try {
+    const res  = await fetch(`/api/share?token=${token}`);
+    const data = await res.json();
+    if (!res.ok || !data.success) { showError(); return; }
+    renderReport(data.analysis);
+  } catch {
+    showError();
+  }
+});
+
+function showError() {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('errorState').style.display   = 'block';
+}
+
+function renderReport(analysis) {
+  document.getElementById('loadingState').style.display = 'none';
+  document.getElementById('shareHero').style.display    = '';
+  document.getElementById('shareContent').style.display = '';
+
+  const r   = analysis.result || {};
+  const inp = analysis.inputs || {};
+  const stratKey = analysis.strategy || r.strategy6R?.primary || 'replatform';
+
+  // Hero
+  document.getElementById('shareProjectName').textContent = analysis.project_name || inp.projectName || '雲端分析報告';
+  document.getElementById('shareStrategy').textContent    = `策略：${stratLabels[stratKey] || stratKey}`;
+  document.getElementById('shareDate').textContent        = `分析時間：${new Date(analysis.created_at).toLocaleDateString('zh-TW')}`;
+  document.getElementById('shareSource').textContent      = analysis.source === 'claude-api' ? '🤖 Claude AI' : '⚙️ 規則引擎';
+  document.getElementById('shareRisk').textContent        = `整體風險：${r.riskRadar?.overall || analysis.risk_score || 0}%`;
+
+  // KPIs
+  const kpi = r.kpi || {};
+  const kpiItems = [
+    { label: '合規就緒度', val: kpi.compliance   || 0 },
+    { label: 'LZ 就緒度',  val: kpi.lzReadiness  || 0 },
+    { label: '技術債評分', val: kpi.techDebt      || 0 },
+    { label: 'ROI 潛力',   val: kpi.roi           || 0 },
+    { label: '時程可行度', val: kpi.timeline      || 0 },
+  ];
+  document.getElementById('kpiGrid').innerHTML = kpiItems.map(k => `
+    <div class="kpi-card-share">
+      <div class="kpi-val-share" style="color:${k.val>=70?'var(--c-success)':k.val>=50?'var(--c-warning)':'var(--c-danger)'}">${k.val}%</div>
+      <div class="kpi-label-share">${k.label}</div>
+    </div>`).join('');
+
+  // Strategy
+  document.getElementById('strategyBanner').innerHTML = `
+    <div class="strategy-pill-share">${stratIcons[stratKey] || '🎯'} ${stratLabels[stratKey] || stratKey}</div>
+    ${r.executiveSummary?.conclusion ? `<div style="font-size:var(--fs-sm);color:var(--c-text);line-height:1.7;">${r.executiveSummary.conclusion}</div>` : ''}`;
+
+  // Risk Radar
+  const risk = r.riskRadar || {};
+  new Chart(document.getElementById('shareRadarChart'), {
+    type: 'radar',
+    data: {
+      labels: ['合規風險','技術風險','營運風險','時程風險','資料風險','業務風險'],
+      datasets: [{
+        data: [risk.compRisk||0, risk.techRisk||0, risk.opRisk||0, risk.timelineRisk||0, risk.dataRisk||0, risk.bizRisk||0],
+        backgroundColor: 'rgba(201,168,76,0.15)', borderColor: 'rgba(201,168,76,0.8)',
+        pointBackgroundColor: 'rgba(201,168,76,1)', borderWidth: 2, pointRadius: 4,
+      }],
+    },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:10}},grid:{color:'rgba(209,220,232,0.6)'},pointLabels:{font:{size:11}}}} },
+  });
+
+  const riskItems = [
+    { name:'合規風險', val: risk.compRisk    || 0, icon:'🛡️' },
+    { name:'技術風險', val: risk.techRisk    || 0, icon:'⚙️' },
+    { name:'營運風險', val: risk.opRisk      || 0, icon:'🔧' },
+    { name:'時程風險', val: risk.timelineRisk|| 0, icon:'⏰' },
+    { name:'資料風險', val: risk.dataRisk    || 0, icon:'🗄️' },
+    { name:'業務風險', val: risk.bizRisk     || 0, icon:'💼' },
+  ];
+  document.getElementById('riskGrid').innerHTML = riskItems.map(item => `
+    <div class="risk-item-share">
+      <div class="risk-label-share"><span>${item.icon} ${item.name}</span><span style="color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'}">${item.val}%</span></div>
+      <div class="risk-bar-share"><div class="risk-fill-share" style="width:${item.val}%;background:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'}"></div></div>
+    </div>`).join('');
+
+  // Landing Zone
+  const lz = r.landingZone || {};
+  const accounts = lz.accounts || [];
+  if (accounts.length) {
+    document.getElementById('accountsGrid').innerHTML = accounts.map(a => `
+      <div class="account-card-share">
+        <div style="font-size:18px;margin-bottom:4px;">${a.icon||'📦'}</div>
+        <div class="account-name-share">${a.name}</div>
+        <div class="account-desc-share">${a.desc||a.purpose||''}</div>
+      </div>`).join('');
+  } else {
+    document.getElementById('lzSection').style.display = 'none';
+  }
+
+  // Cost
+  const cost = r.costEstimate || {};
+  if (cost.mid || cost.monthly) {
+    const mid = cost.mid || cost.monthly || 0;
+    document.getElementById('costContent').innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);">
+        <div style="text-align:center;padding:var(--sp-4);background:var(--c-bg);border-radius:var(--r-lg);border:1px solid var(--c-border);">
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">保守估計（月）</div>
+          <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);">$${(cost.low||Math.round(mid*0.7)).toLocaleString()}</div>
+        </div>
+        <div style="text-align:center;padding:var(--sp-4);background:var(--c-primary-lt);border-radius:var(--r-lg);border:2px solid var(--c-accent-teal);">
+          <div style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:600;">建議方案（月）</div>
+          <div style="font-size:var(--fs-2xl);font-weight:800;color:var(--c-primary);">$${mid.toLocaleString()}</div>
+        </div>
+        <div style="text-align:center;padding:var(--sp-4);background:var(--c-bg);border-radius:var(--r-lg);border:1px solid var(--c-border);">
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">積極方案（月）</div>
+          <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);">$${(cost.high||Math.round(mid*1.4)).toLocaleString()}</div>
+        </div>
+      </div>
+      <div style="margin-top:var(--sp-3);text-align:center;font-size:var(--fs-xs);color:var(--c-text-muted);">
+        以上為 USD 美金月費估算，實際費用依使用量而定
+      </div>`;
+  } else {
+    document.getElementById('costSection').style.display = 'none';
+  }
+
+  // Update page title
+  document.title = `${analysis.project_name || '雲端分析報告'} | Smart Archie`;
+}
+</script>
+</body>
+</html>

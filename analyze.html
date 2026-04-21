@@ -806,13 +806,23 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/analyze-engine.js"></script>
 <script src="js/api-client.js"></script>
+<script src="js/export.js"></script>
+<script src="js/analytics.js"></script>
 <script>
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', async () => {
+  // Load config (Supabase keys, Sentry DSN, Mixpanel token)
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    window.__SA_CONFIG__ = cfg;
+  } catch {}
+
   Auth.injectNavUser();
   SA.initRangeSliders();
   // Init all toggle groups
@@ -840,6 +850,7 @@ async function _showAPIStatusBadge() {
 
 let reportStyle = 'executive';
 let currentResult = null;
+let currentDbId   = null;   // Supabase analysis record ID (populated after save)
 
 function setStyle(s) {
   reportStyle = s;
@@ -950,6 +961,9 @@ async function runAnalysis() {
     SA.Loading.hide();
     renderResult(result, reportStyle);
     saveToHistory(result);
+    saveToDatabase(result);   // async, fire-and-forget; shows Share btn when done
+
+    if (typeof SA_Analytics !== 'undefined') SA_Analytics.Events.analysisStarted(result.inputs);
 
     const sourceLabel = result.source === 'claude-api' ? 'Claude AI 分析完成！' : '本地分析完成！';
     SA.Toast.success(sourceLabel, '報告已生成，可向下捲動查看詳細內容');
@@ -1088,8 +1102,10 @@ function renderResult(r, style) {
       <div class="result-ts">分析時間：${SA.fmt.datetime(r.timestamp)} ・ 策略：${stratLabels[strategy6R.primary]}</div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
-      <button class="btn btn-outline btn-sm" onclick="window.print()">🖨️ 列印</button>
-      <button class="btn btn-outline btn-sm" onclick="SA.Toast.info('匯出 PDF', '此功能將在 Pro 版本開放')">📥 匯出 PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="SAExport.copyMarkdown(currentResult)" title="複製 Markdown">📋 複製</button>
+      <button class="btn btn-outline btn-sm" onclick="SAExport.exportImage('resultContainer','Smart-Archie-Report')">🖼️ 截圖</button>
+      <button class="btn btn-outline btn-sm" onclick="SAExport.exportPDF('resultContainer','Smart-Archie-Report')">📥 匯出 PDF</button>
+      <button class="btn btn-outline btn-sm" id="shareBtn" onclick="shareAnalysis()" style="display:none;">🔗 分享報告</button>
       <button class="btn btn-primary btn-sm" onclick="window.location.href='dashboard.html'">💾 查看歷史</button>
     </div>
   </div>`;
@@ -1523,6 +1539,63 @@ function switchTechTab(tab) {
     const el = document.getElementById(v);
     if (el) el.classList.toggle('active', k === tab);
   });
+}
+
+// ── Supabase: save analysis to DB ────────────────────────────
+async function saveToDatabase(result) {
+  try {
+    if (typeof SupabaseClient === 'undefined' || !SupabaseClient.isConfigured()) return;
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    if (!session?.access_token) return;
+
+    const resp = await fetch('/api/save-analysis', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body:    JSON.stringify({
+        projectName: result.inputs?.projectName || 'Untitled',
+        strategy:    result.strategy6R?.primary  || 'replatform',
+        riskScore:   result.riskRadar?.overall   || 0,
+        inputs:      result.inputs,
+        result,
+        source:      result.source || 'local',
+      }),
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    currentDbId = data.id;
+    // Reveal share button now that we have a DB record
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) shareBtn.style.display = 'inline-flex';
+    if (typeof SA_Analytics !== 'undefined') SA_Analytics.Events.analysisCompleted(result);
+  } catch (err) {
+    console.warn('[saveToDatabase]', err.message);
+  }
+}
+
+// ── Share analysis via token link ────────────────────────────
+async function shareAnalysis() {
+  if (!currentDbId) { SA.Toast.warning('尚未儲存', '報告尚未同步至雲端，請稍後再試'); return; }
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    if (!session?.access_token) { SA.Toast.warning('請先登入', '需要登入才能分享報告'); return; }
+
+    SA.Loading.show('產生分享連結…', '');
+    const resp = await fetch('/api/share', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body:    JSON.stringify({ analysisId: currentDbId, enable: true }),
+    });
+    SA.Loading.hide();
+    if (!resp.ok) throw new Error('分享失敗');
+    const data = await resp.json();
+    const shareUrl = `${window.location.origin}/share.html?token=${data.shareToken}`;
+    await navigator.clipboard.writeText(shareUrl);
+    SA.Toast.success('分享連結已複製！', '可貼給任何人，無需登入即可查看報告');
+    if (typeof SA_Analytics !== 'undefined') SA_Analytics.Events.reportShared();
+  } catch (err) {
+    SA.Loading.hide();
+    SA.Toast.error('分享失敗', err.message);
+  }
 }
 
 let radarChartInstance = null;

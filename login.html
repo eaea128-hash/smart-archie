@@ -178,7 +178,7 @@
         <div class="form-group">
           <label class="form-label" style="display:flex;justify-content:space-between;">
             <span>密碼 <span class="required">*</span></span>
-            <a href="#" style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:500;" onclick="SA.Toast.info('忘記密碼','此功能將於正式版開放')">忘記密碼？</a>
+            <a href="#" style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:500;" onclick="handleForgotPassword(event)">忘記密碼？</a>
           </label>
           <div class="pw-wrap">
             <input type="password" id="password" class="form-control" placeholder="輸入密碼" required autocomplete="current-password">
@@ -210,12 +210,31 @@
   </div>
 </div>
 
+<!-- Supabase SDK -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
-  // Already logged in → redirect
+document.addEventListener('DOMContentLoaded', async () => {
+  // 載入 Supabase 設定
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    window.__SA_CONFIG__ = cfg;
+    // 重新初始化（config 已就緒）
+  } catch { /* 無 API 時使用 localStorage 模式 */ }
+
+  // 已登入 → 導向
   if (Auth.isLoggedIn()) window.location.href = 'dashboard.html';
+
+  // Email 驗證成功提示
+  const params = new URLSearchParams(location.search);
+  if (params.get('verified') === '1') {
+    SA.Toast.success('Email 驗證成功！', '請登入您的帳號');
+  }
+  if (params.get('reset') === '1') {
+    SA.Toast.success('密碼已重設', '請用新密碼登入');
+  }
 });
 
 function fillDemo(email, pw) {
@@ -234,27 +253,22 @@ function togglePW() {
 
 async function handleLogin(e) {
   e.preventDefault();
-  const email = document.getElementById('email').value.trim();
+  const email    = document.getElementById('email').value.trim();
   const password = document.getElementById('password').value;
-  const btn = document.getElementById('loginBtn');
-  const btnText = document.getElementById('loginBtnText');
-  const spinner = document.getElementById('loginBtnSpinner');
-  const errDiv = document.getElementById('loginError');
-  const errMsg = document.getElementById('loginErrorMsg');
+  const btn      = document.getElementById('loginBtn');
+  const btnText  = document.getElementById('loginBtnText');
+  const spinner  = document.getElementById('loginBtnSpinner');
+  const errDiv   = document.getElementById('loginError');
+  const errMsg   = document.getElementById('loginErrorMsg');
 
-  if (!email || !password) {
-    SA.Toast.warning('請填寫所有必填欄位');
-    return;
-  }
+  if (!email || !password) { SA.Toast.warning('請填寫所有必填欄位'); return; }
 
   btn.disabled = true;
   btnText.textContent = '登入中…';
   spinner.style.display = 'inline-block';
   errDiv.style.display = 'none';
 
-  await new Promise(r => setTimeout(r, 600)); // Simulate network
-
-  const result = Auth.login(email, password);
+  const result = await Auth.login(email, password);
 
   btn.disabled = false;
   btnText.textContent = '登入';
@@ -262,12 +276,34 @@ async function handleLogin(e) {
 
   if (result.success) {
     SA.Toast.success('登入成功', `歡迎回來，${result.user.name}！`);
-    setTimeout(() => { window.location.href = result.user.role === 'admin' ? 'admin-dashboard.html' : 'dashboard.html'; }, 600);
+    setTimeout(() => {
+      window.location.href = result.user.role === 'admin' ? 'admin-dashboard.html' : 'dashboard.html';
+    }, 500);
   } else {
-    errMsg.textContent = result.error;
+    errMsg.textContent = result.error || '帳號或密碼不正確';
     errDiv.style.display = 'flex';
     document.getElementById('password').value = '';
     document.getElementById('password').focus();
+  }
+}
+
+async function handleForgotPassword(e) {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  if (!email) {
+    SA.Toast.warning('請先輸入 Email', '在上方 Email 欄位輸入您的帳號信箱');
+    document.getElementById('email').focus();
+    return;
+  }
+  if (!Auth.useSupabase()) {
+    SA.Toast.info('Demo 模式', '忘記密碼功能需要連接 Supabase，Demo 模式下無法使用');
+    return;
+  }
+  const ok = await Auth.forgotPassword(email);
+  if (ok) {
+    SA.Toast.success('重設信已寄出', `請查看 ${email} 的收件匣，點擊連結重設密碼`);
+  } else {
+    SA.Toast.error('寄送失敗', '請確認 Email 是否正確，或稍後再試');
   }
 }
 </script>

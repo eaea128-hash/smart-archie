@@ -374,13 +374,22 @@
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
+<script src="js/analytics.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+  // Load remote config first so Supabase/analytics initialise correctly
+  try {
+    const cfg = await fetch('/api/config').then(r => r.json());
+    window.__SA_CONFIG__ = cfg;
+  } catch {}
+
   Auth.injectNavUser();
 
-  const user = Auth.currentUser();
+  const user = await Auth.currentUserAsync();
   if (!user) { window.location.href = 'login.html'; return; }
 
   // Show admin links
@@ -399,9 +408,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('sidebar-username').textContent = user.name;
   document.getElementById('sidebar-plan').textContent = planNames[user.plan] || user.plan;
 
-  // Quota
-  const quota = Auth.getQuota(user.id);
-  const limit = Auth.PLAN_QUOTA[user.plan] || 3;
+  // Quota — async in Supabase mode
+  const quota = await Auth.checkQuota();
+  const limit = quota.limit || 3;
   document.getElementById('quotaUsed').textContent = quota.used;
   document.getElementById('quotaLimit').textContent = limit;
   document.getElementById('quotaRemaining').textContent = Math.max(0, limit - quota.used);
@@ -416,10 +425,9 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('profileEmail').value = user.email;
   document.getElementById('profileCompany').value = user.company || '';
 
-  // Load history
+  // Load history (Supabase API → localStorage fallback)
+  await loadHistory();
   loadStats();
-  renderRecentHistory();
-  renderFullHistory();
 
   // Handle hash nav
   if (window.location.hash === '#history') switchTab('history');
@@ -436,8 +444,46 @@ function switchTab(tab) {
   if (tab === 'charts') setTimeout(renderCharts, 100);
 }
 
+// ── History: try Supabase API, fall back to localStorage ────
+let _historyCache = null;
+
+async function loadHistory() {
+  // Supabase path
+  if (typeof SupabaseClient !== 'undefined' && SupabaseClient.isConfigured()) {
+    try {
+      const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+      if (session?.access_token) {
+        const resp = await fetch('/api/get-analyses', {
+          headers: { 'Authorization': `Bearer ${session.access_token}` },
+        });
+        if (resp.ok) {
+          const json = await resp.json();
+          _historyCache = (json.analyses || []).map(a => ({
+            id:          a.id,
+            projectName: a.project_name,
+            strategy:    a.strategy,
+            risk:        a.risk_score,
+            timestamp:   a.created_at,
+            style:       a.inputs?.reportStyle || 'executive',
+            source:      a.source || 'api',
+            shareToken:  a.share_token,
+            shareEnabled:a.share_enabled,
+          }));
+          renderRecentHistory(_historyCache.slice(0, 5));
+          renderFullHistory(_historyCache);
+          return;
+        }
+      }
+    } catch {}
+  }
+  // localStorage fallback
+  _historyCache = SA.Store.get('history', []);
+  renderRecentHistory(_historyCache.slice(0, 5));
+  renderFullHistory(_historyCache);
+}
+
 function loadStats() {
-  const history = SA.Store.get('history', []);
+  const history = _historyCache || SA.Store.get('history', []);
   const thisMonth = new Date().toISOString().slice(0, 7);
   const monthlyCount = history.filter(h => h.timestamp?.startsWith(thisMonth)).length;
   const total = history.length;
@@ -474,8 +520,8 @@ function buildHistoryRow(h) {
   </tr>`;
 }
 
-function renderRecentHistory() {
-  const history = SA.Store.get('history', []).slice(0, 5);
+function renderRecentHistory(history) {
+  history = history || (_historyCache || SA.Store.get('history', [])).slice(0, 5);
   const el = document.getElementById('recentList');
   if (!history.length) return;
   el.innerHTML = `<div class="table-wrap"><table>
@@ -485,8 +531,8 @@ function renderRecentHistory() {
 }
 
 let allHistory = [];
-function renderFullHistory() {
-  allHistory = SA.Store.get('history', []);
+function renderFullHistory(history) {
+  allHistory = history || _historyCache || SA.Store.get('history', []);
   renderHistoryTable(allHistory);
 }
 function filterHistory() {
@@ -514,7 +560,7 @@ let chartsRendered = false;
 function renderCharts() {
   if (chartsRendered) return;
   chartsRendered = true;
-  const history = SA.Store.get('history', []);
+  const history = _historyCache || SA.Store.get('history', []);
 
   // Trend chart (last 6 months)
   const months = [];
@@ -544,13 +590,17 @@ function renderCharts() {
   });
 }
 
-function saveProfile() {
+async function saveProfile() {
   const name = document.getElementById('profileName').value.trim();
   const company = document.getElementById('profileCompany').value.trim();
   if (!name) { SA.Toast.warning('請填寫姓名'); return; }
-  Auth.updateProfile({ name, company });
-  SA.Toast.success('儲存成功', '個人資料已更新');
-  document.getElementById('greeting').textContent = `您好，${name} 👋`;
+  const ok = await Auth.updateProfile({ name, company });
+  if (ok !== false) {
+    SA.Toast.success('儲存成功', '個人資料已更新');
+    document.getElementById('greeting').textContent = `您好，${name} 👋`;
+  } else {
+    SA.Toast.error('儲存失敗', '請稍後再試');
+  }
 }
 </script>
 </body>
