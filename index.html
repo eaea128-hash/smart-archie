@@ -237,12 +237,26 @@
       </div>
       <div class="hero-risk-row">
         <div style="font-size:10px;color:rgba(255,255,255,0.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;">風險雷達</div>
-        ${[['合規',45],['技術',58],['營運',62],['時程',50]].map(([n,v]) => `
         <div class="hero-risk-item">
-          <span class="hero-risk-label">${n}</span>
-          <div class="hero-risk-bar"><div class="hero-risk-fill" style="width:${v}%;background:${v>=60?'#F59E0B':v>=40?'#1A9BB5':'#2D9D78'};"></div></div>
-          <span class="hero-risk-val">${v}%</span>
-        </div>`).join('')}
+          <span class="hero-risk-label">合規</span>
+          <div class="hero-risk-bar"><div class="hero-risk-fill" style="width:45%;background:#1A9BB5;"></div></div>
+          <span class="hero-risk-val">45%</span>
+        </div>
+        <div class="hero-risk-item">
+          <span class="hero-risk-label">技術</span>
+          <div class="hero-risk-bar"><div class="hero-risk-fill" style="width:58%;background:#F59E0B;"></div></div>
+          <span class="hero-risk-val">58%</span>
+        </div>
+        <div class="hero-risk-item">
+          <span class="hero-risk-label">營運</span>
+          <div class="hero-risk-bar"><div class="hero-risk-fill" style="width:62%;background:#F59E0B;"></div></div>
+          <span class="hero-risk-val">62%</span>
+        </div>
+        <div class="hero-risk-item">
+          <span class="hero-risk-label">時程</span>
+          <div class="hero-risk-bar"><div class="hero-risk-fill" style="width:50%;background:#1A9BB5;"></div></div>
+          <span class="hero-risk-val">50%</span>
+        </div>
       </div>
     </div>
   </div>
