@@ -420,7 +420,7 @@ async function loadAdminData() {
           const overview  = await overviewResp.json();
           const usersData = await usersResp.json();
           const analysesData = await analysesResp.json();
-          _renderAdminFromAPI(overview, usersData.users || [], analysesData.analyses || []);
+          _renderAdminFromAPI(overview.overview || overview, usersData.users || [], analysesData.analyses || []);
           return;
         }
       }
@@ -551,20 +551,57 @@ function displayUsersTable(users) {
   if (!users.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">👥</div><div class="empty-title">無符合條件的用戶</div></div>`; return; }
   const planLabels = { free:'免費版', pro:'專業版', enterprise:'企業版' };
   el.innerHTML = `<table>
-    <thead><tr><th>用戶</th><th>電子信箱</th><th>方案</th><th>角色</th><th>公司</th><th>加入時間</th><th>狀態</th></tr></thead>
+    <thead><tr><th>用戶</th><th>電子信箱</th><th>方案</th><th>角色</th><th>公司</th><th>加入時間</th><th>操作</th></tr></thead>
     <tbody>${users.map(u => `<tr>
       <td><div style="display:flex;align-items:center;gap:8px;">
         <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--c-primary-mid),var(--c-accent-teal));color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${u.avatar||u.name?.slice(0,2)||'?'}</div>
         <span style="font-weight:600;font-size:13px;">${u.name||'—'}</span>
       </div></td>
       <td style="font-size:12px;color:var(--c-text-muted);">${u.email}</td>
-      <td><span class="badge plan-${u.plan}" style="font-size:10px;">${planLabels[u.plan]||u.plan}</span></td>
-      <td><span class="badge ${u.role==='admin'?'badge-danger':'badge-neutral'}" style="font-size:10px;">${u.role==='admin'?'管理員':'一般用戶'}</span></td>
+      <td>
+        <select onchange="updateUserPlan('${u.id}', this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
+          <option value="free"     ${u.plan==='free'?'selected':''}>免費版</option>
+          <option value="pro"      ${u.plan==='pro'?'selected':''}>專業版</option>
+          <option value="enterprise" ${u.plan==='enterprise'?'selected':''}>企業版</option>
+        </select>
+      </td>
+      <td>
+        <select onchange="updateUserRole('${u.id}', this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
+          <option value="user"  ${u.role==='user'?'selected':''}>一般用戶</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>管理員</option>
+        </select>
+      </td>
       <td style="font-size:12px;color:var(--c-text-muted);">${u.company||'—'}</td>
       <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.date(u.createdAt)}</td>
       <td><div style="display:flex;align-items:center;gap:6px;"><div class="user-status active"></div><span style="font-size:12px;color:var(--c-success);">活躍</span></div></td>
     </tr>`).join('')}</tbody>
   </table>`;
+}
+
+async function updateUserPlan(userId, plan) {
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ userId, plan }),
+    });
+    if (resp.ok) SA.Toast.success('方案已更新', `已變更為 ${plan}`);
+    else SA.Toast.error('更新失敗', '請稍後再試');
+  } catch { SA.Toast.error('更新失敗', '請稍後再試'); }
+}
+
+async function updateUserRole(userId, role) {
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    const resp = await fetch('/api/admin-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ userId, role }),
+    });
+    if (resp.ok) SA.Toast.success('角色已更新', `已變更為 ${role}`);
+    else SA.Toast.error('更新失敗', '請稍後再試');
+  } catch { SA.Toast.error('更新失敗', '請稍後再試'); }
 }
 
 let allAnalysesData = [];
