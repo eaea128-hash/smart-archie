@@ -843,8 +843,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           const el = document.getElementById('projectName');
           if (el) el.value = item.inputs.projectName;
         }
-        // If result is a full rendered object, replay it
-        if (item.result && typeof item.result === 'object' && Object.keys(item.result).length > 0) {
+        // If result is a full rendered object with required fields, replay it
+        if (item.result && typeof item.result === 'object' && item.result.strategy6R && item.result.executiveSummary) {
           const style = item.style || 'executive';
           reportStyle = style;
           document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
@@ -1114,6 +1114,9 @@ function saveToHistory(result) {
     risk:        result.riskRadar?.overall || 0,
     style:       result.inputs?.reportStyle || 'executive',
     source:      result.source || 'local',
+    // Store full data for replay (inputs + result) — each item ~10-30KB, 50 items ≈ max 1.5MB
+    inputs:      result.inputs  || {},
+    result:      result,        // full result object for renderResult replay
   });
   SA.Store.set('history', history.slice(0, 50));
 }
@@ -1141,8 +1144,8 @@ function renderResult(r, style) {
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-outline btn-sm" onclick="SAExport.copyMarkdown(currentResult)" title="複製 Markdown">📋 複製</button>
-      <button class="btn btn-outline btn-sm" onclick="SAExport.exportImage('resultContainer','Smart-Archie-Report')">🖼️ 截圖</button>
-      <button class="btn btn-outline btn-sm" onclick="SAExport.exportPDF('resultContainer','Smart-Archie-Report')">📥 匯出 PDF</button>
+      <button class="btn btn-outline btn-sm" onclick="SAExport.exportImage('resultContainer','CloudFrame-Report')">🖼️ 截圖</button>
+      <button class="btn btn-outline btn-sm" onclick="SAExport.exportPDF('resultContainer','CloudFrame-Report')">📥 匯出 PDF</button>
       <button class="btn btn-outline btn-sm" id="shareBtn" onclick="shareAnalysis()" style="display:none;">🔗 分享報告</button>
       <button class="btn btn-primary btn-sm" onclick="window.location.href='dashboard.html'">💾 查看歷史</button>
     </div>

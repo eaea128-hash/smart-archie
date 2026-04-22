@@ -508,17 +508,33 @@ function loadStats() {
 }
 
 function buildHistoryRow(h) {
-  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
-  const riskColor = h.risk >= 70 ? '#C53030' : h.risk >= 50 ? '#D97706' : '#2D9D78';
-  return `<tr onclick="loadHistoryItem('${h.id}')" style="cursor:pointer;">
-    <td><div style="font-weight:600;font-size:13px;">${h.projectName || '未命名專案'}</div><div style="font-size:11px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</div></td>
-    <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
-    <td><div style="display:flex;align-items:center;gap:8px;">
-      <span class="risk-mini"><span class="risk-mini-fill" style="width:${h.risk||0}%;background:${riskColor};"></span></span>
-      <span style="font-size:12px;font-weight:600;color:${riskColor};">${h.risk||'—'}%</span>
-    </div></td>
-    <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術PM版':'完整版'}</span></td>
-    <td><button class="btn btn-outline btn-sm" onclick="event.stopPropagation();loadHistoryItem('${h.id}')">查看</button></td>
+  const stratLabels  = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  const validStrats  = ['rehost','replatform','refactor','retain','retire'];
+  const stratKey     = validStrats.includes(h.strategy) ? h.strategy : 'rehost';
+  const riskVal      = h.risk ?? h.riskScore ?? 0;
+  const riskColor    = riskVal >= 70 ? '#C53030' : riskVal >= 50 ? '#D97706' : '#2D9D78';
+  const riskLabel    = riskVal >= 70 ? '🔴 高風險' : riskVal >= 50 ? '🟡 中風險' : '🟢 低風險';
+  const riskTip      = `整體風險指數 ${riskVal}%（${riskLabel}）\n由合規、技術、營運、時程、資料、業務 6 個維度平均計算`;
+  const styleKey     = h.style || 'executive';
+  const styleBadge   = styleKey === 'executive' ? 'badge-gold' : styleKey === 'techpm' ? 'badge-teal' : 'badge-primary';
+  const styleLabel   = styleKey === 'executive' ? '高層版' : styleKey === 'techpm' ? '技術PM版' : '完整版';
+  const canOpen      = !!(h.result || h.inputs);  // has replay data
+  return `<tr onclick="loadHistoryItem('${h.id}')" style="cursor:pointer;" title="點擊查看完整報告">
+    <td>
+      <div style="font-weight:600;font-size:13px;">${h.projectName || '未命名專案'}</div>
+      <div style="font-size:11px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</div>
+    </td>
+    <td><span class="strat-badge strat-${stratKey}">${stratLabels[stratKey]}</span></td>
+    <td>
+      <div style="display:flex;align-items:center;gap:8px;" title="${riskTip}">
+        <span class="risk-mini"><span class="risk-mini-fill" style="width:${riskVal}%;background:${riskColor};"></span></span>
+        <span style="font-size:12px;font-weight:600;color:${riskColor};">${riskVal || '—'}%</span>
+      </div>
+    </td>
+    <td><span class="badge ${styleBadge}" style="font-size:10px;">${styleLabel}</span></td>
+    <td><button class="btn ${canOpen ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="event.stopPropagation();loadHistoryItem('${h.id}')" title="${canOpen ? '開啟完整報告' : '舊記錄無報告資料'}">
+      ${canOpen ? '📋 查看' : '—'}
+    </button></td>
   </tr>`;
 }
 
@@ -527,7 +543,7 @@ function renderRecentHistory(history) {
   const el = document.getElementById('recentList');
   if (!history.length) return;
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th></th></tr></thead>
+    <thead><tr><th>專案名稱</th><th>建議策略</th><th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算（0%=低風險，100%=極高風險）">風險指數 ⓘ</th><th>報告風格</th><th></th></tr></thead>
     <tbody>${history.map(buildHistoryRow).join('')}</tbody>
   </table></div>`;
 }
@@ -550,7 +566,7 @@ function renderHistoryTable(list) {
     return;
   }
   el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th></th></tr></thead>
+    <thead><tr><th>專案名稱</th><th>建議策略</th><th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算（0%=低風險，100%=極高風險）">風險指數 ⓘ</th><th>報告風格</th><th></th></tr></thead>
     <tbody>${list.map(buildHistoryRow).join('')}</tbody>
   </table></div>`;
 }
