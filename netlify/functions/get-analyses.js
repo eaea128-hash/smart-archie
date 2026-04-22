@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/get-analyses
+ * CloudFrame — /api/get-analyses
  * 取得目前用戶的分析歷史
  *
  * GET /api/get-analyses?limit=20&offset=0

@@ -1,5 +1,5 @@
 /**
- * Smart Archie — API Client
+ * CloudFrame — API Client
  * Handles all communication with Netlify Functions / backend API.
  * Falls back to local rule-based engine when API is unavailable.
  *

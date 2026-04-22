@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/trends
+ * CloudFrame — /api/trends
  * Returns curated international cloud advisory trends, regulatory updates,
  * and framework changes from HSBC, AWS, GCP, MAS, HKMA, FCA, etc.
  *
@@ -34,7 +34,7 @@ const TRENDS_DB = {
           'Multi-cloud or hybrid-cloud mandatory for Systemically Important Financial Institutions (SIFIs)',
           'Annual cloud resilience testing with results submitted to MAS'
         ],
-        action_for_archie: 'All Singapore-jurisdiction analyses must include MAS TRM 2025 gap assessment and exit planning appendix.',
+        action_for_cloudframe: 'All Singapore-jurisdiction analyses must include MAS TRM 2025 gap assessment and exit planning appendix.',
         reference_url: 'https://www.mas.gov.sg/regulation/guidelines/technology-risk-management-guidelines'
       },
       {
@@ -55,7 +55,7 @@ const TRENDS_DB = {
           'Data lineage documentation required for all regulatory reporting data pipelines',
           'Third-party AI model vendors subject to same outsourcing risk assessment as cloud providers'
         ],
-        action_for_archie: 'Hong Kong analyses must include AI governance layer in Landing Zone design.',
+        action_for_cloudframe: 'Hong Kong analyses must include AI governance layer in Landing Zone design.',
         reference_url: 'https://www.hkma.gov.hk/media/eng/doc/key-functions/banking-stability/supervisory-policy-manual/TM-G-2.pdf'
       },
       {
@@ -76,7 +76,7 @@ const TRENDS_DB = {
           'Material change notifications required for cloud migrations affecting important business services',
           'Annual resilience testing with board attestation'
         ],
-        action_for_archie: 'UK analyses must include FCA/PRA impact tolerance mapping and CSP dependency register.',
+        action_for_cloudframe: 'UK analyses must include FCA/PRA impact tolerance mapping and CSP dependency register.',
         reference_url: 'https://www.bankofengland.co.uk/prudential-regulation/publication/2021/march/operational-resilience-ss'
       },
       {
@@ -98,7 +98,7 @@ const TRENDS_DB = {
           'ICT third-party risk management: standardised contractual clauses with CSPs',
           'Information sharing: participation in financial sector intelligence sharing'
         ],
-        action_for_archie: 'EU jurisdiction analyses must include full DORA compliance roadmap and CTPP risk register.',
+        action_for_cloudframe: 'EU jurisdiction analyses must include full DORA compliance roadmap and CTPP risk register.',
         reference_url: 'https://www.eba.europa.eu/regulation-and-policy/digital-operational-resilience-act-dora'
       }
     ],
@@ -290,7 +290,7 @@ const TRENDS_DB = {
         date: '2025-12-01',
         impact: 'transformational',
         tags: ['AI Agents', 'Services as Software', 'Agentic AI', 'Professional Services', 'Cloud Advisory'],
-        summary: 'The "$4.6T professional services market is being disrupted by AI agents that deliver outcomes, not software licenses." Cloud advisory, legal, accounting, and consulting are early targets. Smart Archie represents this paradigm: AI that delivers the consulting outcome, not a tool to help consultants.',
+        summary: 'The "$4.6T professional services market is being disrupted by AI agents that deliver outcomes, not software licenses." Cloud advisory, legal, accounting, and consulting are early targets. CloudFrame represents this paradigm: AI that delivers the consulting outcome, not a tool to help consultants.',
         implications_for_cloud_advisory: [
           'Traditional: consultant uses tool → produces report → client implements (3-6 month cycle)',
           'New paradigm: AI agent ingests organisation data → delivers actionable plan → monitors implementation → alerts on drift (continuous)',

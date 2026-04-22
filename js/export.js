@@ -1,5 +1,5 @@
 /**
- * Smart Archie — Export Module
+ * CloudFrame — Export Module
  * PDF / 圖片 / 簡報匯出功能
  *
  * 依賴（CDN 載入）：
@@ -101,7 +101,7 @@
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text(
-          `Smart Archie AI Cloud Advisory — 第 ${i - 1} / ${totalPages - 1} 頁`,
+          `CloudFrame AI Cloud Advisory — 第 ${i - 1} / ${totalPages - 1} 頁`,
           pageW / 2, pageH - 5, { align: 'center' }
         );
       }
@@ -141,11 +141,11 @@
     // 標題
     pdf.setFontSize(22);
     pdf.setTextColor(255, 255, 255);
-    pdf.text('Smart Archie', pageW / 2, pageH * 0.42, { align: 'center' });
+    pdf.text('CloudFrame', pageW / 2, pageH * 0.42, { align: 'center' });
 
     pdf.setFontSize(12);
     pdf.setTextColor(201, 168, 76);
-    pdf.text('AI Cloud Advisory Platform', pageW / 2, pageH * 0.42 + 9, { align: 'center' });
+    pdf.text('AI Cloud Strategy Advisor', pageW / 2, pageH * 0.42 + 9, { align: 'center' });
 
     // 報告標題
     pdf.setFontSize(14);
@@ -162,7 +162,7 @@
     // 底部
     pdf.setFontSize(8);
     pdf.setTextColor(100, 130, 150);
-    pdf.text('© 2026 Smart Archie · AI Cloud Advisory · Confidential', pageW / 2, pageH - 10, { align: 'center' });
+    pdf.text('© 2026 CloudFrame · AI Cloud Advisory · Confidential', pageW / 2, pageH - 10, { align: 'center' });
   }
 
   /**
@@ -197,7 +197,7 @@
     const stratLabels = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
 
     const md = [
-      `# Smart Archie 雲端分析報告`,
+      `# CloudFrame 雲端分析報告`,
       `> 專案：${r.inputs?.projectName || 'Untitled'} | 分析時間：${new Date(r.timestamp || Date.now()).toLocaleDateString('zh-TW')}`,
       '',
       `## 建議策略`,
@@ -219,7 +219,7 @@
       `月費：USD $${(r.costEstimate?.mid || 0).toLocaleString()}（建議方案）`,
       '',
       `---`,
-      `*由 Smart Archie AI 雲端顧問平台生成 · https://unique-jelly-da79b4.netlify.app*`,
+      `*由 CloudFrame AI 雲端顧問平台生成 · https://unique-jelly-da79b4.netlify.app*`,
     ].join('\n');
 
     try {

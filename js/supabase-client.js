@@ -1,5 +1,5 @@
 /**
- * Smart Archie — Supabase Client
+ * CloudFrame — Supabase Client
  * 初始化 Supabase 並匯出給所有頁面使用
  *
  * 環境變數（Netlify）：

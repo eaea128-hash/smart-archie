@@ -1,7 +1,7 @@
 {
-  "name": "smart-archie",
+  "name": "cloudframe",
   "version": "1.0.0",
-  "description": "AI Cloud Advisory Platform — Services as Software",
+  "description": "AI Cloud Strategy Advisor — Services as Software",
   "private": true,
   "scripts": {
     "dev": "netlify dev",

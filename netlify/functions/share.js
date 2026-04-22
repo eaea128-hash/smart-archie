@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/share
+ * CloudFrame — /api/share
  * 建立或取消分析報告的公開分享連結
  *
  * POST /api/share          → 建立/更新分享（需要 token）

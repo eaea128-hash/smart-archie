@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/analyze
+ * CloudFrame — /api/analyze
  * Serverless function: streams a full cloud advisory analysis from Claude.
  *
  * POST /api/analyze
@@ -23,7 +23,7 @@ const RATE_LIMIT_RPH = parseInt(process.env.RATE_LIMIT_RPH   || '20',   10);
 const rateLimitStore = new Map(); // sessionId -> { count, resetAt }
 
 // ── System Prompt ────────────────────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are **Smart Archie**, an elite AI cloud advisory platform operating at the intersection of enterprise cloud strategy, financial-sector regulatory compliance, and the emerging "Services as Software" paradigm.
+const SYSTEM_PROMPT = `You are **CloudFrame**, an elite AI cloud advisory platform operating at the intersection of enterprise cloud strategy, financial-sector regulatory compliance, and the emerging "Services as Software" paradigm.
 
 ## Your Identity & Mandate
 You are not a tool that helps humans write reports. You ARE the cloud consultant. You directly deliver:
@@ -303,7 +303,7 @@ function buildUserMessage(inputs) {
 ${description || 'No additional context provided.'}
 
 ---
-Please deliver a complete cloud advisory analysis following the Smart Archie framework. Apply all relevant international cloud best practices and regulatory requirements for the stated jurisdiction and industry. Return your response as a single valid JSON object matching the specified schema.`;
+Please deliver a complete cloud advisory analysis following the CloudFrame framework. Apply all relevant international cloud best practices and regulatory requirements for the stated jurisdiction and industry. Return your response as a single valid JSON object matching the specified schema.`;
 }
 
 // ── CORS Helper ──────────────────────────────────────────────────────────────

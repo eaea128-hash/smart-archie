@@ -1,5 +1,5 @@
 /**
- * Smart Archie — Auth Module v2.0
+ * CloudFrame — Auth Module v2.0
  * 使用 Supabase Auth 取代 localStorage 明文儲存
  * 保持與 v1.0 相同的公開 API 介面，確保其他頁面無需修改
  *
@@ -168,8 +168,8 @@ const Auth = (() => {
     const users = lsGet(LS.USERS, []);
     if (users.length) return;
     lsSet(LS.USERS, [
-      { id:'demo-001', name:'Demo User', email:'demo@smartarchie.ai',  password:'demo1234',  role:'user',  plan:'pro',        company:'Smart Archie Demo' },
-      { id:'admin-001',name:'Admin',     email:'admin@smartarchie.ai', password:'admin1234', role:'admin', plan:'enterprise', company:'Smart Archie' },
+      { id:'demo-001', name:'Demo User', email:'demo@smartarchie.ai',  password:'demo1234',  role:'user',  plan:'pro',        company:'CloudFrame Demo' },
+      { id:'admin-001',name:'Admin',     email:'admin@smartarchie.ai', password:'admin1234', role:'admin', plan:'enterprise', company:'CloudFrame' },
     ]);
   }
 

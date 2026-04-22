@@ -1,5 +1,5 @@
 /**
- * Smart Archie — Analytics & Monitoring Module
+ * CloudFrame — Analytics & Monitoring Module
  * 整合 Sentry（錯誤監控）+ Mixpanel（使用分析）
  *
  * 使用方式（所有頁面統一呼叫）：
@@ -31,7 +31,7 @@
       Sentry.init({
         dsn:         cfg.sentryDsn,
         environment: cfg.environment || 'production',
-        release:     'smart-archie@2.0.0',
+        release:     'cloudframe@2.0.0',
         tracesSampleRate: 0.2,
         ignoreErrors: [
           'ResizeObserver loop limit exceeded',

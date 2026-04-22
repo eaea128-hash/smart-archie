@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/admin-data
+ * CloudFrame — /api/admin-data
  * 管理員專用：取得完整用戶統計與分析數據
  *
  * GET /api/admin-data?type=overview|users|analyses

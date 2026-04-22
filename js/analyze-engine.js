@@ -1,5 +1,5 @@
 /* ============================================================
-   Smart Archie — AI Analysis Engine
+   CloudFrame — AI Analysis Engine
    Version 1.0
    Rule-based analysis engine with consultant-grade logic.
    Designed to be replaced/augmented by real LLM API calls.

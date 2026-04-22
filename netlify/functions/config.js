@@ -1,5 +1,5 @@
 /**
- * Smart Archie — /api/config
+ * CloudFrame — /api/config
  * 安全地將前端需要的公開設定值注入頁面
  * （Supabase URL / anon key 是公開的，可安全回傳給前端）
  *
