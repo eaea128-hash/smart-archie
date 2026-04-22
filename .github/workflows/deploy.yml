@@ -112,7 +112,7 @@ jobs:
               owner:      context.repo.owner,
               repo:       context.repo.repo,
               commit_sha: context.sha,
-              body:       `🚀 **Staging deploy successful!**\n\n🔗 Preview: ${url}\n📦 Commit: \`${sha}\`\n\n_Smart Archie CI/CD_`
+              body:       `🚀 **Staging deploy successful!**\n\n🔗 Preview: ${url}\n📦 Commit: \`${sha}\`\n\n_CloudFrame CI/CD_`
             });
 
       - name: Run post-deploy smoke test
@@ -169,7 +169,7 @@ jobs:
               repo:        context.repo.repo,
               ref:         context.sha,
               environment: 'production',
-              description: 'Smart Archie production deployment',
+              description: 'CloudFrame production deployment',
               auto_merge:  false,
               required_contexts: []
             });
@@ -245,5 +245,5 @@ jobs:
               owner:      context.repo.owner,
               repo:       context.repo.repo,
               commit_sha: context.sha,
-              body:       `${emoji} **Production deploy ${status}**\n\n🌐 https://smartarchie.ai\n📦 \`${sha}\`: ${msg}\n\n_Smart Archie CI/CD_`
+              body:       `${emoji} **Production deploy ${status}**\n\n🌐 https://smartarchie.ai\n📦 \`${sha}\`: ${msg}\n\n_CloudFrame CI/CD_`
             });
