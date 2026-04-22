@@ -1133,29 +1133,37 @@ function renderResult(r, style) {
 
   // ── 2. KPI Scores ──
   const kpiItems = [
-    { label: 'Compliance Readiness', val: kpi.compliance, key: 'comp' },
-    { label: 'Landing Zone 就緒度', val: kpi.lzReadiness, key: 'lz' },
-    { label: 'Technical Debt Score', val: kpi.techDebt, key: 'td' },
-    { label: 'ROI Potential', val: kpi.roi, key: 'roi' },
-    { label: 'Timeline Feasibility', val: kpi.timeline, key: 'tl' },
+    { label: 'Compliance Readiness', val: kpi.compliance,  key: 'comp', tip: '依合規等級、個資/金融資料、稽核要求計算。100 = 完全合規就緒，0 = 重大合規缺口。' },
+    { label: 'Landing Zone 就緒度',  val: kpi.lzReadiness, key: 'lz',   tip: '依現有 IAM、多帳號治理、Landing Zone 建置狀況評估。分數低代表需先建立雲端治理基礎。' },
+    { label: 'Technical Debt Score', val: kpi.techDebt,    key: 'td',   tip: '技術債越低，分數越高。高技術債 = 遷移風險高，需先評估重構可行性。' },
+    { label: 'ROI Potential',        val: kpi.roi,         key: 'roi',  tip: '依系統規模、雲端目標、預算估算潛在投資報酬。分數高表示上雲效益明確。' },
+    { label: 'Timeline Feasibility', val: kpi.timeline,    key: 'tl',   tip: '依時程壓力、系統複雜度評估期程可行性。分數低表示目前時程過於緊縮。' },
   ];
   const colorClass = v => v >= 70 ? 'high' : v >= 50 ? 'medium' : 'low';
   const barClass   = v => v >= 70 ? 'success' : v >= 50 ? 'warning' : 'danger';
+  const kpiAvg = Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5);
 
   html += `
   <div class="result-section animate-up">
-    <div class="result-section-title"><span class="rst-icon">📊</span>KPI 評估分數</div>
+    <div class="result-section-title"><span class="rst-icon">📊</span>KPI 評估分數
+      <span style="font-size:11px;font-weight:400;color:var(--c-text-muted);margin-left:auto;">將滑鼠移至分數上可查看計算說明</span>
+    </div>
     <div class="kpi-grid">
       ${kpiItems.map(item => `
-      <div class="kpi-card">
-        <div class="kpi-card-label">${item.label}</div>
+      <div class="kpi-card" style="position:relative;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3);">
+          <div class="kpi-card-label" style="margin:0;">${item.label}</div>
+          <span title="${item.tip}" style="cursor:help;width:16px;height:16px;border-radius:50%;background:var(--c-border);color:var(--c-text-muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">?</span>
+        </div>
         <div class="kpi-card-score ${colorClass(item.val)}">${item.val}<small style="font-size:14px;font-weight:500;"> / 100</small></div>
         <div class="kpi-bar"><div class="kpi-fill ${barClass(item.val)}" data-width="${item.val}%" style="--target:${item.val}%"></div></div>
+        <div style="font-size:11px;color:var(--c-text-muted);margin-top:6px;line-height:1.5;">${item.tip}</div>
       </div>`).join('')}
       <div class="kpi-card" style="background:var(--c-primary);border-color:transparent;">
         <div class="kpi-card-label" style="color:rgba(255,255,255,0.6)">整體評分</div>
-        <div class="kpi-card-score" style="color:white">${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}<small style="font-size:14px;opacity:0.7;"> / 100</small></div>
-        <div class="kpi-bar" style="background:rgba(255,255,255,0.2)"><div class="kpi-fill" data-width="${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}%" style="--target:${Math.round((kpi.compliance+kpi.lzReadiness+kpi.techDebt+kpi.roi+kpi.timeline)/5)}%;background:linear-gradient(90deg,var(--c-gold),var(--c-accent-teal))"></div></div>
+        <div class="kpi-card-score" style="color:white">${kpiAvg}<small style="font-size:14px;opacity:0.7;"> / 100</small></div>
+        <div class="kpi-bar" style="background:rgba(255,255,255,0.2)"><div class="kpi-fill" data-width="${kpiAvg}%" style="--target:${kpiAvg}%;background:linear-gradient(90deg,var(--c-gold),var(--c-accent-teal))"></div></div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.55);margin-top:6px;">以上 5 項 KPI 的平均分數</div>
       </div>
     </div>
   </div>`;
@@ -1207,6 +1215,32 @@ function renderResult(r, style) {
         <div style="font-size:11px;color:var(--c-accent-teal);font-weight:600;margin-bottom:6px;">次選策略：${stratLabels[strategy6R.secondary]}</div>
         <div style="font-size:12px;color:var(--c-text-muted);line-height:1.6;">${strategy6R.secondary === 'replatform' ? '可作為 Rehost 完成後的演進方向' : strategy6R.secondary === 'refactor' ? '長期可向雲原生架構演進' : '作為備選方案或後期階段策略'}</div>
       </div>
+    </div>
+
+    <!-- ── 決策依據說明 ── -->
+    <div style="background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-5);box-shadow:var(--shadow-sm);margin-top:var(--sp-4);">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4);">
+        <div style="font-size:var(--fs-sm);font-weight:var(--fw-bold);color:var(--c-primary);display:flex;align-items:center;gap:8px;">
+          <span style="width:24px;height:24px;background:var(--c-primary-mid);border-radius:var(--r-sm);display:flex;align-items:center;justify-content:center;font-size:12px;">💡</span>
+          為什麼是「${stratLabels[strategy6R.primary]}」？
+        </div>
+        <span style="font-size:11px;color:var(--c-text-muted);">依據您填入的 ${strategy6R.reasons?.length || 0} 個評估因子</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${(strategy6R.reasons || []).map(r => `
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--c-bg);border-radius:var(--r-md);border-left:3px solid var(--c-accent-teal);">
+          <span style="font-size:16px;flex-shrink:0;margin-top:1px;">${r.icon}</span>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--c-text);margin-bottom:2px;">${r.factor}</div>
+            <div style="font-size:12px;color:var(--c-text-muted);line-height:1.6;">${r.detail}</div>
+          </div>
+        </div>`).join('')}
+      </div>
+      ${strategy6R.rejected?.length ? `
+      <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-danger-bg);border-radius:var(--r-md);border:1px solid rgba(197,48,48,0.15);">
+        <div style="font-size:11px;font-weight:600;color:var(--c-danger);margin-bottom:6px;">❌ 其他策略為何排除？</div>
+        ${strategy6R.rejected.map(r => `<div style="font-size:11px;color:var(--c-text-muted);padding:2px 0;">• ${r}</div>`).join('')}
+      </div>` : ''}
     </div>
   </div>`;
 

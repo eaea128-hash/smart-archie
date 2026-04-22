@@ -98,7 +98,70 @@ const AnalyzeEngine = (() => {
     const secondary = sorted[1][0];
     const confidence = Math.min(95, 40 + (sorted[0][1] - sorted[1][1]) * 5);
 
-    return { primary, secondary, scores, confidence, sorted };
+    // ── 產生決策依據說明 ────────────────────────────────────────
+    const reasons = [];
+    const archLabels = { monolith:'單體式架構', threelayer:'三層式架構', api:'API化架構', microservices:'微服務架構' };
+    const goalLabels = { cost:'降低成本', speed:'提升交付速度', api:'API化轉型', elastic:'彈性擴展', ai:'AI應用落地', compliance:'法規合規' };
+
+    // 系統年齡
+    if (age > 15)      reasons.push({ icon:'📅', factor:'系統年齡', detail:`系統已 ${age} 年，高度耦合，建議暫緩遷移（Retain 加分）` });
+    else if (age > 10) reasons.push({ icon:'📅', factor:'系統年齡', detail:`系統 ${age} 年，直接遷移風險相對可控（Rehost 加分）` });
+    else if (age > 5)  reasons.push({ icon:'📅', factor:'系統年齡', detail:`系統 ${age} 年，適合平台升級同步現代化（Replatform 加分）` });
+    else               reasons.push({ icon:'📅', factor:'系統年齡', detail:`系統僅 ${age} 年，架構新，具備重構條件（Refactor 加分）` });
+
+    // 架構類型
+    const archLabel = archLabels[archType] || archType;
+    if (archType === 'monolith')      reasons.push({ icon:'🏗️', factor:'架構類型', detail:`${archLabel}：模組耦合高，直接遷移最穩健（Rehost 加分）` });
+    if (archType === 'threelayer')    reasons.push({ icon:'🏗️', factor:'架構類型', detail:`${archLabel}：可逐層替換托管服務，適合平台調整（Replatform 加分）` });
+    if (archType === 'api')           reasons.push({ icon:'🏗️', factor:'架構類型', detail:`${archLabel}：已具備解耦基礎，重構或Replatform皆可行` });
+    if (archType === 'microservices') reasons.push({ icon:'🏗️', factor:'架構類型', detail:`${archLabel}：容器化部署就緒，建議直接重構上雲（Refactor 加分）` });
+
+    // 技術債
+    if (techDebt === 'high')   reasons.push({ icon:'⚠️', factor:'技術債', detail:'技術債高：重構風險大，暫緩或直接遷移更安全（Retain/Refactor 加分）' });
+    if (techDebt === 'medium') reasons.push({ icon:'⚠️', factor:'技術債', detail:'技術債中等：適合邊遷移邊改善（Replatform 加分）' });
+    if (techDebt === 'low')    reasons.push({ icon:'✅', factor:'技術債', detail:'技術債低：系統健康，直接遷移風險小（Rehost 加分）' });
+
+    // 合規
+    if (complianceLevel === 'high')   reasons.push({ icon:'🛡️', factor:'合規等級', detail:'高度法遵（金融/醫療）：需先建 Landing Zone 再遷移，貿然行動風險高（Retain 加分）' });
+    if (complianceLevel === 'medium') reasons.push({ icon:'🛡️', factor:'合規等級', detail:'中等合規：需基本 IAM 與稽核設定，Rehost/Replatform 皆可支援' });
+    if (complianceLevel === 'low')    reasons.push({ icon:'🛡️', factor:'合規等級', detail:'一般合規：無重大法規限制，可採較激進策略（Refactor 加分）' });
+
+    // 時程
+    if (timeline === 'urgent')   reasons.push({ icon:'⏰', factor:'時程壓力', detail:'緊急（<6個月）：時間不足做重構，直接遷移為優先（Rehost 加分）' });
+    if (timeline === 'medium')   reasons.push({ icon:'⏰', factor:'時程壓力', detail:'中期（6-12個月）：時間足夠做平台調整與部分優化' });
+    if (timeline === 'flexible') reasons.push({ icon:'⏰', factor:'時程壓力', detail:'彈性時程（12個月+）：有空間做完整重構（Refactor 加分）' });
+
+    // 預算
+    if (budget === 'tight')  reasons.push({ icon:'💰', factor:'預算條件', detail:'預算有限：避免高成本重構，直接遷移 CP 值最高（Rehost 加分）' });
+    if (budget === 'medium') reasons.push({ icon:'💰', factor:'預算條件', detail:'合理預算：支持 Replatform 所需的托管服務費用' });
+    if (budget === 'ample')  reasons.push({ icon:'💰', factor:'預算條件', detail:'充足預算：有條件做完整現代化重構（Refactor 加分）' });
+
+    // 上雲目標
+    const goalLabel = goalLabels[cloudGoal] || cloudGoal;
+    if (cloudGoal === 'cost')       reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 直接遷移快速見效（Rehost 加分）` });
+    if (cloudGoal === 'speed')      reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 平台托管服務加速交付（Replatform 加分）` });
+    if (cloudGoal === 'api')        reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 需要架構拆解與API閘道（Refactor 強加分）` });
+    if (cloudGoal === 'elastic')    reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 需容器化或無服務器支援（Replatform/Refactor 加分）` });
+    if (cloudGoal === 'ai')         reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 需現代化架構對接 ML Pipeline（Refactor 強加分）` });
+    if (cloudGoal === 'compliance') reasons.push({ icon:'🎯', factor:'上雲目標', detail:`目標：${goalLabel} — 穩健遷移優先，不冒重構風險（Rehost 加分）` });
+
+    // 核心系統
+    if (isCoreSystem) reasons.push({ icon:'💎', factor:'核心系統', detail:'核心系統：停機成本高，遷移策略需保守，避免激進重構（Retain/Rehost 加分）' });
+
+    // 虛擬化
+    if (isVirtualized) reasons.push({ icon:'📦', factor:'已虛擬化', detail:'已虛擬化：VM 可直接 Lift & Shift，降低 Rehost 風險（Rehost 加分）' });
+
+    // 為什麼不選其他策略
+    const rejected = [];
+    const stratNames = { rehost:'直接遷移(Rehost)', replatform:'平台調整(Replatform)', refactor:'架構重構(Refactor)', retain:'暫緩保留(Retain)', retire:'下線退場(Retire)' };
+    sorted.slice(1, 4).forEach(([s, score]) => {
+      if (score < sorted[0][1] - 2) {
+        const gap = sorted[0][1] - score;
+        rejected.push(`${stratNames[s]}：綜合得分低 ${gap} 分`);
+      }
+    });
+
+    return { primary, secondary, scores, confidence, sorted, reasons, rejected };
   }
 
   // ── Landing Zone Recommendation ───────────────────────────
