@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>雲端需求分析 | CloudFrame</title>
+  <meta name="description" content="使用 CloudFrame AI 分析引擎，輸入系統條件，立即生成專業雲端遷移評估報告與 6R 策略建議。">
+  <meta property="og:title" content="雲端需求分析 | CloudFrame">
+  <meta property="og:description" content="輸入系統條件，立即生成專業雲端遷移評估報告與 6R 策略建議。">
+  <meta property="og:site_name" content="CloudFrame">
+  <meta name="twitter:card" content="summary">
+  <link rel="canonical" href="https://unique-jelly-da79b4.netlify.app/analyze.html">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
@@ -780,10 +786,10 @@
     <!-- ══════ Right: Result Panel ══════ -->
     <main class="result-panel" id="resultPanel">
 
-      <!-- Placeholder -->
+      <!-- Placeholder / Onboarding -->
       <div id="resultPlaceholder" class="result-placeholder">
         <div class="result-placeholder-icon">☁️</div>
-        <div>
+        <div style="text-align:center;">
           <div class="empty-title">填寫左側需求，生成分析報告</div>
           <div class="empty-desc" style="margin-top:8px;">CloudFrame 將根據您的專案條件，輸出顧問級的 6R 策略建議、Landing Zone 架構、成本估算與風險評估報告。</div>
         </div>
@@ -794,6 +800,31 @@
           <div class="tag">⚡ 風險雷達</div>
           <div class="tag">📊 KPI 分數</div>
           <div class="tag">📋 簡報大綱</div>
+        </div>
+        <!-- 操作步驟引導 -->
+        <div style="background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-6);max-width:480px;width:100%;text-align:left;">
+          <div style="font-size:var(--fs-sm);font-weight:var(--fw-bold);color:var(--c-primary);margin-bottom:var(--sp-4);">📖 使用步驟</div>
+          <div style="display:flex;flex-direction:column;gap:var(--sp-3);">
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--c-primary);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">1</div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">填寫專案基本資訊</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">專案名稱、業務痛點、上雲目標</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--c-primary-mid);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">2</div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">描述系統現況</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">系統年齡、架構類型、技術債等級</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--c-accent-teal);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">3</div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">設定合規與預算條件</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">合規等級、時程壓力、預算範圍</div></div>
+            </div>
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+              <div style="width:24px;height:24px;border-radius:50%;background:var(--c-gold);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">點擊「開始分析」</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">AI 將在 30–60 秒內生成完整評估報告</div></div>
+            </div>
+          </div>
+          <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-gold-lt);border-radius:var(--r-md);font-size:var(--fs-xs);color:#8B6A1F;">
+            💡 <strong>小提示：</strong>填寫越完整，AI 分析越準確。必填項目為「專案名稱」和「業務痛點」。
+          </div>
         </div>
       </div>
 
@@ -942,16 +973,45 @@ function collectInputs() {
   };
 }
 
+// ── 前端輸入驗證工具 ──────────────────────────────────────────
+function sanitizeText(str) {
+  // 移除 script tag、HTML 標籤、危險字元
+  return String(str || '')
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<[^>]+>/g, '')
+    .replace(/[<>"'`]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#x27;','`':'&#x60;'}[c]))
+    .trim()
+    .slice(0, 2000); // 最大 2000 字元
+}
+
+function validateInputs(inputs) {
+  const errors = [];
+  if (!inputs.projectName.trim())  errors.push({ field: 'projectName', msg: '請填寫專案名稱（必填）' });
+  if (inputs.projectName.trim().length > 100) errors.push({ field: 'projectName', msg: '專案名稱不得超過 100 字元' });
+  if (!inputs.painPoints.trim())   errors.push({ field: 'painPoints',  msg: '請填寫業務痛點（必填）' });
+  if (inputs.painPoints.trim().length < 10) errors.push({ field: 'painPoints', msg: '業務痛點說明至少 10 個字元，品質更好' });
+  const age = parseInt(inputs.systemAge);
+  if (isNaN(age) || age < 0 || age > 100) errors.push({ field: 'systemAge', msg: '系統年齡請填 0–100 之間的數字' });
+  return errors;
+}
+
 async function runAnalysis() {
-  const inputs = collectInputs();
-  if (!inputs.projectName.trim()) {
-    SA.Toast.warning('請填寫專案名稱', '專案名稱為必填欄位');
-    document.getElementById('projectName').focus();
-    return;
-  }
-  if (!inputs.painPoints.trim()) {
-    SA.Toast.warning('請填寫業務痛點', '說明業務痛點與目標，有助於提升分析品質');
-    document.getElementById('painPoints').focus();
+  const rawInputs = collectInputs();
+
+  // Sanitize text fields
+  const inputs = {
+    ...rawInputs,
+    projectName: sanitizeText(rawInputs.projectName),
+    painPoints:  sanitizeText(rawInputs.painPoints),
+    techStack:   sanitizeText(rawInputs.techStack),
+  };
+
+  // Validate
+  const errors = validateInputs(inputs);
+  if (errors.length > 0) {
+    const first = errors[0];
+    SA.Toast.warning('請確認輸入內容', first.msg);
+    document.getElementById(first.field)?.focus();
     return;
   }
 

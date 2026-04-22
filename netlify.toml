@@ -47,6 +47,16 @@
   to     = "/.netlify/functions/admin-data"
   status = 200
 
+[[redirects]]
+  from   = "/api/stripe-checkout"
+  to     = "/.netlify/functions/stripe-checkout"
+  status = 200
+
+[[redirects]]
+  from   = "/api/stripe-webhook"
+  to     = "/.netlify/functions/stripe-webhook"
+  status = 200
+
 # Security headers
 [[headers]]
   for = "/*"
@@ -68,7 +78,7 @@
 [functions]
   node_bundler        = "esbuild"
   included_files      = ["netlify/functions/**"]
-  external_node_modules = ["@anthropic-ai/sdk", "@supabase/supabase-js"]
+  external_node_modules = ["@anthropic-ai/sdk", "@supabase/supabase-js", "stripe"]
 
 [dev]
   port    = 8888

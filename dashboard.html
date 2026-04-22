@@ -310,6 +310,29 @@
             <button class="btn btn-primary" onclick="saveProfile()">儲存變更</button>
           </div>
         </div>
+
+        <!-- 法律頁面連結 -->
+        <div class="card animate-up" style="max-width:600px;margin-top:var(--sp-4);">
+          <div class="card-header"><div class="card-title">📋 服務文件</div></div>
+          <div class="card-body" style="display:flex;gap:var(--sp-3);flex-wrap:wrap;">
+            <a href="privacy.html" target="_blank" class="btn btn-outline btn-sm">🔒 隱私政策</a>
+            <a href="terms.html" target="_blank" class="btn btn-outline btn-sm">📄 服務條款</a>
+            <a href="mailto:contact@cloudframe.ai" class="btn btn-outline btn-sm">📧 聯絡我們</a>
+          </div>
+        </div>
+
+        <!-- 危險區域：刪除帳號 -->
+        <div class="card animate-up" style="max-width:600px;margin-top:var(--sp-4);border-color:var(--c-danger);">
+          <div class="card-header" style="background:var(--c-danger-bg);">
+            <div class="card-title" style="color:var(--c-danger);">⚠️ 危險區域</div>
+          </div>
+          <div class="card-body">
+            <p style="font-size:var(--fs-sm);color:var(--c-text-muted);margin-bottom:var(--sp-4);">
+              刪除帳號將永久移除您的所有分析記錄與個人資料，此操作<strong>無法復原</strong>。
+            </p>
+            <button class="btn btn-sm" style="background:var(--c-danger);color:white;border:none;" onclick="confirmDeleteAccount()">🗑️ 刪除我的帳號</button>
+          </div>
+        </div>
       </div>
 
       <!-- Plan Tab -->
@@ -347,7 +370,7 @@
                   <li class="text-sm text-muted">✅ 歷史紀錄保存</li>
                   <li class="text-sm text-muted">✅ 分析統計圖表</li>
                 </ul>
-                <button class="btn btn-accent btn-block" onclick="SA.Toast.info('升級方案', '即將開放，感謝您的支持！')">升級 Pro</button>
+                <button class="btn btn-accent btn-block" id="upgradePro" onclick="startCheckout('pro')">🚀 升級 Pro — NT$1,990/月</button>
               </div>
             </div>
             <!-- Enterprise -->
@@ -364,7 +387,7 @@
                   <li class="text-sm text-muted">✅ 白標 / API 串接</li>
                   <li class="text-sm text-muted">✅ 專屬顧問支援</li>
                 </ul>
-                <button class="btn btn-gold btn-block" onclick="SA.Toast.info('企業版洽詢', '請聯絡 contact@smartarchie.ai')">聯絡我們</button>
+                <button class="btn btn-gold btn-block" onclick="window.location.href='mailto:contact@cloudframe.ai?subject=企業版洽詢'">📧 聯絡我們</button>
               </div>
             </div>
           </div>
@@ -429,6 +452,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load history (Supabase API → localStorage fallback)
   await loadHistory();
   loadStats();
+
+  // Handle Stripe payment return
+  const urlP = new URLSearchParams(window.location.search);
+  if (urlP.get('payment') === 'success') {
+    SA.Toast.success('付款成功！🎉', '您的帳號已升級，額度已更新。');
+    window.history.replaceState({}, '', 'dashboard.html');
+    switchTab('plan');
+  }
+  if (urlP.get('payment') === 'cancelled') {
+    SA.Toast.info('已取消', '付款流程取消，方案未變更。');
+    window.history.replaceState({}, '', 'dashboard.html');
+  }
 
   // Handle hash nav
   if (window.location.hash === '#history') switchTab('history');
@@ -648,6 +683,65 @@ async function saveProfile() {
     SA.Toast.error('儲存失敗', '請稍後再試');
   }
 }
+
+// ── Stripe checkout ───────────────────────────────────────────
+async function startCheckout(plan) {
+  const btn = document.getElementById('upgradePro');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 處理中…'; }
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    if (!session?.access_token) { window.location.href = 'login.html'; return; }
+    const resp = await fetch('/api/stripe-checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ plan }),
+    });
+    const data = await resp.json();
+    if (data.url) {
+      window.location.href = data.url;
+    } else if (data.error === 'Stripe 尚未設定') {
+      SA.Toast.info('付費系統準備中', '付款系統即將開放，感謝您的耐心等候！如需提前升級請聯絡 contact@cloudframe.ai');
+    } else {
+      SA.Toast.error('建立失敗', data.error || '請稍後再試');
+    }
+  } catch (err) {
+    SA.Toast.error('連線失敗', err.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 升級 Pro — NT$1,990/月'; }
+  }
+}
+
+// ── 刪除帳號 ──────────────────────────────────────────────────
+async function confirmDeleteAccount() {
+  const confirmed = window.confirm(
+    '⚠️ 確定要刪除帳號嗎？\n\n此操作將永久刪除您的所有分析記錄與個人資料，無法復原。\n\n如需繼續，請按「確定」。'
+  );
+  if (!confirmed) return;
+
+  const email = document.getElementById('profileEmail')?.value;
+  const input = window.prompt(`請輸入您的電子信箱以確認刪除：`);
+  if (input?.trim().toLowerCase() !== email?.trim().toLowerCase()) {
+    SA.Toast.error('信箱不符', '輸入的信箱與帳號不符，取消刪除。');
+    return;
+  }
+
+  try {
+    // Sign out and clear local data
+    SA.Store.set('history', []);
+    await Auth.logout();
+    SA.Toast.success('帳號已刪除', '您的本機資料已清除。如需完全刪除雲端資料，請聯絡 privacy@cloudframe.ai');
+    setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+  } catch (err) {
+    SA.Toast.error('刪除失敗', err.message);
+  }
+}
 </script>
+
+<footer style="text-align:center;padding:24px 20px;color:var(--c-text-muted);font-size:12px;border-top:1px solid var(--c-border-light);margin-top:var(--sp-4);">
+  © 2026 CloudFrame ·
+  <a href="privacy.html" style="color:var(--c-accent-teal);text-decoration:none;" target="_blank">隱私政策</a> ·
+  <a href="terms.html" style="color:var(--c-accent-teal);text-decoration:none;" target="_blank">服務條款</a> ·
+  <a href="mailto:contact@cloudframe.ai" style="color:var(--c-accent-teal);text-decoration:none;">聯絡我們</a>
+</footer>
 </body>
 </html>
