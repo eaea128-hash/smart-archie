@@ -13,7 +13,7 @@
     /* ── Page header ── */
     .trends-hero {
       background: linear-gradient(150deg, var(--c-primary) 0%, var(--c-primary-mid) 60%, #1A6878 100%);
-      padding: var(--sp-12) var(--sp-8);
+      padding: calc(var(--nav-h) + var(--sp-10)) var(--sp-8) var(--sp-12);
       position: relative; overflow: hidden;
     }
     .trends-hero::before {
@@ -203,19 +203,22 @@
 <!-- Navbar -->
 <nav class="navbar">
   <div class="navbar-inner">
-    <div class="navbar-brand">
-      <div class="brand-icon">A</div>
-      <span class="brand-name">CloudFrame</span>
-    </div>
-    <ul class="nav-links">
-      <li><a href="index.html">首頁</a></li>
-      <li><a href="analyze.html">雲端分析</a></li>
-      <li><a href="trends.html" class="active">趨勢雷達</a></li>
-      <li><a href="dashboard.html">儀表板</a></li>
-    </ul>
-    <div class="navbar-right">
-      <div id="navUserArea">
-        <a href="login.html" class="btn btn-sm btn-ghost">登入</a>
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">CloudFrame</span>
+        <span class="brand-tagline">Cloud Strategy Advisor</span>
+      </div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="index.html" class="nav-link">首頁</a>
+      <a href="analyze.html" class="nav-link">需求分析</a>
+      <a href="trends.html" class="nav-link active">趨勢雷達</a>
+      <a href="dashboard.html" class="nav-link">儀表板</a>
+    </nav>
+    <div class="navbar-actions">
+      <div id="navUserArea" style="display:flex;gap:8px;">
+        <a href="login.html" class="btn btn-sm btn-outline">登入</a>
         <a href="register.html" class="btn btn-sm btn-primary">免費開始</a>
       </div>
     </div>
