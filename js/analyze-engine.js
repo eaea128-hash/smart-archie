@@ -319,53 +319,62 @@ const AnalyzeEngine = (() => {
     const hasDR         = inputs.needDR === 'yes';
     const downtime      = inputs.downtimeTolerance || 'medium';
 
-    // Compliance Risk (0–100)
+    // ── 各維度計分 + 同步記錄影響因素 ──────────────────────────
+    const factors = { compRisk: [], techRisk: [], opRisk: [], timelineRisk: [], dataRisk: [], bizRisk: [] };
+
+    // Compliance Risk (0–100, base 20)
     let compRisk = 20;
-    if (compliance === 'high')   compRisk += 30;
-    if (compliance === 'medium') compRisk += 10;
-    if (hasPersonal)   compRisk += 20;
-    if (hasFinancial)  compRisk += 25;
-    if (outsource)     compRisk += 15;
-    if (!inputs.hasIAM || inputs.hasIAM === 'no') compRisk += 10;
+    factors.compRisk.push({ label: '基礎合規風險', pts: 20 });
+    if (compliance === 'high')   { compRisk += 30; factors.compRisk.push({ label: '合規等級「高」（金融/醫療法規）', pts: 30 }); }
+    if (compliance === 'medium') { compRisk += 10; factors.compRisk.push({ label: '合規等級「中」', pts: 10 }); }
+    if (hasPersonal)   { compRisk += 20; factors.compRisk.push({ label: '含個人資料（PDPA/GDPR）', pts: 20 }); }
+    if (hasFinancial)  { compRisk += 25; factors.compRisk.push({ label: '含金融交易資料', pts: 25 }); }
+    if (outsource)     { compRisk += 15; factors.compRisk.push({ label: '重大委外（MAS/HKMA 要求）', pts: 15 }); }
+    if (!inputs.hasIAM || inputs.hasIAM === 'no') { compRisk += 10; factors.compRisk.push({ label: '尚未建立 IAM 管控', pts: 10 }); }
 
-    // Technical Risk (0–100)
+    // Technical Risk (0–100, base 15)
     let techRisk = 15;
-    if (techDebt === 'high')   techRisk += 30;
-    if (techDebt === 'medium') techRisk += 15;
-    if (age > 15)  techRisk += 20;
-    if (age > 10)  techRisk += 10;
-    if (hasExtInteg) techRisk += 15;
-    if (inputs.archType === 'monolith') techRisk += 10;
+    factors.techRisk.push({ label: '基礎技術風險', pts: 15 });
+    if (techDebt === 'high')   { techRisk += 30; factors.techRisk.push({ label: '技術債「高」', pts: 30 }); }
+    if (techDebt === 'medium') { techRisk += 15; factors.techRisk.push({ label: '技術債「中」', pts: 15 }); }
+    if (age > 15)  { techRisk += 20; factors.techRisk.push({ label: `系統年齡 ${age} 年（>15年，高耦合風險）`, pts: 20 }); }
+    else if (age > 10) { techRisk += 10; factors.techRisk.push({ label: `系統年齡 ${age} 年（>10年，遷移需謹慎）`, pts: 10 }); }
+    if (hasExtInteg) { techRisk += 15; factors.techRisk.push({ label: '有外部系統整合（介面切換風險）', pts: 15 }); }
+    if (inputs.archType === 'monolith') { techRisk += 10; factors.techRisk.push({ label: '單體架構（Lift & Shift 複雜度高）', pts: 10 }); }
 
-    // Operational Risk (0–100)
+    // Operational Risk (0–100, base 15)
     let opRisk = 15;
-    if (cloudMaturity === 'low')    opRisk += 30;
-    if (cloudMaturity === 'medium') opRisk += 10;
-    if (isCoreSystem)  opRisk += 15;
-    if (!hasDR)        opRisk += 15;
-    if (sla === 'high') opRisk += 10;
-    if (downtime === 'none') opRisk += 15;
+    factors.opRisk.push({ label: '基礎營運風險', pts: 15 });
+    if (cloudMaturity === 'low')    { opRisk += 30; factors.opRisk.push({ label: '雲端成熟度「低」（團隊能力不足）', pts: 30 }); }
+    if (cloudMaturity === 'medium') { opRisk += 10; factors.opRisk.push({ label: '雲端成熟度「中」', pts: 10 }); }
+    if (isCoreSystem)  { opRisk += 15; factors.opRisk.push({ label: '核心系統（影響業務連續性）', pts: 15 }); }
+    if (!hasDR)        { opRisk += 15; factors.opRisk.push({ label: '無 DR 異地備援規劃', pts: 15 }); }
+    if (sla === 'high') { opRisk += 10; factors.opRisk.push({ label: 'SLA 要求高（99.9%+）', pts: 10 }); }
+    if (downtime === 'none') { opRisk += 15; factors.opRisk.push({ label: '零停機要求（遷移視窗極短）', pts: 15 }); }
 
-    // Timeline Risk (0–100)
+    // Timeline Risk (0–100, base 20)
     let timelineRisk = 20;
-    if (timeline === 'urgent')   timelineRisk += 30;
-    if (timeline === 'medium')   timelineRisk += 10;
-    if (cloudMaturity === 'low') timelineRisk += 15;
-    if (techDebt === 'high')     timelineRisk += 15;
+    factors.timelineRisk.push({ label: '基礎時程風險', pts: 20 });
+    if (timeline === 'urgent')   { timelineRisk += 30; factors.timelineRisk.push({ label: '緊急時程（<6個月），準備不足', pts: 30 }); }
+    if (timeline === 'medium')   { timelineRisk += 10; factors.timelineRisk.push({ label: '中期時程（6–12個月）', pts: 10 }); }
+    if (cloudMaturity === 'low') { timelineRisk += 15; factors.timelineRisk.push({ label: '雲端成熟度低，學習曲線長', pts: 15 }); }
+    if (techDebt === 'high')     { timelineRisk += 15; factors.timelineRisk.push({ label: '高技術債延長遷移週期', pts: 15 }); }
 
-    // Data Risk (0–100)
+    // Data Risk (0–100, base 10)
     let dataRisk = 10;
-    if (hasPersonal)   dataRisk += 25;
-    if (hasFinancial)  dataRisk += 30;
-    if (inputs.dataSize === 'very_large') dataRisk += 20;
-    if (inputs.dataRetention === 'long')  dataRisk += 10;
+    factors.dataRisk.push({ label: '基礎資料風險', pts: 10 });
+    if (hasPersonal)   { dataRisk += 25; factors.dataRisk.push({ label: '含個人識別資料（PII）', pts: 25 }); }
+    if (hasFinancial)  { dataRisk += 30; factors.dataRisk.push({ label: '含金融敏感資料（帳務/支付）', pts: 30 }); }
+    if (inputs.dataSize === 'very_large') { dataRisk += 20; factors.dataRisk.push({ label: '超大資料量（搬遷時間長、風險高）', pts: 20 }); }
+    if (inputs.dataRetention === 'long')  { dataRisk += 10; factors.dataRisk.push({ label: '長期資料保留（合規與儲存成本）', pts: 10 }); }
 
-    // Business Risk (0–100)
+    // Business Risk (0–100, base 15)
     let bizRisk = 15;
-    if (isCoreSystem)  bizRisk += 20;
-    if (downtime === 'none') bizRisk += 25;
-    if (!hasDR)        bizRisk += 15;
-    if (sla === 'high') bizRisk += 15;
+    factors.bizRisk.push({ label: '基礎業務風險', pts: 15 });
+    if (isCoreSystem)  { bizRisk += 20; factors.bizRisk.push({ label: '核心系統停機影響營收', pts: 20 }); }
+    if (downtime === 'none') { bizRisk += 25; factors.bizRisk.push({ label: '零停機容忍（業務連續性壓力最高）', pts: 25 }); }
+    if (!hasDR)        { bizRisk += 15; factors.bizRisk.push({ label: '無異地備援（單點故障風險）', pts: 15 }); }
+    if (sla === 'high') { bizRisk += 15; factors.bizRisk.push({ label: '高 SLA 承諾（違約賠償風險）', pts: 15 }); }
 
     // Cap at 95
     const cap = v => Math.min(95, v);
@@ -387,7 +396,7 @@ const AnalyzeEngine = (() => {
     if (bizRisk > 60)      mitigations.push('核心系統需要完整 BCP 計畫，DR 與 Runbook 須在遷移前就緒');
     if (mitigations.length === 0) mitigations.push('整體風險可控，依建議 6R 策略逐步推進');
 
-    return { compRisk, techRisk, opRisk, timelineRisk, dataRisk, bizRisk, overall, mitigations };
+    return { compRisk, techRisk, opRisk, timelineRisk, dataRisk, bizRisk, overall, mitigations, factors };
   }
 
   // ── KPI Scores ────────────────────────────────────────────

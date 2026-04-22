@@ -1386,22 +1386,36 @@ function renderResult(r, style) {
       </div>
       <div class="risk-items" style="margin-top:var(--sp-4);">
         ${[
-          { name: '合規風險', val: risk.compRisk, icon: '🛡️' },
-          { name: '技術風險', val: risk.techRisk, icon: '⚙️' },
-          { name: '營運風險', val: risk.opRisk, icon: '🔧' },
-          { name: '時程風險', val: risk.timelineRisk, icon: '⏰' },
-          { name: '資料風險', val: risk.dataRisk, icon: '🗄️' },
-          { name: '業務風險', val: risk.bizRisk, icon: '💼' },
-        ].map(item => `
-        <div class="risk-item">
+          { name: '合規風險', val: risk.compRisk,      icon: '🛡️', key: 'compRisk',     basis: '依合規等級、個資/金融資料、重大委外、IAM 設置狀況計算' },
+          { name: '技術風險', val: risk.techRisk,      icon: '⚙️', key: 'techRisk',     basis: '依技術債等級、系統年齡、外部整合複雜度、架構類型計算' },
+          { name: '營運風險', val: risk.opRisk,        icon: '🔧', key: 'opRisk',       basis: '依雲端成熟度、是否核心系統、DR 規劃、SLA 要求、停機容忍計算' },
+          { name: '時程風險', val: risk.timelineRisk,  icon: '⏰', key: 'timelineRisk', basis: '依時程壓力、雲端成熟度、技術債高低計算' },
+          { name: '資料風險', val: risk.dataRisk,      icon: '🗄️', key: 'dataRisk',     basis: '依個資/金融資料、資料量大小、資料保留期計算' },
+          { name: '業務風險', val: risk.bizRisk,       icon: '💼', key: 'bizRisk',      basis: '依核心系統重要性、停機容忍、DR 備援、SLA 承諾計算' },
+        ].map(item => {
+          const itemFactors = (risk.factors && risk.factors[item.key]) || [];
+          const highFactors = itemFactors.filter(f => f.pts >= 15);
+          return `
+        <div class="risk-item" style="margin-bottom:var(--sp-4);">
           <div class="risk-item-top">
             <div class="risk-item-name">${item.icon} ${item.name}</div>
-            <div class="risk-item-score" style="color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'}">${item.val}%</div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-size:11px;color:var(--c-text-muted);">${item.basis}</span>
+              <div class="risk-item-score" style="color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'};">${item.val}%</div>
+            </div>
           </div>
-          <div class="kpi-bar">
+          <div class="kpi-bar" style="margin:6px 0 8px;">
             <div class="kpi-fill ${item.val>=70?'danger':item.val>=50?'warning':'success'}" data-width="${item.val}%" style="--target:${item.val}%"></div>
           </div>
-        </div>`).join('')}
+          ${highFactors.length ? `
+          <div style="display:flex;flex-wrap:wrap;gap:4px;">
+            ${highFactors.map(f => `
+            <span style="font-size:10px;padding:2px 8px;border-radius:var(--r-full);background:${item.val>=70?'rgba(197,48,48,0.08)':item.val>=50?'rgba(217,119,6,0.08)':'rgba(45,157,120,0.08)'};color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'};border:1px solid ${item.val>=70?'rgba(197,48,48,0.2)':item.val>=50?'rgba(217,119,6,0.2)':'rgba(45,157,120,0.2)'};">
+              +${f.pts} ${f.label}
+            </span>`).join('')}
+          </div>` : `<div style="font-size:10px;color:var(--c-success);opacity:0.8;">✅ 無重大風險因子</div>`}
+        </div>`;
+        }).join('')}
       </div>
       ${risk.mitigations.length ? `
       <div style="margin-top:var(--sp-4);">
