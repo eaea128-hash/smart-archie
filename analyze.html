@@ -829,6 +829,44 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.toggle-group').forEach(g => {
     SA.initToggleGroup(g, false);
   });
+
+  // ── Replay mode: re-render a history record ──────────────────
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('replay') === '1') {
+    const raw = sessionStorage.getItem('cf_replay');
+    if (raw) {
+      try {
+        const item = JSON.parse(raw);
+        sessionStorage.removeItem('cf_replay');
+        // Merge inputs back so left-panel shows correct project name
+        if (item.inputs?.projectName) {
+          const el = document.getElementById('projectName');
+          if (el) el.value = item.inputs.projectName;
+        }
+        // If result is a full rendered object, replay it
+        if (item.result && typeof item.result === 'object' && Object.keys(item.result).length > 0) {
+          const style = item.style || 'executive';
+          reportStyle = style;
+          document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+          document.querySelector(`[data-style="${style}"]`)?.classList.add('active');
+          // Attach meta info to result so renderResult can use it
+          item.result.inputs     = item.result.inputs     || item.inputs || {};
+          item.result.timestamp  = item.result.timestamp  || item.timestamp;
+          currentResult = item.result;
+          currentDbId   = item.id;
+          renderResult(item.result, style);
+          SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
+          // Show share button if this record has an ID
+          if (item.id) document.getElementById('shareBtn')?.style?.setProperty('display','inline-flex');
+        } else {
+          SA.Toast.warning('資料不完整', '此歷史記錄缺少完整報告，請重新執行分析');
+        }
+      } catch (e) {
+        SA.Toast.error('載入失敗', '歷史記錄格式錯誤');
+      }
+    }
+  }
+
   // Check API availability and show badge
   _showAPIStatusBadge();
 });

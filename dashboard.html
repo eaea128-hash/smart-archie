@@ -468,6 +468,8 @@ async function loadHistory() {
             source:      a.source || 'api',
             shareToken:  a.share_token,
             shareEnabled:a.share_enabled,
+            inputs:      a.inputs  || null,
+            result:      a.result  || null,
           }));
           renderRecentHistory(_historyCache.slice(0, 5));
           renderFullHistory(_historyCache);
@@ -553,7 +555,33 @@ function renderHistoryTable(list) {
   </table></div>`;
 }
 function loadHistoryItem(id) {
-  SA.Toast.info('查看報告', '功能開發中，完整版將支援直接檢視歷史報告');
+  // Find the cached item
+  const item = (_historyCache || SA.Store.get('history', [])).find(h => String(h.id) === String(id));
+  if (!item) { SA.Toast.warning('找不到記錄', '請重新整理後再試'); return; }
+
+  // If we have the full result, replay it in analyze.html via sessionStorage
+  if (item.result || item.inputs) {
+    sessionStorage.setItem('cf_replay', JSON.stringify({
+      id:          item.id,
+      projectName: item.projectName,
+      strategy:    item.strategy,
+      risk:        item.risk,
+      timestamp:   item.timestamp,
+      style:       item.style,
+      inputs:      item.inputs  || {},
+      result:      item.result  || {},
+    }));
+    window.location.href = 'analyze.html?replay=1';
+    return;
+  }
+
+  // Fallback: shareToken exists → open share page
+  if (item.shareToken && item.shareEnabled) {
+    window.open(`share.html?token=${item.shareToken}`, '_blank');
+    return;
+  }
+
+  SA.Toast.info('無法開啟', '此記錄未包含完整報告資料，請重新執行分析');
 }
 
 let chartsRendered = false;
