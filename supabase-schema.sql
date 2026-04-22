@@ -1,5 +1,5 @@
 -- ============================================================
---  Smart Archie — Supabase PostgreSQL Schema
+--  CloudFrame — Supabase PostgreSQL Schema
 --  Run this in: Supabase Dashboard → SQL Editor → New query
 -- ============================================================
 
