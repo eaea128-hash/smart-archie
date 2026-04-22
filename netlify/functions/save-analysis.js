@@ -1,18 +1,23 @@
 /**
  * CloudFrame — /api/save-analysis
  * 儲存分析結果至 Supabase 資料庫
+ * 儲存後自動檢查配額，達 80% 時發送 Email 提醒
  *
  * POST /api/save-analysis
  * Headers: Authorization: Bearer <supabase-access-token>
  * Body: { projectName, strategy, riskScore, inputs, result, source }
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createClient }            from '@supabase/supabase-js';
+import { sendQuotaWarningEmail }   from './_email.js';
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY  // 後端使用 service role key，繞過 RLS
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
+
+const PLAN_LIMITS = { free: 3, pro: 30, enterprise: Infinity };
+const WARN_PCT    = 0.8; // 80% 觸發警告
 
 function cors(origin) {
   const allowed = process.env.ALLOWED_ORIGINS?.split(',').map(s => s.trim()) || [];
@@ -31,17 +36,14 @@ export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, headers: corsH, body: '{}' };
 
   // ── 驗證 JWT ─────────────────────────────────────────────
-  const authHeader = event.headers?.authorization || '';
-  const token = authHeader.replace('Bearer ', '').trim();
+  const token = (event.headers?.authorization || '').replace('Bearer ', '').trim();
   if (!token) {
-    return { statusCode: 401, headers: corsH,
-      body: JSON.stringify({ error: '未提供認證 Token' }) };
+    return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '未提供認證 Token' }) };
   }
 
   const { data: { user }, error: authError } = await supabase.auth.getUser(token);
   if (authError || !user) {
-    return { statusCode: 401, headers: corsH,
-      body: JSON.stringify({ error: '認證失敗，請重新登入' }) };
+    return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '認證失敗，請重新登入' }) };
   }
 
   // ── 解析 body ─────────────────────────────────────────────
@@ -71,9 +73,13 @@ export const handler = async (event) => {
 
   if (error) {
     console.error('[save-analysis] DB error:', error);
-    return { statusCode: 500, headers: corsH,
-      body: JSON.stringify({ error: '儲存失敗：' + error.message }) };
+    return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: '儲存失敗：' + error.message }) };
   }
+
+  // ── 配額警告 Email（非同步，不阻塞回應）────────────────────
+  checkAndSendQuotaWarning(user.id).catch(err =>
+    console.warn('[save-analysis] quota warning skipped:', err.message)
+  );
 
   return {
     statusCode: 200,
@@ -81,3 +87,41 @@ export const handler = async (event) => {
     body: JSON.stringify({ success: true, id: data.id, created_at: data.created_at }),
   };
 };
+
+// ── 配額檢查與 Email 通知 ─────────────────────────────────────
+async function checkAndSendQuotaWarning(userId) {
+  // 取得用戶 profile
+  const { data: profile } = await supabase
+    .from('profiles').select('name, email, plan').eq('id', userId).single();
+  if (!profile?.email) return;
+
+  const plan  = profile.plan || 'free';
+  const limit = PLAN_LIMITS[plan] ?? 3;
+  if (!isFinite(limit)) return; // enterprise：無限額度，不發警告
+
+  // 計算本月使用次數
+  const now     = new Date();
+  const monthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+  const { count } = await supabase
+    .from('analyses')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .gte('created_at', monthStart);
+
+  const used = count || 0;
+  const pct  = used / limit;
+
+  // 只在剛好跨越 80% 門檻時發送（避免每次都發）
+  // 條件：used === Math.ceil(limit * WARN_PCT) 或是最後一次（used === limit）
+  const warnAt    = Math.ceil(limit * WARN_PCT);
+  const shouldWarn = (used === warnAt) || (used === limit);
+  if (!shouldWarn) return;
+
+  await sendQuotaWarningEmail({
+    to:    profile.email,
+    name:  profile.name || profile.email.split('@')[0],
+    used,
+    limit,
+    plan,
+  });
+}

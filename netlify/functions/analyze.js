@@ -12,7 +12,11 @@
  *   data: {"type":"error","message":"..."}
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import Anthropic        from '@anthropic-ai/sdk';
+import { createClient } from '@supabase/supabase-js';
+
+const supabase   = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const MODEL          = process.env.CLAUDE_MODEL      || 'claude-opus-4-6';
@@ -235,6 +239,59 @@ Always respond with a valid JSON object matching this schema:
   }
 }`;
 
+// ── RAG Context Retrieval ─────────────────────────────────────────────────────
+async function getRagContext(inputs) {
+  if (!OPENAI_KEY) return ''; // RAG 未設定，靜默跳過
+
+  try {
+    // 建立語意搜尋查詢
+    const query = [
+      inputs.industry && `${inputs.industry} 雲端遷移`,
+      inputs.targetCloud && `${inputs.targetCloud} 遷移策略`,
+      inputs.regulatoryRequirements?.length && inputs.regulatoryRequirements.join(' '),
+      inputs.migrationDriver && `遷移動機：${inputs.migrationDriver}`,
+      inputs.complianceFrameworks?.length && inputs.complianceFrameworks.join(' '),
+    ].filter(Boolean).join(' | ');
+
+    if (query.trim().length < 5) return '';
+
+    // 取得 embedding
+    const embedResp = await fetch('https://api.openai.com/v1/embeddings', {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${OPENAI_KEY}`, 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ model: 'text-embedding-3-small', input: query.slice(0, 8192) }),
+    });
+    if (!embedResp.ok) return '';
+    const embedData = await embedResp.json();
+    const embedding = embedData.data?.[0]?.embedding;
+    if (!embedding) return '';
+
+    // 向量搜尋
+    const { data: docs } = await supabase.rpc('search_knowledge', {
+      query_embedding: embedding,
+      match_count:     4,
+      filter_category: null,
+      filter_industry: inputs.industry?.toLowerCase() || null,
+      filter_provider: inputs.targetCloud?.toLowerCase() || null,
+      min_similarity:  0.35,
+    });
+
+    if (!docs?.length) return '';
+
+    // 格式化為 Claude 可讀的 context
+    const contextLines = docs.map((doc, i) => {
+      const src = doc.source_url ? ` (來源：${doc.source_url})` : '';
+      return `[參考文件 ${i + 1}] ${doc.title}（${doc.category}${src}）\n${doc.content}`;
+    });
+
+    return `\n\n---\n## 📚 相關知識庫參考\n以下是系統從知識庫中找到的相關案例與規範，請在分析中加以參考：\n\n${contextLines.join('\n\n')}`;
+
+  } catch (err) {
+    console.warn('[analyze] RAG context fetch skipped:', err.message);
+    return ''; // RAG 失敗不影響主流程
+  }
+}
+
 // ── Rate Limiter ─────────────────────────────────────────────────────────────
 function checkRateLimit(sessionId) {
   if (!RATE_LIMIT_RPH) return true;
@@ -363,12 +420,16 @@ export const handler = async (event) => {
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+    // ── RAG：取得相關知識庫文件，注入 Claude prompt ──────────
+    const ragContext  = await getRagContext(inputs);
+    const userMessage = buildUserMessage(inputs) + ragContext;
+
     const stream = client.messages.stream({
       model:      MODEL,
       max_tokens: MAX_TOKENS,
       thinking:   { type: 'adaptive' },
       system:     SYSTEM_PROMPT,
-      messages:   [{ role: 'user', content: buildUserMessage(inputs) }],
+      messages:   [{ role: 'user', content: userMessage }],
     });
 
     const message = await stream.finalMessage();

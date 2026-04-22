@@ -62,6 +62,21 @@
   to     = "/.netlify/functions/delete-account"
   status = 200
 
+[[redirects]]
+  from   = "/api/rag-search"
+  to     = "/.netlify/functions/rag-search"
+  status = 200
+
+[[redirects]]
+  from   = "/api/rag-ingest"
+  to     = "/.netlify/functions/rag-ingest"
+  status = 200
+
+[[redirects]]
+  from   = "/api/send-email"
+  to     = "/.netlify/functions/send-email"
+  status = 200
+
 # Security headers
 [[headers]]
   for = "/*"

@@ -316,6 +316,18 @@ async function handleRegister(e) {
   spinner.style.display = 'none';
 
   if (result.success) {
+    // 寄送歡迎信（fire-and-forget，不阻塞流程）
+    if (result.session?.access_token) {
+      fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${result.session.access_token}`,
+        },
+        body: JSON.stringify({ type: 'welcome' }),
+      }).catch(() => {}); // 失敗靜默忽略
+    }
+
     if (result.needsVerification) {
       // Supabase 模式：需要 Email 驗證
       SA.Toast.success('註冊成功！', `驗證信已寄至 ${email}，請點擊信中連結啟用帳號`);

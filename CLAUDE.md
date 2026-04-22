@@ -56,15 +56,20 @@
 │   └── analytics.js        Mixpanel 追蹤
 │
 ├── netlify/functions/
-│   ├── analyze.js          主分析 API（呼叫 Claude）
+│   ├── analyze.js          主分析 API（呼叫 Claude + RAG context 注入）
 │   ├── config.js           前端設定下發
-│   ├── save-analysis.js    儲存分析結果
+│   ├── save-analysis.js    儲存分析結果（含配額 80% Email 警告）
 │   ├── get-analyses.js     取得歷史記錄
 │   ├── share.js            產生分享連結
 │   ├── admin-data.js       後台資料
 │   ├── stripe-checkout.js  建立付款 Session
 │   ├── stripe-webhook.js   處理付款事件
-│   └── trends.js           趨勢資料
+│   ├── trends.js           趨勢資料
+│   ├── rag-search.js       向量搜尋（OpenAI embed + pgvector）
+│   ├── rag-ingest.js       知識庫文件新增（管理員限定）
+│   ├── send-email.js       交易型 Email 前端入口（Resend）
+│   ├── delete-account.js   帳號完整刪除（雲端資料）
+│   └── _email.js           Email 共用模組（歡迎信/配額警告模板）
 │
 ├── supabase-schema.sql     資料庫 Schema（參考用）
 ├── netlify.toml            部署設定、Redirects、CSP Headers
@@ -92,6 +97,44 @@
 | `STRIPE_PRICE_PRO` | Pro 方案 Price ID | ⚠️ 待設定 |
 | `STRIPE_WEBHOOK_SECRET` | Webhook 驗證 | ⚠️ 待設定 |
 | `SENTRY_DSN` | 錯誤監控 | ⚠️ 待設定 |
+| `OPENAI_API_KEY` | RAG Embedding（text-embedding-3-small）| ⚠️ 待設定 |
+| `RESEND_API_KEY` | 交易型 Email（歡迎信、配額警告）| ⚠️ 待設定 |
+
+---
+
+## 🤖 RAG 架構（知識庫增強）
+
+```
+用戶輸入（industry, regulatory, provider）
+    ↓
+OpenAI text-embedding-3-small（1536 維向量）
+    ↓
+Supabase pgvector cosine search（search_knowledge RPC）
+    ↓
+找到相關文件（case_study / compliance / vendor / governance）
+    ↓
+注入 Claude analyze.js prompt → 更精準的分析
+```
+
+**知識庫類別**：
+- `case_study` — 真實遷移案例（銀行/醫療/零售）
+- `compliance` — ISO 27001、MAS TRM、GDPR、個資法
+- `vendor` — AWS/Azure/GCP 功能與定價比較
+- `governance` — TOGAF、COBIT、Kotter 變革管理
+- `architecture` — Landing Zone、Well-Architected 最佳實踐
+- `pricing` — 成本參考數據
+
+**管理文件**：`POST /api/rag-ingest`（管理員 Token）
+**前端搜尋**：`POST /api/rag-search`（無需登入）
+
+---
+
+## 📧 交易型 Email（Resend）
+
+| 類型 | 觸發時機 | 實作位置 |
+|------|---------|---------|
+| 歡迎信 | 註冊成功後 | register.html → /api/send-email |
+| 配額警告 | 達 80% 使用量 | save-analysis.js 內部 |
 
 ---
 
@@ -158,7 +201,12 @@ quota_usage   -- 額度使用（user_id, month, used_count）
 - 行動版 sidebar（滑動抽屜 mobile drawer）
 - 帳號完整刪除（`/api/delete-account` 刪除雲端資料）
 
-### ⚠️ 待完成
-- Stripe 金鑰設定（3個環境變數）
-- Sentry + Mixpanel 金鑰設定
-- 交易型 Email（歡迎信、額度警告）
+- RAG 知識庫（rag-search + rag-ingest + pgvector schema）
+- 交易型 Email（Resend：歡迎信 + 配額 80% 警告）
+
+### ⚠️ 待設定（用戶操作）
+- Stripe 金鑰（3個 Netlify 環境變數）
+- Sentry DSN + Mixpanel Token（Netlify 環境變數）
+- OpenAI API Key（Netlify 環境變數）
+- Resend API Key（Netlify 環境變數）
+- Supabase 執行 `supabase-rag-schema.sql`（啟用 pgvector）
