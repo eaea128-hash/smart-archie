@@ -108,11 +108,13 @@ function toggle(elOrSel, force) {
 
 // ── Animate Progress Bars ────────────────────────────────────
 function animateKPI(container) {
-  const items = $$(`.kpi-fill, .progress-fill`, container || document);
+  const items = $$(`.kpi-fill, .progress-fill, .conf-fill`, container || document);
   items.forEach(item => {
     const target = item.dataset.width || item.style.getPropertyValue('--target') || '0%';
+    // Reset to 0 first so transition always fires (even on replay)
+    item.style.width = '0%';
     requestAnimationFrame(() => {
-      setTimeout(() => { item.style.width = target; }, 100);
+      setTimeout(() => { item.style.width = target; }, 50);
     });
   });
 }

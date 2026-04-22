@@ -450,6 +450,10 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 .progress-fill.warning { background: linear-gradient(90deg, var(--c-warning), #F59E0B); }
 .progress-fill.danger  { background: linear-gradient(90deg, var(--c-danger), #E53E3E); }
 .progress-fill.gold    { background: linear-gradient(90deg, var(--c-gold), #E2B75A); }
+/* KPI fill bars — same colour scheme as progress-fill */
+.kpi-fill.success { background: linear-gradient(90deg, var(--c-success), #38C497); }
+.kpi-fill.warning { background: linear-gradient(90deg, var(--c-warning), #F59E0B); }
+.kpi-fill.danger  { background: linear-gradient(90deg, var(--c-danger), #E53E3E); }
 
 /* KPI Score Bar */
 .kpi-item { margin-bottom: var(--sp-4); }
@@ -459,9 +463,13 @@ textarea.form-control { resize: vertical; min-height: 80px; }
 }
 .kpi-label { font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text); }
 .kpi-score { font-size: var(--fs-sm); font-weight: var(--fw-bold); }
-.kpi-score.high   { color: var(--c-success); }
-.kpi-score.medium { color: var(--c-warning); }
-.kpi-score.low    { color: var(--c-danger); }
+.kpi-score.high        { color: var(--c-success); }
+.kpi-score.medium      { color: var(--c-warning); }
+.kpi-score.low         { color: var(--c-danger); }
+/* analyze.html uses kpi-card-score instead of kpi-score */
+.kpi-card-score.high   { color: var(--c-success); }
+.kpi-card-score.medium { color: var(--c-warning); }
+.kpi-card-score.low    { color: var(--c-danger); }
 .kpi-score.info   { color: var(--c-accent-teal); }
 .kpi-bar { height: 6px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; }
 .kpi-fill {
