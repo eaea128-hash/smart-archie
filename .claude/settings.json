@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git add *)",
+      "Bash(git commit*)",
+      "Bash(git push*)",
+      "Bash(git pull*)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(node *)",
+      "Bash(npm install*)",
+      "Bash(npm run*)",
+      "Read(*)",
+      "Write(*.html)",
+      "Write(*.css)",
+      "Write(*.js)",
+      "Write(*.json)",
+      "Write(*.md)",
+      "Write(*.toml)",
+      "Write(*.txt)",
+      "Write(*.xml)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch(*)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(del /f *)",
+      "Bash(format *)",
+      "Bash(DROP TABLE*)",
+      "Bash(* --no-verify)"
+    ]
+  }
+}

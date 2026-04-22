@@ -98,11 +98,42 @@
       .chart-row { grid-template-columns: 1fr; }
       .quick-start { grid-template-columns: 1fr 1fr; }
     }
+    /* Mobile nav drawer */
+    .mobile-menu-btn {
+      display: none; background: none; border: none; cursor: pointer;
+      width: 36px; height: 36px; border-radius: var(--r-sm);
+      align-items: center; justify-content: center; font-size: 20px;
+      color: var(--c-text); transition: background var(--t-fast);
+    }
+    .mobile-menu-btn:hover { background: var(--c-bg); }
+    .mobile-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+      z-index: 199; backdrop-filter: blur(2px);
+    }
+    .mobile-overlay.open { display: block; }
+    .mobile-drawer {
+      position: fixed; top: 0; left: -280px; width: 280px; height: 100vh;
+      background: var(--c-surface); border-right: 1px solid var(--c-border-light);
+      z-index: 200; transition: left 0.28s cubic-bezier(0.4,0,0.2,1);
+      overflow-y: auto; padding-top: var(--sp-5);
+    }
+    .mobile-drawer.open { left: 0; }
+    .mobile-drawer-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 var(--sp-4) var(--sp-4); border-bottom: 1px solid var(--c-border-light);
+      margin-bottom: var(--sp-2);
+    }
+    .mobile-drawer-close {
+      background: none; border: none; cursor: pointer; font-size: 22px;
+      color: var(--c-text-muted); line-height: 1; padding: 4px;
+    }
     @media (max-width: 768px) {
       .dash-layout { grid-template-columns: 1fr; }
       .sidebar { display: none; }
+      .mobile-menu-btn { display: flex; }
       .stats-row { grid-template-columns: repeat(2, 1fr); }
       .quick-start { grid-template-columns: 1fr; }
+      .plan-grid { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -128,9 +159,40 @@
         <span id="nav-quota">0/3 次</span>
       </div>
       <div class="navbar-avatar" id="nav-avatar">?</div>
+      <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="開啟選單" onclick="toggleMobileDrawer(true)">☰</button>
     </div>
   </div>
 </nav>
+
+<!-- Mobile sidebar drawer -->
+<div class="mobile-overlay" id="mobileOverlay" onclick="toggleMobileDrawer(false)"></div>
+<div class="mobile-drawer" id="mobileDrawer">
+  <div class="mobile-drawer-header">
+    <div style="display:flex;align-items:center;gap:var(--sp-2);">
+      <div class="brand-logo" style="width:28px;height:28px;font-size:12px;">A</div>
+      <span style="font-weight:var(--fw-semi);color:var(--c-primary);">CloudFrame</span>
+    </div>
+    <button class="mobile-drawer-close" onclick="toggleMobileDrawer(false)" aria-label="關閉選單">✕</button>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title">主要功能</div>
+    <a href="dashboard.html" class="sidebar-link active"><span class="sl-icon">🏠</span>儀表板</a>
+    <a href="analyze.html" class="sidebar-link"><span class="sl-icon">☁️</span>新增分析</a>
+    <a href="#history" class="sidebar-link" onclick="switchTab('history');toggleMobileDrawer(false)"><span class="sl-icon">📋</span>歷史紀錄 <span class="sl-badge" id="historyCntM">0</span></a>
+    <a href="#charts" class="sidebar-link" onclick="switchTab('charts');toggleMobileDrawer(false)"><span class="sl-icon">📊</span>分析統計</a>
+  </div>
+  <div class="sidebar-section">
+    <div class="sidebar-title">帳號管理</div>
+    <a href="#profile" class="sidebar-link" onclick="switchTab('profile');toggleMobileDrawer(false)"><span class="sl-icon">👤</span>個人資料</a>
+    <a href="#plan" class="sidebar-link" onclick="switchTab('plan');toggleMobileDrawer(false)"><span class="sl-icon">💳</span>方案與額度</a>
+    <a href="admin-dashboard.html" class="sidebar-link" id="sideAdminLinkM" style="display:none;"><span class="sl-icon">⚙️</span>後台管理</a>
+    <a href="#" class="sidebar-link" onclick="Auth.logout()"><span class="sl-icon">🚪</span>登出</a>
+  </div>
+  <div style="padding:var(--sp-4);border-top:1px solid var(--c-border-light);margin-top:var(--sp-2);">
+    <div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);" id="sidebar-username-m">-</div>
+    <div style="font-size:var(--fs-xs);color:var(--c-text-muted);" id="sidebar-plan-m">-</div>
+  </div>
+</div>
 
 <div class="page-body">
   <div class="dash-layout">
@@ -420,6 +482,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (user.role === 'admin') {
     document.getElementById('adminLink')?.style?.setProperty('display','flex');
     document.getElementById('sideAdminLink')?.style?.setProperty('display','flex');
+    document.getElementById('sideAdminLinkM')?.style?.setProperty('display','flex');
   }
 
   // Greeting
@@ -427,10 +490,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const grt = hr < 12 ? '早安' : hr < 18 ? '午安' : '晚安';
   document.getElementById('greeting').textContent = `${grt}，${user.name} 👋`;
 
-  // Sidebar user info
+  // Sidebar user info (desktop + mobile drawer)
   const planNames = { free:'免費版 (Free)', pro:'專業版 (Pro)', enterprise:'企業版' };
   document.getElementById('sidebar-username').textContent = user.name;
   document.getElementById('sidebar-plan').textContent = planNames[user.plan] || user.plan;
+  const elM = document.getElementById('sidebar-username-m');
+  const planM = document.getElementById('sidebar-plan-m');
+  if (elM) elM.textContent = user.name;
+  if (planM) planM.textContent = planNames[user.plan] || user.plan;
 
   // Quota — async in Supabase mode
   const quota = await Auth.checkQuota();
@@ -469,6 +536,22 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.location.hash === '#history') switchTab('history');
   if (window.location.hash === '#plan') switchTab('plan');
 });
+
+// ── Mobile drawer ─────────────────────────────────────────────
+function toggleMobileDrawer(open) {
+  const drawer  = document.getElementById('mobileDrawer');
+  const overlay = document.getElementById('mobileOverlay');
+  if (!drawer) return;
+  if (open) {
+    drawer.classList.add('open');
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  } else {
+    drawer.classList.remove('open');
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+}
 
 function switchTab(tab) {
   ['Overview','History','Charts','Profile','Plan'].forEach(t => {
@@ -529,6 +612,8 @@ function loadStats() {
   document.getElementById('statTotal').textContent = total;
   document.getElementById('statMonthlyDelta').textContent = `↑ ${monthlyCount} 次（本月）`;
   document.getElementById('historyCnt').textContent = total;
+  const cntM = document.getElementById('historyCntM');
+  if (cntM) cntM.textContent = total;
 
   // Top strategy
   if (history.length > 0) {
@@ -713,26 +798,43 @@ async function startCheckout(plan) {
 
 // ── 刪除帳號 ──────────────────────────────────────────────────
 async function confirmDeleteAccount() {
-  const confirmed = window.confirm(
-    '⚠️ 確定要刪除帳號嗎？\n\n此操作將永久刪除您的所有分析記錄與個人資料，無法復原。\n\n如需繼續，請按「確定」。'
-  );
-  if (!confirmed) return;
+  const email = document.getElementById('profileEmail')?.value || '';
 
-  const email = document.getElementById('profileEmail')?.value;
-  const input = window.prompt(`請輸入您的電子信箱以確認刪除：`);
-  if (input?.trim().toLowerCase() !== email?.trim().toLowerCase()) {
+  const input = window.prompt(
+    `⚠️ 此操作將永久刪除您的帳號與所有雲端資料，無法復原。\n\n請輸入您的電子信箱「${email}」以確認：`
+  );
+  if (input === null) return; // 用戶取消
+  if (input.trim().toLowerCase() !== email.trim().toLowerCase()) {
     SA.Toast.error('信箱不符', '輸入的信箱與帳號不符，取消刪除。');
     return;
   }
 
+  const btn = document.querySelector('[onclick="confirmDeleteAccount()"]');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 刪除中…'; }
+
   try {
-    // Sign out and clear local data
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    if (!session?.access_token) throw new Error('找不到登入 Session');
+
+    const resp = await fetch('/api/delete-account', {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${session.access_token}` },
+    });
+    const data = await resp.json();
+
+    if (!resp.ok) throw new Error(data.error || '伺服器錯誤');
+
+    // 清除本機資料並登出
     SA.Store.set('history', []);
-    await Auth.logout();
-    SA.Toast.success('帳號已刪除', '您的本機資料已清除。如需完全刪除雲端資料，請聯絡 privacy@cloudframe.ai');
-    setTimeout(() => { window.location.href = 'index.html'; }, 2000);
+    sessionStorage.clear();
+    await SupabaseClient.getClient().auth.signOut();
+
+    SA.Toast.success('帳號已永久刪除', '您的所有資料已從雲端移除。感謝您使用 CloudFrame。');
+    setTimeout(() => { window.location.href = 'index.html'; }, 2500);
+
   } catch (err) {
     SA.Toast.error('刪除失敗', err.message);
+    if (btn) { btn.disabled = false; btn.textContent = '🗑️ 刪除我的帳號'; }
   }
 }
 </script>

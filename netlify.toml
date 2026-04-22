@@ -57,6 +57,11 @@
   to     = "/.netlify/functions/stripe-webhook"
   status = 200
 
+[[redirects]]
+  from   = "/api/delete-account"
+  to     = "/.netlify/functions/delete-account"
+  status = 200
+
 # Security headers
 [[headers]]
   for = "/*"
