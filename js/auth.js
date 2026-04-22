@@ -361,17 +361,36 @@ const Auth = (() => {
     const adminLinkEl = document.getElementById('adminLink');
     if (adminLinkEl) adminLinkEl.style.display = user.role === 'admin' ? '' : 'none';
 
-    // Sidebar
+    // Sidebar + navbar avatar
+    const initial = (user.name || user.email || 'U')[0].toUpperCase();
     const map = {
       sidebarUserName:  user.name || user.email,
       sidebarUserEmail: user.email,
       sidebarUserPlan:  (user.plan || 'free').toUpperCase(),
-      sidebarAvatar:    (user.name || user.email || 'U')[0].toUpperCase(),
+      sidebarAvatar:    initial,
     };
     Object.entries(map).forEach(([id, val]) => {
       const el = document.getElementById(id);
       if (el) el.textContent = val;
     });
+
+    // Navbar avatar — update text + add click-to-profile
+    const navAvatar = document.getElementById('nav-avatar');
+    if (navAvatar) {
+      navAvatar.textContent = initial;
+      navAvatar.title = `${user.name || user.email}（點擊前往個人資料）`;
+      if (!navAvatar._clickBound) {
+        navAvatar._clickBound = true;
+        navAvatar.addEventListener('click', () => {
+          // If on dashboard, switch to profile tab; else navigate there
+          if (typeof switchTab === 'function') {
+            switchTab('profile');
+          } else {
+            window.location.href = 'dashboard.html#profile';
+          }
+        });
+      }
+    }
 
     // Analytics identify
     _saTrack('__identify__', { $email: user.email, $name: user.name, plan: user.plan });

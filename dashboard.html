@@ -90,8 +90,9 @@
     .chart-row { display: grid; grid-template-columns: 2fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-5); }
     .chart-card { background: var(--c-surface); border: 1px solid var(--c-border-light); border-radius: var(--r-xl); padding: var(--sp-5); box-shadow: var(--shadow-sm); }
     /* Risk bar in history */
-    .risk-mini { width: 60px; height: 5px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; display: inline-block; }
+    .risk-mini { width: 64px; height: 7px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; display: inline-block; vertical-align: middle; }
     .risk-mini-fill { height: 100%; border-radius: var(--r-full); }
+    .risk-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
     @media (max-width: 1024px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
       .chart-row { grid-template-columns: 1fr; }
@@ -526,9 +527,10 @@ function buildHistoryRow(h) {
     </td>
     <td><span class="strat-badge strat-${stratKey}">${stratLabels[stratKey]}</span></td>
     <td>
-      <div style="display:flex;align-items:center;gap:8px;" title="${riskTip}">
+      <div style="display:flex;align-items:center;gap:6px;" title="${riskTip}">
+        <span class="risk-dot" style="background:${riskColor};box-shadow:0 0 0 2px ${riskColor}22;"></span>
         <span class="risk-mini"><span class="risk-mini-fill" style="width:${riskVal}%;background:${riskColor};"></span></span>
-        <span style="font-size:12px;font-weight:600;color:${riskColor};">${riskVal || '—'}%</span>
+        <span style="font-size:12px;font-weight:700;color:${riskColor};min-width:32px;">${riskVal || '—'}%</span>
       </div>
     </td>
     <td><span class="badge ${styleBadge}" style="font-size:10px;">${styleLabel}</span></td>

@@ -175,9 +175,14 @@ small { font-size: var(--fs-sm); }
   border: 2px solid rgba(255,255,255,0.2);
   display: flex; align-items: center; justify-content: center;
   color: white; font-size: var(--fs-xs); font-weight: var(--fw-bold);
-  cursor: pointer; transition: border-color var(--t-fast);
+  cursor: pointer; transition: border-color var(--t-fast), transform var(--t-fast), box-shadow var(--t-fast);
+  user-select: none;
 }
-.navbar-avatar:hover { border-color: rgba(255,255,255,0.5); }
+.navbar-avatar:hover {
+  border-color: rgba(255,255,255,0.7);
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.15);
+}
 
 /* ── Page Layout ── */
 .page-body {
