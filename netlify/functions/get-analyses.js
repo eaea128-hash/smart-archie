@@ -27,40 +27,54 @@ export const handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 204, headers: corsH, body: '' };
   if (event.httpMethod !== 'GET')    return { statusCode: 405, headers: corsH, body: '{}' };
 
-  const token = (event.headers?.authorization || '').replace('Bearer ', '').trim();
-  if (!token) return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '未提供 Token' }) };
+  try {
+    const token = (event.headers?.authorization || '').replace('Bearer ', '').trim();
+    if (!token) return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '未提供 Token' }) };
 
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-  if (authErr || !user) return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '認證失敗' }) };
+    // 驗證 token
+    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+    const user = authData?.user;
+    if (authErr || !user) {
+      console.error('[get-analyses] Auth error:', authErr?.message);
+      return { statusCode: 401, headers: corsH, body: JSON.stringify({ error: '認證失敗', detail: authErr?.message }) };
+    }
 
-  const params = event.queryStringParameters || {};
-  const limit  = Math.min(parseInt(params.limit  || '20', 10), 100);
-  const offset = parseInt(params.offset || '0', 10);
+    const params = event.queryStringParameters || {};
+    const limit  = Math.min(parseInt(params.limit  || '20', 10), 100);
+    const offset = parseInt(params.offset || '0', 10);
 
-  // 先用最安全的欄位查，再嘗試加 inputs/result
-  let { data, error, count } = await supabase
-    .from('analyses')
-    .select('id, project_name, strategy, risk_score, share_token, created_at, inputs, result', { count: 'exact' })
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  // 若 inputs/result 欄位不存在（舊 schema），fallback 到基本欄位
-  if (error && (error.code === '42703' || error.message?.includes('column'))) {
-    console.warn('[get-analyses] Falling back to basic columns:', error.message);
-    ({ data, error, count } = await supabase
+    // 先嘗試完整欄位
+    let { data, error, count } = await supabase
       .from('analyses')
-      .select('id, project_name, strategy, risk_score, created_at', { count: 'exact' })
+      .select('id, project_name, strategy, risk_score, share_token, created_at, inputs, result', { count: 'exact' })
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1));
+      .range(offset, offset + limit - 1);
+
+    // 若有欄位不存在，fallback 到基本欄位
+    if (error) {
+      console.warn('[get-analyses] Full query error, falling back. Code:', error.code, 'Msg:', error.message);
+      ({ data, error, count } = await supabase
+        .from('analyses')
+        .select('id, project_name, strategy, risk_score, created_at', { count: 'exact' })
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1));
+    }
+
+    if (error) {
+      console.error('[get-analyses] DB error:', error);
+      return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: error.message, code: error.code }) };
+    }
+
+    return {
+      statusCode: 200,
+      headers: { ...corsH, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, analyses: data || [], total: count || 0 }),
+    };
+
+  } catch (e) {
+    console.error('[get-analyses] Unexpected error:', e);
+    return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: e.message || 'Unknown error' }) };
   }
-
-  if (error) return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: error.message, code: error.code }) };
-
-  return {
-    statusCode: 200,
-    headers: { ...corsH, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ success: true, analyses: data || [], total: count || 0 }),
-  };
 };
