@@ -18,6 +18,136 @@ import { createClient } from '@supabase/supabase-js';
 const supabase   = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const OPENAI_KEY = process.env.OPENAI_API_KEY;
 
+// ── Carbon Intensity Data (gCO2eq/kWh) — Source: Cloud provider official data ──
+const CARBON_DATA = {
+  aws: {
+    regions: {
+      'ap-east-1':      { name: 'Hong Kong',    intensity: 799, renewable: 5  },
+      'ap-southeast-1': { name: 'Singapore',    intensity: 408, renewable: 25 },
+      'ap-southeast-2': { name: 'Sydney',       intensity: 690, renewable: 25 },
+      'ap-northeast-1': { name: 'Tokyo',        intensity: 463, renewable: 30 },
+      'ap-northeast-3': { name: 'Osaka',        intensity: 463, renewable: 30 },
+      'ap-south-1':     { name: 'Mumbai',       intensity: 708, renewable: 20 },
+      'eu-north-1':     { name: 'Stockholm',    intensity: 8,   renewable: 99 },
+      'eu-west-1':      { name: 'Ireland',      intensity: 316, renewable: 72 },
+      'eu-central-1':   { name: 'Frankfurt',    intensity: 338, renewable: 70 },
+      'us-east-1':      { name: 'N. Virginia',  intensity: 415, renewable: 65 },
+      'us-west-2':      { name: 'Oregon',       intensity: 136, renewable: 89 },
+    },
+    commitment: 'Net Zero by 2040, 100% renewable energy by 2025',
+    tool: 'AWS Customer Carbon Footprint Tool',
+  },
+  azure: {
+    regions: {
+      'eastasia':       { name: 'Hong Kong',    intensity: 790, renewable: 5  },
+      'southeastasia':  { name: 'Singapore',    intensity: 408, renewable: 25 },
+      'japaneast':      { name: 'Tokyo',        intensity: 463, renewable: 30 },
+      'australiaeast':  { name: 'Sydney',       intensity: 690, renewable: 25 },
+      'swedencentral':  { name: 'Sweden',       intensity: 8,   renewable: 99 },
+      'northeurope':    { name: 'Ireland',      intensity: 316, renewable: 72 },
+      'westeurope':     { name: 'Netherlands',  intensity: 390, renewable: 55 },
+    },
+    commitment: 'Carbon negative by 2030, remove all historical carbon by 2050',
+    tool: 'Azure Emissions Impact Dashboard',
+  },
+  gcp: {
+    regions: {
+      'asia-east1':          { name: 'Taiwan',     intensity: 509, renewable: 15 },
+      'asia-east2':          { name: 'Hong Kong',  intensity: 790, renewable: 5  },
+      'asia-northeast1':     { name: 'Tokyo',      intensity: 463, renewable: 30 },
+      'asia-southeast1':     { name: 'Singapore',  intensity: 408, renewable: 25 },
+      'australia-southeast1':{ name: 'Sydney',     intensity: 690, renewable: 25 },
+      'europe-north1':       { name: 'Finland',    intensity: 35,  renewable: 97 },
+      'europe-west1':        { name: 'Belgium',    intensity: 150, renewable: 85 },
+      'us-central1':         { name: 'Iowa',       intensity: 356, renewable: 90 },
+    },
+    commitment: 'Carbon-free energy 24/7 by 2030, carbon neutral since 2007',
+    tool: 'GCP Carbon Footprint',
+  },
+};
+
+// Average on-premises data center carbon intensity (Taiwan/APAC)
+const ONPREM_INTENSITY = 509; // gCO2eq/kWh (Taiwan grid average)
+const ANNUAL_SERVER_KWH = 8760; // kWh per server per year
+
+// ── MCP Tool Definitions ──────────────────────────────────────
+const MCP_TOOLS = [
+  {
+    name: 'lookup_carbon_intensity',
+    description: 'Get real carbon intensity data (gCO2eq/kWh) and renewable energy percentage for all regions of a cloud provider. Use this to recommend the lowest-carbon region and calculate CO2 reduction vs on-premises.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        provider: {
+          type: 'string',
+          enum: ['aws', 'azure', 'gcp'],
+          description: 'Cloud provider (lowercase)',
+        },
+      },
+      required: ['provider'],
+    },
+  },
+  {
+    name: 'calculate_carbon_reduction',
+    description: 'Calculate estimated annual CO2 reduction when migrating from on-premises to a specific cloud region. Returns reduction percentage and absolute tonnes.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        provider:       { type: 'string', enum: ['aws', 'azure', 'gcp'] },
+        target_region:  { type: 'string', description: 'Target cloud region code' },
+        server_count:   { type: 'number', description: 'Estimated number of servers/VMs to migrate' },
+      },
+      required: ['provider', 'target_region', 'server_count'],
+    },
+  },
+];
+
+// ── Tool Executor ─────────────────────────────────────────────
+function executeMCPTool(name, input) {
+  if (name === 'lookup_carbon_intensity') {
+    const providerData = CARBON_DATA[input.provider];
+    if (!providerData) return { error: 'Unknown provider' };
+    return {
+      provider: input.provider,
+      commitment: providerData.commitment,
+      monitoring_tool: providerData.tool,
+      onprem_baseline_gco2_kwh: ONPREM_INTENSITY,
+      regions: Object.entries(providerData.regions).map(([code, d]) => ({
+        code, name: d.name,
+        intensity_gco2_kwh: d.intensity,
+        renewable_pct: d.renewable,
+        vs_onprem_reduction_pct: Math.round((1 - d.intensity / ONPREM_INTENSITY) * 100),
+      })).sort((a, b) => a.intensity_gco2_kwh - b.intensity_gco2_kwh),
+    };
+  }
+
+  if (name === 'calculate_carbon_reduction') {
+    const providerData = CARBON_DATA[input.provider];
+    const regionData   = providerData?.regions[input.target_region];
+    if (!regionData) return { error: 'Unknown region', available_regions: Object.keys(providerData?.regions || {}) };
+
+    const servers    = input.server_count || 20;
+    const onpremCO2  = (ONPREM_INTENSITY * ANNUAL_SERVER_KWH * servers) / 1_000_000; // tonnes
+    const cloudCO2   = (regionData.intensity * ANNUAL_SERVER_KWH * servers) / 1_000_000;
+    const reduction  = onpremCO2 - cloudCO2;
+    const reductionPct = Math.round((reduction / onpremCO2) * 100);
+
+    return {
+      provider: input.provider,
+      region:   input.target_region,
+      region_name: regionData.name,
+      server_count: servers,
+      annual_onprem_co2_tonnes:  Math.round(onpremCO2 * 10) / 10,
+      annual_cloud_co2_tonnes:   Math.round(cloudCO2 * 10) / 10,
+      annual_reduction_tonnes:   Math.round(reduction * 10) / 10,
+      reduction_pct:             reductionPct,
+      renewable_pct:             regionData.renewable,
+    };
+  }
+
+  return { error: `Unknown tool: ${name}` };
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const MODEL          = process.env.CLAUDE_MODEL      || 'claude-opus-4-6';
 const MAX_TOKENS     = parseInt(process.env.CLAUDE_MAX_TOKENS || '8000', 10);
@@ -153,6 +283,14 @@ For each dimension: current score → target score → specific mitigations.
 - Dependencies and critical path
 - KPI dashboard: what to measure weekly/monthly
 
+### Step 7: Sustainability & Carbon Assessment
+When MCP tools provide carbon intensity data, use it to:
+- Calculate CO2 reduction vs on-premises baseline (Taiwan grid: 509 gCO2eq/kWh)
+- Recommend the lowest-carbon region for the target provider
+- Provide ESG compliance guidance aligned with stated frameworks (TCFD/GRI/SBTi)
+- Quantify annual CO2 reduction in absolute tonnes
+- Reference the cloud provider's sustainability commitment and monitoring tools
+
 ## Output Format
 Always respond with a valid JSON object matching this schema:
 {
@@ -231,6 +369,16 @@ Always respond with a valid JSON object matching this schema:
   "next_steps": [
     { "priority": 1, "action": "string", "owner": "string", "timeline": "string", "effort": "string" }
   ],
+  "sustainability": {
+    "carbon_reduction_pct": 0,
+    "annual_co2_reduction_tonnes": 0,
+    "recommended_region": "string (region with lowest carbon intensity for target provider)",
+    "recommended_region_intensity": 0,
+    "rationale": "string (explanation of carbon reduction methodology)",
+    "esg_guidance": ["string"],
+    "provider_commitment": "string",
+    "monitoring_tool": "string"
+  },
   "meta": {
     "analysis_version": "2.0",
     "frameworks_version": "2026-Q1",
@@ -416,41 +564,86 @@ export const handler = async (event) => {
       body: JSON.stringify({ error: 'Invalid JSON body' }) };
   }
 
-  // Call Claude with streaming → collect → return full result
+  // Call Claude with MCP tool_use → final analysis → return result
   try {
     const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-    // ── RAG：取得相關知識庫文件，注入 Claude prompt ──────────
+    // ── RAG：取得相關知識庫文件 ──────────────────────────────
     const ragContext  = await getRagContext(inputs);
     const userMessage = buildUserMessage(inputs) + ragContext;
 
-    const stream = client.messages.stream({
+    // ── Phase 1: MCP Tool Use — gather carbon intensity data ─
+    let toolContextMessages = [];
+    const hasSustainability = inputs.sustainabilityGoal && inputs.sustainabilityGoal !== 'none';
+    const provider = (inputs.targetCloud || 'AWS').toLowerCase();
+    const validProvider = ['aws', 'azure', 'gcp'].includes(provider) ? provider : 'aws';
+
+    if (hasSustainability || inputs.esgFramework !== 'none') {
+      try {
+        const toolPhase = await client.messages.create({
+          model:      MODEL,
+          max_tokens: 1024,
+          tools:      MCP_TOOLS,
+          messages:   [{
+            role: 'user',
+            content: `The user is migrating to ${inputs.targetCloud}. Their sustainability goal is "${inputs.sustainabilityGoal}" and ESG framework is "${inputs.esgFramework}". Use the tools to look up carbon intensity data and calculate CO2 reduction for approximately ${inputs.systemCount || 20} servers migrating to the lowest-carbon region.`,
+          }],
+        });
+
+        // Execute tool calls
+        const toolResults = [];
+        for (const block of toolPhase.content) {
+          if (block.type === 'tool_use') {
+            const result = executeMCPTool(block.name, block.input);
+            console.log(`[MCP] Tool called: ${block.name}`, block.input);
+            toolResults.push({
+              type: 'tool_result',
+              tool_use_id: block.id,
+              content: JSON.stringify(result),
+            });
+          }
+        }
+
+        if (toolResults.length > 0) {
+          toolContextMessages = [
+            { role: 'user',      content: toolPhase.content[0]?.type === 'text' ? toolPhase.content : 'Use tools to gather carbon data' },
+            { role: 'assistant', content: toolPhase.content },
+            { role: 'user',      content: toolResults },
+          ];
+        }
+      } catch (toolErr) {
+        console.warn('[MCP] Tool phase skipped:', toolErr.message);
+      }
+    }
+
+    // ── Phase 2: Full analysis with tool context ──────────────
+    const analysisMessages = toolContextMessages.length > 0
+      ? [
+          ...toolContextMessages,
+          { role: 'user', content: `Now perform the full cloud advisory analysis. ${userMessage}\n\nIMPORTANT: Include a complete "sustainability" object in your JSON output using the carbon data from the tools above.` },
+        ]
+      : [{ role: 'user', content: userMessage }];
+
+    const message = await client.messages.create({
       model:      MODEL,
       max_tokens: MAX_TOKENS,
-      thinking:   { type: 'adaptive' },
       system:     SYSTEM_PROMPT,
-      messages:   [{ role: 'user', content: userMessage }],
+      messages:   analysisMessages,
     });
-
-    const message = await stream.finalMessage();
 
     // Extract JSON from response
     let jsonResult = null;
     let rawText    = '';
     for (const block of message.content) {
-      if (block.type === 'text') {
-        rawText += block.text;
-      }
+      if (block.type === 'text') rawText += block.text;
     }
 
-    // Parse JSON — Claude may wrap in ```json fences
     const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/) ||
                       rawText.match(/(\{[\s\S]*\})/);
     if (jsonMatch) {
       try {
         jsonResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
       } catch {
-        // Fallback: try parsing entire text
         try { jsonResult = JSON.parse(rawText); } catch { /* will return raw */ }
       }
     }
@@ -469,10 +662,8 @@ export const handler = async (event) => {
 
   } catch (err) {
     console.error('[analyze] Claude API error:', err);
-
     const status = err.status || err.statusCode || 500;
     const msg    = err.message || 'Internal server error';
-
     return {
       statusCode: status,
       headers: { ...cors, 'Content-Type': 'application/json' },

@@ -751,6 +751,46 @@
           </div>
         </div>
 
+        <!-- Sustainability & Carbon -->
+        <div class="input-section" id="sec7b">
+          <div class="input-section-header" onclick="toggleSection('sec7b')">
+            <span class="input-section-num" style="background:var(--c-success,#22c55e);">🌱</span>
+            <span class="input-section-title">永續發展與碳排評估 <span style="font-size:10px;background:rgba(34,197,94,0.15);color:#16a34a;border-radius:4px;padding:1px 6px;margin-left:4px;">選填</span></span>
+            <span class="input-section-arrow">▼</span>
+          </div>
+          <div class="input-section-body">
+            <div class="form-group">
+              <label class="form-label">碳排承諾目標</label>
+              <select id="sustainabilityGoal" class="form-select">
+                <option value="none">無特定目標</option>
+                <option value="net_zero_2050">Net Zero 2050</option>
+                <option value="carbon_neutral_2030">碳中和 2030</option>
+                <option value="sbti">科學基礎目標（SBTi）</option>
+                <option value="re100">RE100 可再生能源承諾</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">ESG 報告框架</label>
+              <select id="esgFramework" class="form-select">
+                <option value="none">無</option>
+                <option value="tcfd">TCFD（氣候相關財務揭露）</option>
+                <option value="gri">GRI Standards</option>
+                <option value="tcfd_gri">TCFD + GRI</option>
+                <option value="twse">台灣 TWSE 永續報告書</option>
+                <option value="ifrs_s2">IFRS S2 氣候相關揭露</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否已有碳排基準數據</label>
+              <div class="toggle-group" id="carbonBaseline">
+                <button class="toggle-btn" data-value="yes">✅ 有（Scope 1/2/3）</button>
+                <button class="toggle-btn active" data-value="no">尚未測量</button>
+              </div>
+            </div>
+            <div class="form-hint">🌏 系統將根據目標雲端平台的區域碳強度數據，計算遷移後碳排降低估算</div>
+          </div>
+        </div>
+
         <!-- Report Style -->
         <div class="input-section" id="sec7">
           <div class="input-section-header" onclick="toggleSection('sec7')">
@@ -969,6 +1009,9 @@ function collectInputs() {
     complianceLevel:       getToggleVal('complianceLevel'),
     envCount:              document.getElementById('envCount').value,
     budget:                getToggleVal('budget'),
+    sustainabilityGoal:    document.getElementById('sustainabilityGoal')?.value || 'none',
+    esgFramework:          document.getElementById('esgFramework')?.value || 'none',
+    carbonBaseline:        getToggleVal('carbonBaseline'),
     reportStyle,
   };
 }
@@ -1151,6 +1194,9 @@ function _buildAPIInputs(inputs) {
     teamSize:        inputs.cloudMaturity === 'high' ? 'large' : inputs.cloudMaturity === 'medium' ? 'medium' : 'small',
     complianceFrameworks,
     geography:       ['Singapore'],  // Default; user can extend in future
+    sustainabilityGoal: inputs.sustainabilityGoal || 'none',
+    esgFramework:       inputs.esgFramework || 'none',
+    carbonBaseline:     inputs.carbonBaseline || 'no',
     monthlyTrafficGB: inputs.txVolume === 'high' ? 5000 : inputs.txVolume === 'medium' ? 1000 : 200,
     description: [
       inputs.painPoints || '',
@@ -1654,6 +1700,38 @@ function renderResult(r, style) {
       }).join('')}
     </div>
   </div>
+
+  <!-- Sustainability Card -->
+  ${r.sustainability ? `
+  <div class="result-section">
+    <div class="result-section-title"><span class="rst-icon">🌱</span>永續發展與碳排影響</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4);" class="carbon-grid">
+      <div class="card" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.04);">
+        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+          <div style="font-size:28px;font-weight:800;color:#16a34a;">${r.sustainability.carbon_reduction_pct || 0}%</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">預估碳排降低</div>
+        </div>
+      </div>
+      <div class="card" style="border-color:rgba(26,155,181,0.3);">
+        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+          <div style="font-size:28px;font-weight:800;color:var(--c-accent-teal);">${r.sustainability.annual_co2_reduction_tonnes || '–'}</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">噸 CO₂/年 減少</div>
+        </div>
+      </div>
+      <div class="card" style="border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.04);">
+        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+          <div style="font-size:16px;font-weight:700;color:var(--c-primary);margin-top:4px;">${r.sustainability.recommended_region || '–'}</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">最低碳強度 Region 推薦</div>
+        </div>
+      </div>
+    </div>
+    ${r.sustainability.rationale ? `<div class="card" style="margin-bottom:var(--sp-4);"><div class="card-body"><p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.7;margin:0;">${r.sustainability.rationale}</p></div></div>` : ''}
+    ${(r.sustainability.esg_guidance || []).length ? `
+    <div class="card"><div class="card-body">
+      <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);margin-bottom:var(--sp-3);">📋 ESG 合規指引</div>
+      ${r.sustainability.esg_guidance.map(g => `<div style="font-size:var(--fs-sm);color:var(--c-text-muted);padding:4px 0;border-bottom:1px solid var(--c-border-light);">• ${g}</div>`).join('')}
+    </div></div>` : ''}
+  </div>` : ''}
 
   <!-- API Source Badge -->
   ${r.source === 'claude-api' ? `

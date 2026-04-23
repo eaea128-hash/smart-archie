@@ -1,0 +1,62 @@
+[
+  {
+    "title": "AWS 各區域碳強度數據與永續承諾",
+    "content": "AWS 碳強度數據（gCO2eq/kWh）：東京 ap-northeast-1: 463（再生能源30%）、新加坡 ap-southeast-1: 408（25%）、香港 ap-east-1: 799（5%）、愛爾蘭 eu-west-1: 316（72%）、斯德哥爾摩 eu-north-1: 8（99%）、奧勒岡 us-west-2: 136（89%）。AWS 承諾：2040年淨零排放、2025年100%可再生能源。監控工具：AWS Customer Carbon Footprint Tool（免費）。台灣電網平均：509 gCO2eq/kWh。企業從台灣機房遷移至東京AWS，可降低約9%碳排；遷移至奧勒岡可降低約73%；遷移至斯德哥爾摩可降低約98%。",
+    "category": "compliance",
+    "industry": "general",
+    "cloud_provider": "aws",
+    "tags": ["carbon", "sustainability", "ESG", "AWS", "net-zero"]
+  },
+  {
+    "title": "Azure 碳排放數據與 Emissions Impact Dashboard",
+    "content": "Azure 碳強度數據（gCO2eq/kWh）：香港 East Asia: 790（5%）、新加坡 Southeast Asia: 408（25%）、東京 Japan East: 463（30%）、愛爾蘭 North Europe: 316（72%）、荷蘭 West Europe: 390（55%）、瑞典 Sweden Central: 8（99%）。Azure 承諾：2030年碳負排放、2050年移除所有歷史碳排、2025年100%可再生能源。監控工具：Azure Emissions Impact Dashboard（免費，顯示Scope 1/2/3）。Microsoft 是第一個承諾碳負排放的大型雲端廠商。",
+    "category": "compliance",
+    "industry": "general",
+    "cloud_provider": "azure",
+    "tags": ["carbon", "sustainability", "ESG", "Azure", "carbon-negative"]
+  },
+  {
+    "title": "GCP 碳排放數據與 Carbon Footprint Tool",
+    "content": "GCP 碳強度數據（gCO2eq/kWh）：台灣 asia-east1: 509（15%）、香港 asia-east2: 790（5%）、東京 asia-northeast1: 463（30%）、新加坡 asia-southeast1: 408（25%）、芬蘭 europe-north1: 35（97%）、比利時 europe-west1: 150（85%）、愛荷華州 us-central1: 356（90%）。GCP 是最早實現碳中和的雲端廠商（2007年起）。承諾2030年所有數據中心24/7使用無碳能源（CFE）。監控工具：GCP Carbon Footprint（免費，每月更新）。",
+    "category": "compliance",
+    "industry": "general",
+    "cloud_provider": "gcp",
+    "tags": ["carbon", "sustainability", "ESG", "GCP", "carbon-free"]
+  },
+  {
+    "title": "TCFD 氣候相關財務揭露框架與金融業雲端應用",
+    "content": "TCFD（Task Force on Climate-related Financial Disclosures）要求金融機構揭露：治理（Board對氣候風險的監督）、策略（氣候情境分析）、風險管理（識別與評估氣候相關風險）、指標與目標（Scope 1/2/3排放量）。雲端遷移對TCFD的影響：Scope 2（購買電力）排放直接降低、數據中心退役減少固定資產碳排、雲端彈性有助於氣候韌性基礎設施。台灣金管會已要求上市公司2024年開始依TCFD框架揭露氣候風險。國泰金控、富邦金控已在永續報告書中揭露IT碳排數據。",
+    "category": "compliance",
+    "industry": "banking",
+    "tags": ["TCFD", "ESG", "carbon", "financial", "台灣", "金管會"]
+  },
+  {
+    "title": "金融機構雲端遷移碳排案例：星展銀行 DBS GCP 遷移",
+    "content": "星展銀行（DBS）於2019-2022年將核心系統遷移至GCP（新加坡 asia-southeast1，408 gCO2eq/kWh）。碳排影響：從自建數據中心（新加坡電網421 gCO2eq/kWh）遷移至GCP，碳強度相近但PUE效率大幅提升（雲端PUE 1.1 vs 自建1.5），整體碳排降低約27%。ESG 成果：IT Scope 2排放降低，納入新加坡MAS永續金融路線圖報告。關鍵策略：選擇同區域雲端廠商降低合規風險，同時透過GCP CFE承諾實現長期碳中和。",
+    "category": "case_study",
+    "industry": "banking",
+    "cloud_provider": "gcp",
+    "tags": ["DBS", "banking", "carbon", "Singapore", "GCP", "case-study"]
+  },
+  {
+    "title": "國泰金控 ESG 與 IT 碳排策略",
+    "content": "國泰金控 Net Zero 2050 承諾：2030年碳排減少30%（較2019基準）、2050年淨零。IT 碳排為 Scope 2 主要來源之一。雲端遷移 ESG 效益：機房退役降低 Scope 2、雲端廠商可再生能源承諾降低間接排放、降低實體設備製造碳排（Scope 3）。建議措施：選擇有RE100承諾的雲端廠商（AWS/Azure/GCP均已加入）、要求廠商提供台灣區碳排報告、在TCFD揭露中包含IT數位化碳減量數據。金管會2024年要求實收資本額20億以上上市公司依TCFD揭露。",
+    "category": "case_study",
+    "industry": "banking",
+    "tags": ["國泰", "Cathay", "ESG", "TCFD", "Net-Zero", "台灣金融"]
+  },
+  {
+    "title": "SBTi 科學基礎目標與雲端採購",
+    "content": "SBTi（Science Based Targets initiative）要求企業以1.5°C情境設定減排目標。IT採購計入Scope 3 Category 1（purchased goods）。雲端採購的SBTi計算方式：使用雲端廠商提供的碳排報告（AWS CFT、Azure EID、GCP Carbon Footprint）計入Scope 2 / Scope 3。AWS、Microsoft、Google均已通過SBTi驗證。企業選擇承諾SBTi的雲端廠商，可在SBTi報告中主張間接減排貢獻。台灣企業SBTi申請數量2022-2024年成長300%，金融業為申請主力。",
+    "category": "governance",
+    "industry": "general",
+    "tags": ["SBTi", "Scope3", "ESG", "carbon", "cloud-procurement"]
+  },
+  {
+    "title": "資料中心 PUE 與雲端能源效率對比",
+    "content": "PUE（Power Usage Effectiveness）是資料中心能源效率指標，1.0為完美值。台灣企業自建機房平均PUE：1.5-1.8。主要雲端廠商平均PUE：AWS 1.12、Azure 1.18、GCP 1.10。PUE降低意味更少電力用於冷卻，直接降低Scope 2碳排。以100台伺服器、1kW/台計算：自建機房（PUE 1.6，台灣電網509gCO2/kWh）年碳排 = 876噸CO2；遷移至GCP東京（PUE 1.10，463gCO2/kWh）年碳排 = 442噸CO2；降低約49%。雲端廠商規模化採購可再生能源的能力遠超一般企業，長期碳強度持續下降。",
+    "category": "architecture",
+    "industry": "general",
+    "tags": ["PUE", "energy", "carbon", "data-center", "efficiency"]
+  }
+]
