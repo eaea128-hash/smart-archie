@@ -39,7 +39,7 @@ export const handler = async (event) => {
 
   const { data, error, count } = await supabase
     .from('analyses')
-    .select('id, project_name, strategy, risk_score, source, share_enabled, share_token, created_at, inputs, result', { count: 'exact' })
+    .select('id, project_name, strategy, risk_score, share_token, created_at, inputs, result', { count: 'exact' })
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);

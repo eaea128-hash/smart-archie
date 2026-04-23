@@ -105,7 +105,7 @@ const Auth = (() => {
     const plan  = profile?.plan || 'free';
     const limit = PLAN_QUOTA[plan] || 3;
     const { data: quota } = await client.from('quota_usage').select('used')
-      .eq('user_id', session.user.id).eq('month_key', monthKey()).single();
+      .eq('user_id', session.user.id).eq('month_key', monthKey()).maybeSingle();
     const used = quota?.used || 0;
     return { allowed: used < limit, used, limit, remaining: limit - used, plan };
   }
@@ -328,7 +328,7 @@ const Auth = (() => {
   async function getQuota(userId) {
     if (useSupabase()) {
       const { data } = await sb().from('quota_usage').select('used')
-        .eq('user_id', userId).eq('month_key', monthKey()).single();
+        .eq('user_id', userId).eq('month_key', monthKey()).maybeSingle();
       return { month: monthKey(), used: data?.used || 0 };
     }
     return lsGet(LS.QUOTA(userId), { month: monthKey(), used: 0 });
