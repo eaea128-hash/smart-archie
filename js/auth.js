@@ -36,7 +36,7 @@ const Auth = (() => {
     if (error) return { success: false, error: _friendlyAuthError(error.message) };
 
     const { data: profile } = await client
-      .from('profiles').select('*').eq('id', data.user.id).single();
+      .from('profiles').select('*').eq('id', data.user.id).maybeSingle();
 
     const user = {
       id:      data.user.id,
@@ -75,7 +75,7 @@ const Auth = (() => {
     const { data: { session } } = await client.auth.getSession();
     if (!session) return null;
     const { data: profile } = await client
-      .from('profiles').select('*').eq('id', session.user.id).single();
+      .from('profiles').select('*').eq('id', session.user.id).maybeSingle();
     return {
       id:      session.user.id,
       email:   session.user.email,
@@ -101,7 +101,7 @@ const Auth = (() => {
     const { data: { session } } = await client.auth.getSession();
     if (!session) return { allowed: false, reason: '請先登入' };
     const { data: profile } = await client
-      .from('profiles').select('plan').eq('id', session.user.id).single();
+      .from('profiles').select('plan').eq('id', session.user.id).maybeSingle();
     const plan  = profile?.plan || 'free';
     const limit = PLAN_QUOTA[plan] || 3;
     const { data: quota } = await client.from('quota_usage').select('used')

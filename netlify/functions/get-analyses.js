@@ -37,14 +37,26 @@ export const handler = async (event) => {
   const limit  = Math.min(parseInt(params.limit  || '20', 10), 100);
   const offset = parseInt(params.offset || '0', 10);
 
-  const { data, error, count } = await supabase
+  // 先用最安全的欄位查，再嘗試加 inputs/result
+  let { data, error, count } = await supabase
     .from('analyses')
     .select('id, project_name, strategy, risk_score, share_token, created_at, inputs, result', { count: 'exact' })
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
-  if (error) return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: error.message }) };
+  // 若 inputs/result 欄位不存在（舊 schema），fallback 到基本欄位
+  if (error && (error.code === '42703' || error.message?.includes('column'))) {
+    console.warn('[get-analyses] Falling back to basic columns:', error.message);
+    ({ data, error, count } = await supabase
+      .from('analyses')
+      .select('id, project_name, strategy, risk_score, created_at', { count: 'exact' })
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1));
+  }
+
+  if (error) return { statusCode: 500, headers: corsH, body: JSON.stringify({ error: error.message, code: error.code }) };
 
   return {
     statusCode: 200,
