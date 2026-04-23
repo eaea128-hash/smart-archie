@@ -13,14 +13,6 @@
 (function(global) {
   'use strict';
 
-  // ── Config ─────────────────────────────────────────────────
-  // 這兩個值從 window.__SA_CONFIG__ 注入（由 netlify/functions/config.js 提供）
-  // 若找不到則使用預設佔位（開發時直接填入）
-  const config = global.__SA_CONFIG__ || {};
-
-  const SUPABASE_URL     = config.supabaseUrl     || '';
-  const SUPABASE_ANON_KEY = config.supabaseAnonKey || '';
-
   // ── Check if Supabase SDK is loaded ────────────────────────
   function isSupabaseLoaded() {
     return typeof global.supabase !== 'undefined' &&
@@ -28,6 +20,8 @@
   }
 
   // ── Create client ───────────────────────────────────────────
+  // 注意：每次 getClient() 都重新讀取 __SA_CONFIG__
+  // 因為 /api/config 是非同步載入，初始化時可能還是空的
   let _client = null;
 
   function getClient() {
@@ -36,11 +30,18 @@
       console.warn('[SupabaseClient] Supabase SDK not loaded');
       return null;
     }
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+
+    // 動態讀取，確保拿到最新的設定（/api/config 回來後才有值）
+    const cfg = global.__SA_CONFIG__ || {};
+    const url = cfg.supabaseUrl     || '';
+    const key = cfg.supabaseAnonKey || '';
+
+    if (!url || !key) {
       console.warn('[SupabaseClient] Missing SUPABASE_URL or SUPABASE_ANON_KEY');
       return null;
     }
-    _client = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+
+    _client = global.supabase.createClient(url, key, {
       auth: {
         autoRefreshToken:   true,
         persistSession:     true,
@@ -51,8 +52,15 @@
     return _client;
   }
 
+  // 強制重新初始化（config 載入後呼叫）
+  function reinit() {
+    _client = null;
+    return getClient();
+  }
+
   function isConfigured() {
-    return !!(SUPABASE_URL && SUPABASE_ANON_KEY && isSupabaseLoaded());
+    const cfg = global.__SA_CONFIG__ || {};
+    return !!(cfg.supabaseUrl && cfg.supabaseAnonKey && isSupabaseLoaded());
   }
 
   // ── Public API ──────────────────────────────────────────────
