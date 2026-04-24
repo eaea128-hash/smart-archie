@@ -7,7 +7,8 @@
  */
 
 const RESEND_API = 'https://api.resend.com/emails';
-const FROM       = 'CloudFrame <noreply@cloudframe.ai>';
+// 使用已驗證的 Resend 網域（待購買 cloudframe.ai 後換回 noreply@cloudframe.ai）
+const FROM       = process.env.EMAIL_FROM || 'CloudFrame <onboarding@resend.dev>';
 const BRAND_COLOR = '#0F2B3D';
 const TEAL_COLOR  = '#1A9BB5';
 
