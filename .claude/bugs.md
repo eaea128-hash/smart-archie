@@ -152,13 +152,59 @@
 
 ---
 
+---
+
+## 2026-04-24 批次修復（Config Drift Session）
+
+### [BUG-011] Supabase Site URL 指向舊網址
+- **狀態**：✅ 已修復（2026-04-24）
+- **影響**：所有 auth email 連結（驗證、重設密碼）
+- **現象**：點驗證信連結跳到 ai-product-analyzer.netlify.app
+- **根本原因**：Supabase Auth > URL Configuration > Site URL 從未更新
+- **修復**：手動至 Supabase Dashboard 更新 Site URL + Redirect URLs
+- **根因分類**：Config Drift
+
+### [BUG-012] .single() 在 0 筆時回傳 HTTP 406
+- **狀態**：✅ 已修復（2026-04-24）
+- **影響**：所有頁面登入流程（Dashboard 尤其明顯）
+- **現象**：Console 大量 406 Forbidden
+- **根本原因**：PostgREST `.single()` 在查無資料時回傳 PGRST116（406）；新用戶無 quota 記錄
+- **修復**：auth.js 全部 `.single()` 改為 `.maybeSingle()`（5 處）
+- **根因分類**：Edge Case
+
+### [BUG-013] analyses 表欄位不完整導致 500
+- **狀態**：✅ 已修復（2026-04-24）
+- **影響**：dashboard.html 歷史記錄載入
+- **現象**：`/api/get-analyses` 回傳 500，錯誤訊息 `column analyses.project_name does not exist`
+- **根本原因**：DB schema 在程式碼新增欄位後沒有同步執行 ALTER TABLE
+- **修復**：Supabase SQL Editor 執行 ALTER TABLE 補齊 8 個欄位；get-analyses 加 fallback + try-catch
+- **根因分類**：Config Drift
+
+### [BUG-014] Netlify Credits 超限網站暫停
+- **狀態**：✅ 已修復（2026-04-24）
+- **影響**：整個 SaaS 服務停擺
+- **現象**：Netlify 顯示 "This team has exceeded the credit limit"
+- **根本原因**：52 次 production deploy × 15 credits = 780（免費上限 500）
+- **修復**：購買額外 Credits；改採批次 push 策略
+- **預防**：每個 session 統一一次 push，不頻繁小量 commit
+
+### [BUG-015] RAG 匯入 403 — profiles 表無用戶資料
+- **狀態**：✅ 已修復（2026-04-24）
+- **影響**：/api/rag-ingest 管理員功能
+- **現象**：全部 8 筆 403「需要管理員權限」
+- **根本原因**：Supabase trigger 未自動建立 profile 資料列；profiles 表為空
+- **修復**：手動 INSERT profile + 設定 role='admin', plan='enterprise'
+- **根因分類**：Config Drift
+
+---
+
 ## 📊 統計
 
 | 類別 | 數量 |
 |------|------|
-| 已修復 | 10 |
+| 已修復 | 15 |
 | 未修復 | 0 |
 | 設計限制 | 1 |
 | 架構注意事項 | 2 |
 
-_最後更新：2026-04-22_
+_最後更新：2026-04-24_

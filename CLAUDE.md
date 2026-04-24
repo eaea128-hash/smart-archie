@@ -178,8 +178,12 @@ quota_usage   -- 額度使用（user_id, month, used_count）
 3. **Netlify function**：一定要有 CORS headers 和 JWT 驗證
 4. **CSS**：優先使用 `css/main.css` 現有 class，不要內聯重複樣式
 5. **中文編碼**：不用 PowerShell 批次取代（會破壞 UTF-8），改用 Read + Edit 工具
-6. **commit**：每次功能完成後 push，不累積大量未 commit 變更
+6. **commit 策略（2026-04-24 強化）**：同一 session 所有修改**統一一次 push**，不頻繁小量 push（避免 Netlify Credits 超限）
 7. **修完 bug**：更新 `.claude/bugs.md` 的狀態與修復說明
+8. **Supabase 查詢**：單筆查詢一律用 `.maybeSingle()`，禁用 `.single()`（0 筆時回傳 406）
+9. **新站部署後必做**：Supabase Site URL、Redirect URLs、profiles trigger、schema 欄位完整性
+10. **Schema 變更**：新增欄位必須同步更新 `supabase-schema.sql` 並執行 ALTER TABLE
+11. **Session 結束**：重大問題執行 `retro` skill，記錄轉折點與觸發-行動清單
 
 ---
 
