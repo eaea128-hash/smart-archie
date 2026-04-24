@@ -13,6 +13,11 @@
       "Bash(node *)",
       "Bash(npm install*)",
       "Bash(npm run*)",
+      "Bash(mkdir *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(echo *)",
       "Read(*)",
       "Write(*.html)",
       "Write(*.css)",
@@ -22,6 +27,9 @@
       "Write(*.toml)",
       "Write(*.txt)",
       "Write(*.xml)",
+      "Write(*.svg)",
+      "Write(*.sql)",
+      "Write(*.sh)",
       "Edit(*)",
       "Glob(*)",
       "Grep(*)",
@@ -33,7 +41,59 @@
       "Bash(del /f *)",
       "Bash(format *)",
       "Bash(DROP TABLE*)",
-      "Bash(* --no-verify)"
+      "Bash(* --no-verify)",
+      "Bash(git push --force*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(git commit*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/pre-commit.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit(supabase-schema.sql)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-schema-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(supabase-schema.sql)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-schema-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit(netlify/functions/*.js)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-function-edit.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "Write(netlify/functions/*.js)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/post-function-edit.sh"
+          }
+        ]
+      }
     ]
   }
 }
