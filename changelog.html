@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>更新記錄 | CloudFrame</title>
+  <meta name="description" content="CloudFrame 版本更新歷史記錄，了解每次功能發布與改進內容。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { background: var(--c-bg); }
+    .changelog-layout {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: var(--sp-10) var(--sp-6) var(--sp-16);
+    }
+    .changelog-header {
+      margin-bottom: var(--sp-10);
+    }
+    .changelog-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--c-accent-teal-lt);
+      color: var(--c-accent-teal);
+      border-radius: var(--r-full);
+      font-size: var(--fs-xs);
+      font-weight: var(--fw-semi);
+      padding: 4px 14px;
+      margin-bottom: var(--sp-4);
+    }
+    .changelog-title {
+      font-size: var(--fs-3xl);
+      font-weight: 800;
+      color: var(--c-primary);
+      margin-bottom: var(--sp-2);
+    }
+    .changelog-subtitle {
+      font-size: var(--fs-md);
+      color: var(--c-text-muted);
+      line-height: 1.6;
+    }
+    /* Timeline */
+    .timeline {
+      position: relative;
+      padding-left: 32px;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 7px;
+      top: 8px;
+      bottom: 0;
+      width: 2px;
+      background: var(--c-border-light);
+      border-radius: var(--r-full);
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: var(--sp-10);
+    }
+    .timeline-item:last-child {
+      margin-bottom: 0;
+    }
+    .timeline-dot {
+      position: absolute;
+      left: -29px;
+      top: 6px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--c-border);
+      border: 3px solid var(--c-bg);
+      box-shadow: 0 0 0 2px var(--c-border);
+    }
+    .timeline-item.latest .timeline-dot {
+      background: var(--c-accent-teal);
+      box-shadow: 0 0 0 2px var(--c-accent-teal-lt), 0 0 0 4px var(--c-bg);
+    }
+    .timeline-version-row {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      margin-bottom: var(--sp-2);
+      flex-wrap: wrap;
+    }
+    .timeline-version {
+      font-size: var(--fs-xl);
+      font-weight: 800;
+      color: var(--c-primary);
+    }
+    .badge-latest {
+      background: var(--c-accent-teal);
+      color: white;
+      font-size: 10px;
+      font-weight: var(--fw-bold);
+      border-radius: var(--r-full);
+      padding: 2px 10px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .timeline-date {
+      font-size: var(--fs-xs);
+      color: var(--c-text-muted);
+      margin-left: auto;
+    }
+    .timeline-card {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5) var(--sp-6);
+    }
+    .timeline-item.latest .timeline-card {
+      border-color: rgba(26,155,181,0.3);
+      background: rgba(26,155,181,0.03);
+    }
+    .changelog-items {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-3);
+    }
+    .changelog-item {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--sp-3);
+      font-size: var(--fs-sm);
+      color: var(--c-text);
+      line-height: 1.6;
+    }
+    .changelog-item-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--c-accent-teal);
+      flex-shrink: 0;
+      margin-top: 7px;
+    }
+    .timeline-item:not(.latest) .changelog-item-dot {
+      background: var(--c-border);
+    }
+    @media (max-width: 640px) {
+      .changelog-layout { padding: var(--sp-6) var(--sp-4) var(--sp-12); }
+      .changelog-title { font-size: var(--fs-2xl); }
+      .timeline { padding-left: 24px; }
+      .timeline-date { margin-left: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+<!-- ── Navigation ── -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="dashboard.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">CloudFrame</span>
+        <span class="brand-tagline">Cloud Strategy Advisor</span>
+      </div>
+    </a>
+    <nav class="navbar-nav">
+      <a href="dashboard.html" class="nav-link">← 回儀表板</a>
+    </nav>
+  </div>
+</nav>
+
+<div class="page-body">
+  <div class="changelog-layout">
+    <div class="changelog-header animate-up">
+      <div class="changelog-eyebrow">📋 版本記錄</div>
+      <div class="changelog-title">更新記錄</div>
+      <div class="changelog-subtitle">CloudFrame 每次版本發布的功能新增與改善記錄</div>
+    </div>
+
+    <div class="timeline animate-up">
+
+      <!-- v1.3.0 -->
+      <div class="timeline-item latest">
+        <div class="timeline-dot"></div>
+        <div class="timeline-version-row">
+          <div class="timeline-version">v1.3.0</div>
+          <span class="badge-latest">最新</span>
+          <div class="timeline-date">2026-04-24</div>
+        </div>
+        <div class="timeline-card">
+          <ul class="changelog-items">
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>新增碳排放評估（ESG/TCFD 框架）</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>RAG 知識庫整合（AWS/Azure/GCP 碳強度數據）</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>MCP 雙階段分析引擎</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>行動版抽屜選單</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>自訂 Favicon</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- v1.2.0 -->
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-version-row">
+          <div class="timeline-version">v1.2.0</div>
+          <div class="timeline-date">2026-04-22</div>
+        </div>
+        <div class="timeline-card">
+          <ul class="changelog-items">
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>帳號完整刪除功能</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>歷史記錄 Replay 重開報告</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>PDF / PNG / Markdown 匯出</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>公開分享連結</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- v1.1.0 -->
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-version-row">
+          <div class="timeline-version">v1.1.0</div>
+          <div class="timeline-date">2026-04-15</div>
+        </div>
+        <div class="timeline-card">
+          <ul class="changelog-items">
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>用戶認證（Supabase Auth）</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>儀表板與額度管理</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>交易型 Email（歡迎信、配額警告）</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- v1.0.0 -->
+      <div class="timeline-item">
+        <div class="timeline-dot"></div>
+        <div class="timeline-version-row">
+          <div class="timeline-version">v1.0.0</div>
+          <div class="timeline-date">2026-04-10</div>
+        </div>
+        <div class="timeline-card">
+          <ul class="changelog-items">
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>核心 6R 分析引擎</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>Landing Zone 建議</span>
+            </li>
+            <li class="changelog-item">
+              <div class="changelog-item-dot"></div>
+              <span>成本與風險評估</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

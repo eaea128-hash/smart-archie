@@ -14,7 +14,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
   <style>
     /* ── Analyze Page Layout ── */
     .analyze-layout {
@@ -401,6 +401,13 @@
       color: var(--c-text); line-height: 1.6;
     }
     .mitigation-icon { color: var(--c-warning); flex-shrink: 0; font-size: 14px; }
+
+    /* Feedback widget */
+    .feedback-widget { background: var(--c-surface); border: 1px solid var(--c-border-light); border-radius: var(--r-xl); padding: var(--sp-4) var(--sp-5); margin-top: var(--sp-4); text-align: center; }
+    .feedback-title { font-size: var(--fs-sm); color: var(--c-text-muted); margin-bottom: var(--sp-3); }
+    .feedback-buttons { display: flex; gap: var(--sp-3); justify-content: center; }
+    .feedback-btn { background: var(--c-bg); border: 1px solid var(--c-border-light); border-radius: var(--r-full); padding: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); cursor: pointer; transition: all 0.2s; }
+    .feedback-btn:hover { background: var(--c-primary); color: white; border-color: var(--c-primary); }
 
     /* Responsive adjustments */
     @media (max-width: 1200px) {
@@ -874,10 +881,21 @@
         <!-- Content injected by JS -->
       </div>
 
+      <!-- 用戶回饋 -->
+      <div id="feedbackWidget" class="feedback-widget" style="display:none;">
+        <div class="feedback-title">這次分析對您有幫助嗎？</div>
+        <div class="feedback-buttons">
+          <button class="feedback-btn" onclick="submitFeedback(5)" title="非常有幫助">👍 有幫助</button>
+          <button class="feedback-btn" onclick="submitFeedback(1)" title="需要改善">👎 需改善</button>
+        </div>
+        <div id="feedbackThanks" style="display:none;text-align:center;color:var(--c-accent-teal);font-size:var(--fs-sm);padding:var(--sp-2);">感謝您的回饋！✨</div>
+      </div>
+
     </main>
   </div>
 </div>
 
+<script src="https://browser.sentry-cdn.com/7.99.0/bundle.min.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
@@ -1747,6 +1765,9 @@ function renderResult(r, style) {
 
   container.innerHTML = html;
 
+  // Show feedback widget
+  document.getElementById('feedbackWidget').style.display = 'block';
+
   // Animate fills
   setTimeout(() => SA.animateKPI(container), 200);
 
@@ -1767,6 +1788,14 @@ function switchTechTab(tab) {
     const el = document.getElementById(v);
     if (el) el.classList.toggle('active', k === tab);
   });
+}
+
+function submitFeedback(score) {
+  document.querySelector('.feedback-buttons').style.display = 'none';
+  document.getElementById('feedbackThanks').style.display = 'block';
+  // Store feedback locally (can be extended to send to API)
+  const key = 'cf_feedback_' + Date.now();
+  try { localStorage.setItem(key, JSON.stringify({ score, ts: new Date().toISOString() })); } catch {}
 }
 
 // ── Supabase: save analysis to DB ────────────────────────────

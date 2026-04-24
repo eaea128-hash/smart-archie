@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>找不到頁面 | CloudFrame</title>
+  <meta name="description" content="您要找的頁面不存在或已移除。">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <style>
+    body { background: var(--c-bg); min-height: 100vh; display: flex; flex-direction: column; }
+    .not-found-wrap {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--sp-12) var(--sp-6);
+      text-align: center;
+    }
+    .nf-number {
+      font-size: 120px;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--c-primary) 0%, var(--c-accent-teal) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: var(--sp-4);
+      letter-spacing: -4px;
+    }
+    .nf-icon {
+      font-size: 48px;
+      margin-bottom: var(--sp-5);
+    }
+    .nf-title {
+      font-size: var(--fs-2xl);
+      font-weight: var(--fw-bold);
+      color: var(--c-primary);
+      margin-bottom: var(--sp-3);
+    }
+    .nf-sub {
+      font-size: var(--fs-md);
+      color: var(--c-text-muted);
+      margin-bottom: var(--sp-8);
+      max-width: 420px;
+      line-height: 1.7;
+    }
+    .nf-actions {
+      display: flex;
+      gap: var(--sp-4);
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .btn-nf-primary {
+      background: linear-gradient(135deg, var(--c-primary-mid) 0%, var(--c-accent-teal) 100%);
+      color: white;
+      border: none;
+      padding: 13px 28px;
+      border-radius: var(--r-md);
+      font-size: var(--fs-md);
+      font-weight: var(--fw-semi);
+      cursor: pointer;
+      transition: all var(--t-base);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(26,74,90,0.2);
+    }
+    .btn-nf-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(26,74,90,0.3);
+    }
+    .btn-nf-secondary {
+      background: var(--c-surface);
+      color: var(--c-primary);
+      border: 1.5px solid var(--c-border-light);
+      padding: 13px 28px;
+      border-radius: var(--r-md);
+      font-size: var(--fs-md);
+      font-weight: var(--fw-semi);
+      cursor: pointer;
+      transition: all var(--t-base);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-nf-secondary:hover {
+      background: var(--c-bg);
+      border-color: var(--c-accent-teal);
+      color: var(--c-accent-teal);
+      transform: translateY(-1px);
+    }
+    @media (max-width: 480px) {
+      .nf-number { font-size: 80px; }
+      .nf-title { font-size: var(--fs-xl); }
+      .nf-actions { flex-direction: column; align-items: stretch; }
+      .btn-nf-primary, .btn-nf-secondary { justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+<!-- ── Navigation ── -->
+<nav class="navbar">
+  <div class="navbar-inner">
+    <a href="index.html" class="navbar-brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">
+        <span class="brand-name">CloudFrame</span>
+        <span class="brand-tagline">Cloud Strategy Advisor</span>
+      </div>
+    </a>
+  </div>
+</nav>
+
+<div class="not-found-wrap">
+  <div class="nf-icon">🔍</div>
+  <div class="nf-number">404</div>
+  <div class="nf-title">找不到這個頁面</div>
+  <div class="nf-sub">您要找的頁面不存在或已移除</div>
+  <div class="nf-actions">
+    <a href="index.html" class="btn-nf-primary">🏠 回到首頁</a>
+    <a href="analyze.html" class="btn-nf-secondary">☁️ 開始分析</a>
+  </div>
+</div>
+</body>
+</html>
