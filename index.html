@@ -429,12 +429,77 @@
           <div class="pricing-feat"><span class="pricing-feat-check">✅</span><span>白標 / API 串接</span></div>
           <div class="pricing-feat"><span class="pricing-feat-check">✅</span><span>專屬顧問支援</span></div>
           <div class="pricing-feat"><span class="pricing-feat-check">✅</span><span>SLA 保證 + 合規報告</span></div>
-          <button class="btn btn-gold btn-block mt-4" onclick="alert('請聯絡 contact@smartarchie.ai')">聯絡我們</button>
+          <a href="#contact" class="btn btn-gold btn-block mt-4">聯絡我們</a>
         </div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- Contact Section -->
+<section id="contact" style="background:var(--c-bg);padding:var(--sp-16) var(--sp-6);">
+  <div style="max-width:680px;margin:0 auto;">
+    <div style="text-align:center;margin-bottom:var(--sp-8);">
+      <div style="display:inline-block;background:rgba(26,155,181,0.1);color:var(--c-accent-teal);border-radius:var(--r-full);padding:var(--sp-1) var(--sp-4);font-size:var(--fs-sm);font-weight:var(--fw-semi);margin-bottom:var(--sp-3);">企業詢價 / 合作洽談</div>
+      <h2 style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);color:var(--c-text);margin-bottom:var(--sp-2);">聯絡 CloudFrame 團隊</h2>
+      <p style="color:var(--c-text-muted);font-size:var(--fs-md);">填寫表單後，我們將在 2 個工作天內與您聯繫。</p>
+    </div>
+
+    <div data-fs-success style="display:none;text-align:center;background:rgba(45,157,120,0.1);border:1px solid rgba(45,157,120,0.3);border-radius:var(--r-xl);padding:var(--sp-8);color:#2D9D78;font-size:var(--fs-md);">
+      ✅ 感謝您的來信！我們將在 2 個工作天內回覆您。
+    </div>
+    <div data-fs-error style="display:none;text-align:center;background:rgba(220,53,69,0.1);border:1px solid rgba(220,53,69,0.3);border-radius:var(--r-xl);padding:var(--sp-4);color:#dc3545;font-size:var(--fs-sm);">
+      送出失敗，請稍後再試或直接寄信至 contact@cloudframe.ai
+    </div>
+
+    <form id="contact-form" style="background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-8);box-shadow:var(--shadow-sm);">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-4);">
+        <div>
+          <label style="display:block;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text);margin-bottom:var(--sp-2);">姓名 <span style="color:#dc3545;">*</span></label>
+          <input type="text" name="name" required data-fs-field placeholder="王大明"
+            style="width:100%;padding:var(--sp-3);border:1px solid var(--c-border-light);border-radius:var(--r-md);background:var(--c-bg);color:var(--c-text);font-size:var(--fs-sm);box-sizing:border-box;">
+          <span data-fs-error="name" style="font-size:var(--fs-xs);color:#dc3545;"></span>
+        </div>
+        <div>
+          <label style="display:block;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text);margin-bottom:var(--sp-2);">公司名稱 <span style="color:#dc3545;">*</span></label>
+          <input type="text" name="company" required data-fs-field placeholder="國泰金控"
+            style="width:100%;padding:var(--sp-3);border:1px solid var(--c-border-light);border-radius:var(--r-md);background:var(--c-bg);color:var(--c-text);font-size:var(--fs-sm);box-sizing:border-box;">
+          <span data-fs-error="company" style="font-size:var(--fs-xs);color:#dc3545;"></span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-4);">
+        <div>
+          <label style="display:block;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text);margin-bottom:var(--sp-2);">電子信箱 <span style="color:#dc3545;">*</span></label>
+          <input type="email" name="email" required data-fs-field placeholder="name@company.com"
+            style="width:100%;padding:var(--sp-3);border:1px solid var(--c-border-light);border-radius:var(--r-md);background:var(--c-bg);color:var(--c-text);font-size:var(--fs-sm);box-sizing:border-box;">
+          <span data-fs-error="email" style="font-size:var(--fs-xs);color:#dc3545;"></span>
+        </div>
+        <div>
+          <label style="display:block;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text);margin-bottom:var(--sp-2);">聯絡電話</label>
+          <input type="tel" name="phone" placeholder="0912-345-678"
+            style="width:100%;padding:var(--sp-3);border:1px solid var(--c-border-light);border-radius:var(--r-md);background:var(--c-bg);color:var(--c-text);font-size:var(--fs-sm);box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="margin-bottom:var(--sp-4);">
+        <label style="display:block;font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text);margin-bottom:var(--sp-2);">需求說明 <span style="color:#dc3545;">*</span></label>
+        <textarea name="message" required data-fs-field rows="4" placeholder="請簡述您的雲端遷移需求、系統規模或合作方向..."
+          style="width:100%;padding:var(--sp-3);border:1px solid var(--c-border-light);border-radius:var(--r-md);background:var(--c-bg);color:var(--c-text);font-size:var(--fs-sm);box-sizing:border-box;resize:vertical;"></textarea>
+        <span data-fs-error="message" style="font-size:var(--fs-xs);color:#dc3545;"></span>
+      </div>
+      <input type="hidden" name="_subject" value="CloudFrame 企業詢價">
+      <button type="submit" data-fs-submit-btn
+        style="width:100%;padding:var(--sp-4);background:var(--c-accent-teal);color:white;border:none;border-radius:var(--r-lg);font-size:var(--fs-md);font-weight:var(--fw-semi);cursor:pointer;transition:all 0.2s;">
+        送出詢問 →
+      </button>
+    </form>
+  </div>
+</section>
+
+<script>
+  window.formspree = window.formspree || function () { (formspree.q = formspree.q || []).push(arguments); };
+  formspree('initForm', { formElement: '#contact-form', formId: 'myklanjd' });
+</script>
+<script src="https://unpkg.com/@formspree/ajax@1" defer></script>
 
 <!-- CTA -->
 <section class="cta">
@@ -470,7 +535,7 @@
   <p>
     <a href="privacy.html" style="color:rgba(255,255,255,0.6);text-decoration:none;margin:0 8px;">隱私政策</a> ·
     <a href="terms.html" style="color:rgba(255,255,255,0.6);text-decoration:none;margin:0 8px;">服務條款</a> ·
-    <a href="mailto:contact@cloudframe.ai" style="color:rgba(255,255,255,0.6);text-decoration:none;margin:0 8px;">聯絡我們</a>
+    <a href="#contact" style="color:rgba(255,255,255,0.6);text-decoration:none;margin:0 8px;">聯絡我們</a>
   </p>
 </footer>
 <script src="js/utils.js"></script>
