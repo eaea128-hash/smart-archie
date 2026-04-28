@@ -32,7 +32,7 @@ export async function onRequest(context) {
   }
 
   // Initialise Supabase inside handler
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
 
   // 驗證 JWT
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '').trim();

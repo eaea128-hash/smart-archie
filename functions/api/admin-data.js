@@ -25,7 +25,7 @@ export async function onRequest(context) {
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsH });
 
   // Initialise Supabase inside handler
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
 
   // ── 驗證並確認是管理員 ────────────────────────────────────
   const token = (request.headers.get('authorization') || '').replace('Bearer ', '').trim();

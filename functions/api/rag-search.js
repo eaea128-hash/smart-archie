@@ -93,7 +93,7 @@ export async function onRequest(context) {
 
   try {
     // Initialise Supabase inside handler
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+    const supabase = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
 
     // 1. 取得 query embedding
     const embedding = await embed(query.trim(), openaiKey);

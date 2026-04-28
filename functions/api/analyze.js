@@ -569,7 +569,7 @@ export async function onRequest(context) {
   }
 
   // Initialise clients inside handler
-  const supabase  = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const supabase  = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
   const openaiKey = env.OPENAI_API_KEY;
 
   // Call Claude with MCP tool_use → final analysis → return result

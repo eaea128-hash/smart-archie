@@ -12,7 +12,7 @@ export async function onRequest(context) {
 
   // Initialise clients inside handler
   const stripe   = new Stripe(env.STRIPE_SECRET_KEY || '', { apiVersion: '2024-04-10' });
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
 
   const sig           = request.headers.get('stripe-signature');
   const webhookSecret = env.STRIPE_WEBHOOK_SECRET;
