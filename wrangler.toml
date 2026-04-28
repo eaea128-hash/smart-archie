@@ -3,10 +3,13 @@ compatibility_date = "2026-04-28"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "."
 
+[build]
+command = "npm install --omit=dev"
+
 [vars]
 NODE_ENV = "production"
 
-# 其他環境變數請在 Cloudflare Pages Dashboard 設定：
+# 其他環境變數請在 Cloudflare Pages Dashboard → Settings → Variables and Secrets 設定：
 # ANTHROPIC_API_KEY, SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
 # SUPABASE_ANON_KEY, OPENAI_API_KEY, RESEND_API_KEY,
 # STRIPE_SECRET_KEY, STRIPE_PRICE_PRO, STRIPE_WEBHOOK_SECRET, SENTRY_DSN
