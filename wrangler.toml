@@ -5,3 +5,7 @@ pages_build_output_dir = "."
 
 [vars]
 NODE_ENV = "production"
+
+# Build command is set in Cloudflare Dashboard UI:
+# Command: npm install --omit=dev
+# Output directory: .
