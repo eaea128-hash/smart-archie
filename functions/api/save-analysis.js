@@ -53,23 +53,25 @@ export async function onRequest(context) {
   catch { return new Response(JSON.stringify({ error: 'Invalid JSON' }), { status: 400, headers: corsH }); }
 
   const {
-    projectName = 'Untitled',
-    strategy    = 'replatform',
-    riskScore   = 0,
-    inputs      = {},
-    result      = {},
-    source      = 'local',
+    projectName   = 'Untitled',
+    strategy      = 'replatform',
+    riskScore     = 0,
+    inputs        = {},
+    result        = {},
+    source        = 'local',
+    promptVersion = null, // 可追溯性：記錄使用的 prompt 版本
   } = body;
 
   // ── 儲存至資料庫 ──────────────────────────────────────────
   const { data, error } = await supabase.from('analyses').insert({
-    user_id:      user.id,
-    project_name: projectName,
+    user_id:        user.id,
+    project_name:   projectName,
     strategy,
-    risk_score:   Math.round(riskScore),
+    risk_score:     Math.round(riskScore),
     inputs,
     result,
     source,
+    prompt_version: promptVersion,
   }).select('id, created_at').single();
 
   if (error) {

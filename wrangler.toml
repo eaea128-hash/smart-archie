@@ -4,9 +4,10 @@ compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "."
 
 [vars]
-NODE_ENV        = "production"
-SUPABASE_URL    = "https://oxownfzafrveihxhuxay.supabase.co"
+NODE_ENV          = "production"
+SUPABASE_URL      = "https://oxownfzafrveihxhuxay.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94b3duZnphZnJ2ZWloeGh1eGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMTkyMTcsImV4cCI6MjA5MDU5NTIxN30.RZ13Ic5QpxcUmn7GJ9wpxVALvxjdjpm0M7Vp0gb_HX0"
+AI_ENABLED        = "true"   # 緊急停用：改為 "false" 即可關閉 AI 分析
 
 # Build command is set in Cloudflare Dashboard UI:
 # Command: npm install --omit=dev

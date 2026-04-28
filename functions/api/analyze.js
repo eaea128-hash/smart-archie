@@ -148,6 +148,9 @@ function executeMCPTool(name, input) {
 // Simple in-memory rate limiter (resets on cold start; good enough for serverless)
 const rateLimitStore = new Map(); // sessionId -> { count, resetAt }
 
+// ── Prompt Version (increment when system prompt changes) ────────────────────
+const PROMPT_VERSION = '2.1.0'; // Design-Time 版控：變更前須走 review
+
 // ── System Prompt ────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are **CloudFrame**, an elite AI cloud advisory platform operating at the intersection of enterprise cloud strategy, financial-sector regulatory compliance, and the emerging "Services as Software" paradigm.
 
@@ -529,6 +532,14 @@ export async function onRequest(context) {
     return new Response(null, { status: 204, headers: cors });
   }
 
+  // ── Kill Switch（緊急停用）────────────────────────────────────
+  if (env.AI_ENABLED === 'false') {
+    return new Response(
+      JSON.stringify({ error: 'AI 分析服務暫時停用中，請稍後再試。', code: 'SERVICE_DISABLED' }),
+      { status: 503, headers: { ...cors, 'Content-Type': 'application/json' } }
+    );
+  }
+
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405, headers: { ...cors, 'Content-Type': 'application/json' },
@@ -657,11 +668,12 @@ export async function onRequest(context) {
 
     return new Response(
       JSON.stringify({
-        success: true,
-        result:  jsonResult,
-        raw:     jsonResult ? undefined : rawText,
-        usage:   message.usage,
-        model:   message.model,
+        success:       true,
+        result:        jsonResult,
+        raw:           jsonResult ? undefined : rawText,
+        usage:         message.usage,
+        model:         message.model,
+        prompt_version: PROMPT_VERSION, // 可追溯性：記錄使用的 prompt 版本
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
@@ -670,8 +682,13 @@ export async function onRequest(context) {
     console.error('[analyze] Claude API error:', err);
     const status = err.status || err.statusCode || 500;
     const msg    = err.message || 'Internal server error';
+    // 備援機制提示：告知前端可使用本地 rule-based engine
     return new Response(
-      JSON.stringify({ error: msg, code: err.error?.type }),
+      JSON.stringify({
+        error:    msg,
+        code:     err.error?.type,
+        fallback: true, // 前端收到 fallback:true 時改用 analyze-engine.js
+      }),
       { status, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   }
