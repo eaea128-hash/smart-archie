@@ -6,6 +6,10 @@
  * GET /api/config
  */
 
+// 公開值（anon key 不是 secret key，可以公開）
+const SUPABASE_URL      = 'https://oxownfzafrveihxhuxay.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94b3duZnphZnJ2ZWloeGh1eGF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMTkyMTcsImV4cCI6MjA5MDU5NTIxN30.RZ13Ic5QpxcUmn7GJ9wpxVALvxjdjpm0M7Vp0gb_HX0';
+
 export async function onRequest(context) {
   const { request, env } = context;
 
@@ -19,13 +23,12 @@ export async function onRequest(context) {
     return new Response(null, { status: 204, headers: cors });
   }
 
-  // 這些是公開安全的值（anon key 不是 secret key）
   const config = {
-    supabaseUrl:      env.SUPABASE_URL      || '',
-    supabaseAnonKey:  env.SUPABASE_ANON_KEY || '',
-    sentryDsn:        env.SENTRY_DSN        || '',
-    mixpanelToken:    env.MIXPANEL_TOKEN    || '',
-    environment:      env.NODE_ENV          || 'development',
+    supabaseUrl:      SUPABASE_URL,
+    supabaseAnonKey:  SUPABASE_ANON_KEY,
+    sentryDsn:        env.SENTRY_DSN     || '',
+    mixpanelToken:    env.MIXPANEL_TOKEN || '',
+    environment:      env.NODE_ENV       || 'production',
   };
 
   return new Response(JSON.stringify(config), {
@@ -33,7 +36,7 @@ export async function onRequest(context) {
     headers: {
       ...cors,
       'Content-Type':  'application/json',
-      'Cache-Control': 'public, max-age=300', // 5分鐘快取
+      'Cache-Control': 'public, max-age=300',
     },
   });
 }
