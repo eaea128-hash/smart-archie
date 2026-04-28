@@ -10,7 +10,7 @@
 - **定位**：幫助企業 IT 團隊與管理層快速評估雲端遷移策略
 - **核心功能**：6R 策略分析、Landing Zone 建議、成本估算、風險評估
 - **目標用戶**：企業 IT PM、雲端架構師、CIO/CTO、數位轉型負責人
-- **上線網址**：https://unique-jelly-da79b4.netlify.app
+- **上線網址**：https://cloudframe.pages.dev（Cloudflare Pages，2026-04-28 遷移）
 - **GitHub**：https://github.com/eaea128-hash/smart-archie
 
 ---
