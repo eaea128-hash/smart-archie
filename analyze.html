@@ -827,11 +827,11 @@
             <div class="form-group">
               <label class="form-label">報告產出風格</label>
               <div class="report-style-toggle">
-                <button class="style-btn active" data-style="executive" id="styleExec" onclick="setStyle('executive')">🎯 高層決策版</button>
-                <button class="style-btn" data-style="techpm" id="styleTech" onclick="setStyle('techpm')">⚙️ 技術 PM 版</button>
-                <button class="style-btn" data-style="full" id="styleFull" onclick="setStyle('full')">📋 完整版</button>
+                <button class="style-btn active" data-style="executive" id="styleExec" onclick="setStyle('executive')" title="摘要、成本概估、風險概覽、簡報大綱 — 適合高管簡報">🎯 高層決策版</button>
+                <button class="style-btn" data-style="techpm" id="styleTech" onclick="setStyle('techpm')" title="架構圖、成本明細、風險雷達、執行階段、PoC 範圍 — 適合技術評估">⚙️ 技術 PM 版</button>
+                <button class="style-btn" data-style="full" id="styleFull" onclick="setStyle('full')" title="完整包含高層簡報與所有技術細節">📋 完整版</button>
               </div>
-              <div class="form-hint mt-2">完整版同時顯示高層摘要與技術執行建議</div>
+              <div class="form-hint mt-2">高層版：摘要＋商業決策 ／ 技術版：架構＋執行細節 ／ 完整版：全部</div>
             </div>
           </div>
         </div>
@@ -1290,7 +1290,12 @@ function renderResult(r, style) {
   <div class="result-actions animate-down">
     <div class="result-title-wrap">
       <div class="result-title">📋 ${r.inputs.projectName || '雲端分析報告'}</div>
-      <div class="result-ts">分析時間：${SA.fmt.datetime(r.timestamp)} ・ 策略：${stratLabels[strategy6R.primary]}</div>
+      <div class="result-ts" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+        <span>分析時間：${SA.fmt.datetime(r.timestamp)}</span>
+        <span>・</span>
+        <span>策略：${stratLabels[strategy6R.primary]}</span>
+        <span class="badge ${style==='executive'?'badge-gold':style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${style==='executive'?'高層決策版':style==='techpm'?'技術 PM 版':'完整版'}</span>
+      </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-outline btn-sm" onclick="SAExport.copyMarkdown(currentResult)" title="複製 Markdown">📋 複製</button>
@@ -1436,8 +1441,8 @@ function renderResult(r, style) {
     </div>
   </div>`;
 
-  // ── 4. Landing Zone ──
-  html += `
+  // ── 4. Landing Zone (Tech PM / Full only) ──
+  if (showTechPM) html += `
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">🏛️</span>Landing Zone 建議</div>
     <div class="card mb-4">
@@ -1480,6 +1485,24 @@ function renderResult(r, style) {
   </div>`;
 
   // ── 5. Cost Estimate ──
+  // Executive: compact summary only; Tech PM / Full: full breakdown
+  if (!showTechPM) {
+    // Executive compact cost card
+    html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本概估</div>
+    <div class="cost-hero">
+      <div class="cost-hero-label">每月預估費用 (USD)</div>
+      <div class="cost-hero-amount">$${cost.mid.toLocaleString()}</div>
+      <div class="cost-hero-unit">中估值（低：$${cost.low.toLocaleString()} ～ 高：$${cost.high.toLocaleString()}）</div>
+    </div>
+    <div style="padding:var(--sp-4);background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);">
+      <div style="font-size:11px;font-weight:600;color:var(--c-success);margin-bottom:4px;">💡 成本優化建議</div>
+      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);">${cost.recommendation}</div>
+      <div style="margin-top:var(--sp-3);font-size:11px;color:var(--c-text-muted);">遷移一次性費用：$${cost.migrationLow.toLocaleString()} – $${cost.migrationHigh.toLocaleString()}</div>
+    </div>
+  </div>`;
+  } else {
   html += `
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本估算</div>
@@ -1519,8 +1542,49 @@ function renderResult(r, style) {
       </div>
     </div>
   </div>`;
+  } // end else (Tech PM cost)
 
   // ── 6. Risk Radar ──
+  // Executive: compact 6-factor summary; Tech PM / Full: full radar + factors
+  if (!showTechPM) {
+    // Executive risk summary — 6 traffic-light bars, no radar chart
+    const riskItems6 = [
+      { name:'合規風險', val: risk.compRisk,     icon:'🛡️' },
+      { name:'技術風險', val: risk.techRisk,     icon:'⚙️' },
+      { name:'營運風險', val: risk.opRisk,       icon:'🔧' },
+      { name:'時程風險', val: risk.timelineRisk, icon:'⏰' },
+      { name:'資料風險', val: risk.dataRisk,     icon:'🗄️' },
+      { name:'業務風險', val: risk.bizRisk,      icon:'💼' },
+    ];
+    html += `
+  <div class="result-section animate-up">
+    <div class="result-section-title"><span class="rst-icon">⚡</span>風險概覽</div>
+    <div class="radar-container">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4);">
+        <div style="font-size:var(--fs-md);font-weight:var(--fw-bold);color:var(--c-primary);">整體風險指數：<span style="color:${risk.overall>=70?'var(--c-danger)':risk.overall>=50?'var(--c-warning)':'var(--c-success)'}">${risk.overall}%</span></div>
+        <span class="badge ${risk.overall>=70?'badge-danger':risk.overall>=50?'badge-warning':'badge-success'}">${risk.overall>=70?'🔴 高風險':risk.overall>=50?'🟡 中等':'🟢 可控'}</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+        ${riskItems6.map(item => `
+        <div style="display:flex;align-items:center;gap:10px;padding:10px var(--sp-4);background:var(--c-bg);border-radius:var(--r-md);border:1px solid var(--c-border-light);">
+          <span style="font-size:18px;">${item.icon}</span>
+          <div style="flex:1;">
+            <div style="font-size:12px;font-weight:500;color:var(--c-text);margin-bottom:4px;">${item.name}</div>
+            <div style="height:4px;background:var(--c-border);border-radius:9999px;overflow:hidden;">
+              <div style="height:100%;width:${item.val}%;background:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'};border-radius:9999px;"></div>
+            </div>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'};">${item.val}%</span>
+        </div>`).join('')}
+      </div>
+      ${risk.mitigations.length ? `
+      <div style="margin-top:var(--sp-4);">
+        <div style="font-size:var(--fs-xs);font-weight:var(--fw-semi);color:var(--c-text-muted);margin-bottom:var(--sp-2);">主要風險降低措施</div>
+        ${risk.mitigations.slice(0,3).map(m => `<div class="mitigation-item"><span class="mitigation-icon">⚠️</span>${m}</div>`).join('')}
+      </div>` : ''}
+    </div>
+  </div>`;
+  } else {
   html += `
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">⚡</span>雲端風險雷達</div>
@@ -1575,6 +1639,7 @@ function renderResult(r, style) {
       </div>` : ''}
     </div>
   </div>`;
+  } // end else (Tech PM risk radar)
 
   // ── 7. Decision Points ──
   html += `

@@ -94,6 +94,16 @@
     .risk-mini { width: 64px; height: 7px; background: var(--c-border); border-radius: var(--r-full); overflow: hidden; display: inline-block; vertical-align: middle; }
     .risk-mini-fill { height: 100%; border-radius: var(--r-full); }
     .risk-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    /* History action buttons */
+    .hist-actions { display: flex; align-items: center; gap: 5px; }
+    .hist-btn { height: 28px; padding: 0 10px; border-radius: var(--r-sm); font-size: 11px; font-weight: 600; cursor: pointer; border: 1px solid transparent; transition: all var(--t-fast); white-space: nowrap; }
+    .hist-btn-view  { background: var(--c-primary); color: white; border-color: var(--c-primary); }
+    .hist-btn-view:hover { background: var(--c-primary-mid); }
+    .hist-btn-share { background: transparent; color: var(--c-accent-teal); border-color: var(--c-accent-teal); }
+    .hist-btn-share:hover { background: var(--c-accent-teal-lt); }
+    .hist-btn-del   { background: transparent; color: var(--c-text-muted); border-color: var(--c-border); width: 28px; padding: 0; text-align: center; }
+    .hist-btn-del:hover { color: var(--c-danger); border-color: var(--c-danger); background: rgba(197,48,48,0.05); }
+    .dup-badge { font-size: 9px; padding: 1px 5px; border-radius: var(--r-full); background: rgba(217,119,6,0.12); color: var(--c-warning); border: 1px solid rgba(217,119,6,0.2); font-weight: 600; margin-left: 5px; vertical-align: middle; }
     @media (max-width: 1024px) {
       .stats-row { grid-template-columns: repeat(2, 1fr); }
       .chart-row { grid-template-columns: 1fr; }
@@ -640,21 +650,34 @@ function loadStats() {
   }
 }
 
-function buildHistoryRow(h) {
+function buildHistoryRow(h, isDup = false) {
   const stratLabels  = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
   const validStrats  = ['rehost','replatform','refactor','retain','retire'];
   const stratKey     = validStrats.includes(h.strategy) ? h.strategy : 'rehost';
   const riskVal      = h.risk ?? h.riskScore ?? 0;
   const riskColor    = riskVal >= 70 ? '#C53030' : riskVal >= 50 ? '#D97706' : '#2D9D78';
-  const riskLabel    = riskVal >= 70 ? '🔴 高風險' : riskVal >= 50 ? '🟡 中風險' : '🟢 低風險';
-  const riskTip      = `整體風險指數 ${riskVal}%（${riskLabel}）\n由合規、技術、營運、時程、資料、業務 6 個維度平均計算`;
+  const riskTip      = `整體風險指數 ${riskVal}%\n合規・技術・營運・時程・資料・業務 6 維度`;
   const styleKey     = h.style || 'executive';
   const styleBadge   = styleKey === 'executive' ? 'badge-gold' : styleKey === 'techpm' ? 'badge-teal' : 'badge-primary';
   const styleLabel   = styleKey === 'executive' ? '高層版' : styleKey === 'techpm' ? '技術PM版' : '完整版';
-  const canOpen      = !!(h.result || h.inputs);  // has replay data
-  return `<tr onclick="loadHistoryItem('${h.id}')" style="cursor:pointer;" title="點擊查看完整報告">
+  const canOpen      = !!(h.result || h.inputs);
+  const hasShare     = !!(h.shareToken && h.shareEnabled);
+
+  // Action buttons
+  const viewBtn  = canOpen
+    ? `<button class="hist-btn hist-btn-view" onclick="event.stopPropagation();loadHistoryItem('${h.id}')" title="開啟完整分析報告">查看報告</button>`
+    : `<button class="hist-btn" style="background:var(--c-bg);color:var(--c-text-muted);border-color:var(--c-border);cursor:not-allowed;" title="此記錄缺少完整報告，請重新執行分析" disabled>無報告資料</button>`;
+  const shareBtn = hasShare
+    ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();copyShareLink('${h.shareToken}')" title="複製分享連結">🔗 分享</button>`
+    : (canOpen ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();genShareLink('${h.id}')" title="產生分享連結">分享</button>` : '');
+  const delBtn   = `<button class="hist-btn hist-btn-del" onclick="event.stopPropagation();deleteHistoryItem('${h.id}')" title="刪除此記錄">🗑</button>`;
+
+  return `<tr style="cursor:${canOpen?'pointer':'default'};" onclick="${canOpen?`loadHistoryItem('${h.id}')`:''}">
     <td>
-      <div style="font-weight:600;font-size:13px;">${h.projectName || '未命名專案'}</div>
+      <div style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:4px;">
+        ${h.projectName || '未命名專案'}
+        ${isDup ? `<span class="dup-badge" title="與其他記錄為相同專案名稱">重複</span>` : ''}
+      </div>
       <div style="font-size:11px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</div>
     </td>
     <td><span class="strat-badge strat-${stratKey}">${stratLabels[stratKey]}</span></td>
@@ -666,19 +689,32 @@ function buildHistoryRow(h) {
       </div>
     </td>
     <td><span class="badge ${styleBadge}" style="font-size:10px;">${styleLabel}</span></td>
-    <td><button class="btn ${canOpen ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="event.stopPropagation();loadHistoryItem('${h.id}')" title="${canOpen ? '開啟完整報告' : '舊記錄無報告資料'}">
-      ${canOpen ? '📋 查看' : '—'}
-    </button></td>
+    <td onclick="event.stopPropagation();">
+      <div class="hist-actions">${viewBtn}${shareBtn}${delBtn}</div>
+    </td>
   </tr>`;
 }
+
+function detectDups(list) {
+  // Mark rows where projectName appears more than once
+  const nameCounts = {};
+  list.forEach(h => { const k = (h.projectName||'').trim(); if (k) nameCounts[k] = (nameCounts[k]||0)+1; });
+  return list.map(h => ({ ...h, _isDup: (nameCounts[(h.projectName||'').trim()]||0) > 1 }));
+}
+
+const HIST_THEAD = `<thead><tr>
+  <th>專案名稱</th><th>建議策略</th>
+  <th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算">風險指數 ⓘ</th>
+  <th>報告風格</th><th style="min-width:200px;">操作</th>
+</tr></thead>`;
 
 function renderRecentHistory(history) {
   history = history || (_historyCache || SA.Store.get('history', [])).slice(0, 5);
   const el = document.getElementById('recentList');
   if (!history.length) return;
-  el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>專案名稱</th><th>建議策略</th><th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算（0%=低風險，100%=極高風險）">風險指數 ⓘ</th><th>報告風格</th><th></th></tr></thead>
-    <tbody>${history.map(buildHistoryRow).join('')}</tbody>
+  const tagged = detectDups(history);
+  el.innerHTML = `<div class="table-wrap"><table>${HIST_THEAD}
+    <tbody>${tagged.map(h => buildHistoryRow(h, h._isDup)).join('')}</tbody>
   </table></div>`;
 }
 
@@ -699,10 +735,66 @@ function renderHistoryTable(list) {
     el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析紀錄</div><a href="analyze.html" class="btn btn-primary btn-sm mt-4">立即開始分析</a></div>`;
     return;
   }
-  el.innerHTML = `<div class="table-wrap"><table>
-    <thead><tr><th>專案名稱</th><th>建議策略</th><th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算（0%=低風險，100%=極高風險）">風險指數 ⓘ</th><th>報告風格</th><th></th></tr></thead>
-    <tbody>${list.map(buildHistoryRow).join('')}</tbody>
+  const tagged = detectDups(list);
+  el.innerHTML = `<div class="table-wrap"><table>${HIST_THEAD}
+    <tbody>${tagged.map(h => buildHistoryRow(h, h._isDup)).join('')}</tbody>
   </table></div>`;
+}
+
+/* ── Delete analysis ── */
+async function deleteHistoryItem(id) {
+  if (!confirm('確定要刪除此分析記錄？刪除後無法復原。')) return;
+  try {
+    // Supabase path
+    if (typeof SupabaseClient !== 'undefined' && SupabaseClient.isConfigured()) {
+      const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+      if (session?.access_token) {
+        const { error } = await SupabaseClient.getClient()
+          .from('analyses').delete().eq('id', id);
+        if (error) throw new Error(error.message);
+      }
+    }
+    // Remove from cache & re-render
+    _historyCache = (_historyCache || []).filter(h => String(h.id) !== String(id));
+    const local = SA.Store.get('history', []).filter(h => String(h.id) !== String(id));
+    SA.Store.set('history', local);
+    renderRecentHistory(_historyCache.slice(0, 5));
+    renderFullHistory(_historyCache);
+    loadStats();
+    SA.Toast.success('已刪除', '分析記錄已移除');
+  } catch (err) {
+    SA.Toast.error('刪除失敗', err.message || '請稍後再試');
+  }
+}
+
+/* ── Share link ── */
+function copyShareLink(token) {
+  const url = `${location.origin}/share.html?token=${token}`;
+  navigator.clipboard?.writeText(url).then(() => {
+    SA.Toast.success('已複製', '分享連結已複製到剪貼簿');
+  }).catch(() => {
+    prompt('複製分享連結：', url);
+  });
+}
+async function genShareLink(id) {
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    const resp = await fetch('/api/share', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({ analysisId: id }),
+    });
+    if (!resp.ok) throw new Error('產生失敗');
+    const json = await resp.json();
+    if (json.shareToken) {
+      const item = (_historyCache||[]).find(h => String(h.id) === String(id));
+      if (item) { item.shareToken = json.shareToken; item.shareEnabled = true; }
+      copyShareLink(json.shareToken);
+      renderFullHistory(_historyCache);
+    }
+  } catch (err) {
+    SA.Toast.error('分享失敗', err.message);
+  }
 }
 function loadHistoryItem(id) {
   // Find the cached item

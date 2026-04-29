@@ -596,7 +596,8 @@ export async function onRequest(context) {
     const hasSustainability = inputs.sustainabilityGoal && inputs.sustainabilityGoal !== 'none';
     const provider = (inputs.targetCloud || 'AWS').toLowerCase();
 
-    if (hasSustainability || inputs.esgFramework !== 'none') {
+    // 永遠計算碳排影響（永續區塊永遠顯示）
+    if (true) { // was: if (hasSustainability || inputs.esgFramework !== 'none')
       try {
         const toolPhase = await client.messages.create({
           model:      MODEL,

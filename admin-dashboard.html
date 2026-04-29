@@ -8,22 +8,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js" defer></script>
   <style>
+    /* ── Layout ── */
     .admin-layout {
-      display: grid; grid-template-columns: 240px 1fr;
+      display: grid; grid-template-columns: 232px 1fr;
       min-height: calc(100vh - var(--nav-h));
     }
-    /* Admin Sidebar */
+    /* ── Sidebar ── */
     .admin-sidebar {
       background: var(--c-primary); color: white;
-      padding: var(--sp-5) 0;
+      padding: var(--sp-4) 0;
       position: sticky; top: var(--nav-h);
       height: calc(100vh - var(--nav-h)); overflow-y: auto;
     }
-    .admin-sidebar-section { padding: 0 var(--sp-3) var(--sp-4); }
+    .admin-sidebar-section { padding: 0 var(--sp-3) var(--sp-3); }
     .admin-sidebar-title {
-      font-size: 10px; font-weight: var(--fw-bold); color: rgba(255,255,255,0.35);
+      font-size: 10px; font-weight: var(--fw-bold);
+      color: rgba(255,255,255,0.35);
       text-transform: uppercase; letter-spacing: 1px;
       padding: var(--sp-3) var(--sp-2) var(--sp-2);
     }
@@ -36,95 +38,135 @@
     }
     .admin-nav-link:hover { background: rgba(255,255,255,0.08); color: white; }
     .admin-nav-link.active { background: rgba(26,155,181,0.2); color: var(--c-accent-teal); }
-    .admin-nav-link .anl-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
-    .admin-nav-link .anl-badge { margin-left: auto; background: var(--c-danger); color: white; font-size: 9px; font-weight: var(--fw-bold); border-radius: var(--r-full); padding: 1px 6px; }
-    /* Main content */
-    .admin-main { padding: var(--sp-6); background: var(--c-bg); }
+    .admin-nav-link .anl-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; }
+    .anl-badge {
+      margin-left: auto; background: var(--c-danger); color: white;
+      font-size: 9px; font-weight: var(--fw-bold);
+      border-radius: var(--r-full); padding: 1px 6px; min-width: 18px; text-align: center;
+    }
+    /* ── Top bar ── */
+    .admin-topbar {
+      background: var(--c-primary);
+      padding: 9px var(--sp-6);
+      display: flex; align-items: center; gap: var(--sp-5);
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      margin-top: var(--nav-h);
+    }
+    .topbar-item { font-size: var(--fs-xs); color: rgba(255,255,255,0.55); display: flex; align-items: center; gap: 6px; }
+    .topbar-val { color: white; font-weight: var(--fw-semi); }
+    .topbar-dot { width: 7px; height: 7px; border-radius: 50%; background: #2D9D78; box-shadow: 0 0 0 2px rgba(45,157,120,0.3); }
+    /* ── Main ── */
+    .admin-main { padding: var(--sp-5) var(--sp-6); background: var(--c-bg); }
     .admin-page-header {
-      display: flex; align-items: center; justify-content: space-between;
-      margin-bottom: var(--sp-6);
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: var(--sp-5);
     }
-    .admin-page-title { font-size: var(--fs-xl); font-weight: var(--fw-bold); color: var(--c-primary); }
-    .admin-page-sub { font-size: var(--fs-sm); color: var(--c-text-muted); margin-top: 2px; }
-    /* Stats grid */
-    .admin-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--sp-4); margin-bottom: var(--sp-6); }
-    .admin-stat {
+    .admin-page-title { font-size: var(--fs-lg); font-weight: var(--fw-bold); color: var(--c-primary); }
+    .admin-page-sub { font-size: var(--fs-xs); color: var(--c-text-muted); margin-top: 3px; }
+    /* ── KPI Cards ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .kpi-card {
       background: var(--c-surface); border: 1px solid var(--c-border-light);
-      border-radius: var(--r-lg); padding: var(--sp-5);
+      border-radius: var(--r-lg); padding: var(--sp-4) var(--sp-5);
       box-shadow: var(--shadow-sm); position: relative; overflow: hidden;
+      border-top: 3px solid transparent;
     }
-    .admin-stat::after {
-      content: attr(data-icon);
-      position: absolute; right: -8px; top: -8px;
-      font-size: 56px; opacity: 0.06; pointer-events: none;
-    }
-    .admin-stat-label { font-size: var(--fs-xs); color: var(--c-text-muted); font-weight: var(--fw-medium); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: var(--sp-2); }
-    .admin-stat-value { font-size: var(--fs-3xl); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-2); line-height: 1; }
-    .admin-stat-delta { font-size: var(--fs-xs); font-weight: var(--fw-medium); display: flex; align-items: center; gap: 3px; }
-    /* Charts row */
-    .charts-row { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: var(--sp-4); margin-bottom: var(--sp-5); }
+    .kpi-card.kpi-teal   { border-top-color: var(--c-accent-teal); }
+    .kpi-card.kpi-gold   { border-top-color: var(--c-gold); }
+    .kpi-card.kpi-blue   { border-top-color: var(--c-primary-mid); }
+    .kpi-card.kpi-green  { border-top-color: var(--c-success); }
+    .kpi-card.kpi-warn   { border-top-color: var(--c-warning); }
+    .kpi-card.kpi-danger { border-top-color: var(--c-danger); }
+    .kpi-icon { position: absolute; right: 12px; top: 12px; font-size: 22px; opacity: 0.12; }
+    .kpi-label { font-size: 10px; font-weight: var(--fw-bold); color: var(--c-text-muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: var(--sp-2); }
+    .kpi-value { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); line-height: 1; margin-bottom: var(--sp-2); }
+    .kpi-delta { font-size: 11px; font-weight: var(--fw-medium); display: flex; align-items: center; gap: 3px; }
+    .kpi-delta .up { color: var(--c-success); }
+    .kpi-delta .dn { color: var(--c-danger); }
+    .kpi-delta .nu { color: var(--c-text-muted); }
+    /* ── Chart panels ── */
     .chart-panel {
       background: var(--c-surface); border: 1px solid var(--c-border-light);
       border-radius: var(--r-xl); padding: var(--sp-5); box-shadow: var(--shadow-sm);
     }
-    .chart-panel-title { font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text); margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between; }
-    /* Tables */
+    .panel-title {
+      font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--c-text);
+      margin-bottom: var(--sp-4); display: flex; align-items: center; justify-content: space-between;
+    }
+    .panel-title-left { display: flex; align-items: center; gap: var(--sp-2); }
+    /* ── Progress bar rows ── */
+    .prog-row { margin-bottom: 10px; }
+    .prog-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .prog-label { font-size: 12px; font-weight: var(--fw-medium); color: var(--c-text); }
+    .prog-count { font-size: 12px; font-weight: var(--fw-bold); color: var(--c-text-muted); }
+    .prog-bar { height: 5px; background: var(--c-border); border-radius: 9999px; overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 9999px; transition: width 0.8s ease; }
+    /* ── Tables ── */
     .admin-table-card {
       background: var(--c-surface); border: 1px solid var(--c-border-light);
-      border-radius: var(--r-xl); overflow: hidden; margin-bottom: var(--sp-5); box-shadow: var(--shadow-sm);
+      border-radius: var(--r-xl); overflow: hidden; box-shadow: var(--shadow-sm);
     }
     .admin-table-header {
       padding: var(--sp-4) var(--sp-5); border-bottom: 1px solid var(--c-border-light);
       display: flex; align-items: center; justify-content: space-between;
     }
     .admin-table-title { font-size: var(--fs-md); font-weight: var(--fw-semi); }
-    /* Industry / strategy tag pills */
-    .industry-pill { display: inline-flex; align-items: center; gap: 4px; background: var(--c-info-bg); color: var(--c-info); border: 1px solid rgba(26,107,175,0.2); border-radius: var(--r-full); padding: 2px 8px; font-size: 11px; font-weight: 500; }
-    /* Alert row */
-    .alert-row {
-      display: flex; align-items: flex-start; gap: var(--sp-3);
-      padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--c-border-light);
-      font-size: var(--fs-xs);
+    /* ── User avatar ── */
+    .u-avatar {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: linear-gradient(135deg,var(--c-primary-mid),var(--c-accent-teal));
+      color: white; font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
     }
+    /* ── Plan badges ── */
+    .badge-plan-free       { background: var(--c-bg); color: var(--c-text-muted); border: 1px solid var(--c-border); border-radius: var(--r-full); padding: 2px 8px; font-size: 10px; font-weight: 600; }
+    .badge-plan-pro        { background: var(--c-accent-teal-lt); color: var(--c-primary-light); border-radius: var(--r-full); padding: 2px 8px; font-size: 10px; font-weight: 600; }
+    .badge-plan-enterprise { background: var(--c-gold-lt); color: #8B6A1F; border-radius: var(--r-full); padding: 2px 8px; font-size: 10px; font-weight: 600; }
+    /* ── Strat badges ── */
+    .strat-badge { font-size: 10px; padding: 2px 8px; border-radius: 9999px; font-weight: 600; }
+    .strat-rehost      { background: rgba(26,155,181,0.12); color: var(--c-accent-teal); }
+    .strat-replatform  { background: rgba(201,168,76,0.15); color: #8B6A1F; }
+    .strat-refactor    { background: rgba(15,43,61,0.10); color: var(--c-primary-mid); }
+    .strat-retain      { background: rgba(217,119,6,0.12); color: var(--c-warning); }
+    .strat-retire      { background: rgba(100,100,100,0.12); color: var(--c-text-muted); }
+    /* ── Alert rows ── */
+    .alert-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-3) var(--sp-5); border-bottom: 1px solid var(--c-border-light); font-size: var(--fs-xs); }
     .alert-row:last-child { border: none; }
-    .alert-row-icon { font-size: 16px; flex-shrink: 0; }
-    .alert-row-content .alert-title { font-weight: var(--fw-semi); color: var(--c-text); }
-    .alert-row-content .alert-desc { color: var(--c-text-muted); margin-top: 2px; line-height: 1.5; }
-    .alert-row-time { margin-left: auto; color: var(--c-text-light); font-size: 11px; white-space: nowrap; }
-    /* User status */
-    .user-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .user-status.active { background: var(--c-success); }
-    .user-status.inactive { background: var(--c-text-light); }
-    /* Plan badge */
-    .plan-free       { background: var(--c-bg); color: var(--c-text-muted); border: 1px solid var(--c-border); }
-    .plan-pro        { background: var(--c-accent-teal-lt); color: var(--c-primary-light); }
-    .plan-enterprise { background: var(--c-gold-lt); color: #8B6A1F; }
-    /* Top bar summary */
-    .admin-topbar {
-      background: var(--c-primary);
-      padding: 10px var(--sp-6);
-      display: flex; align-items: center; gap: var(--sp-6);
-      border-bottom: 1px solid rgba(255,255,255,0.06);
+    .alert-row-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .alert-title { font-weight: var(--fw-semi); color: var(--c-text); }
+    .alert-desc { color: var(--c-text-muted); margin-top: 2px; line-height: 1.5; }
+    .alert-time { margin-left: auto; color: var(--c-text-light); font-size: 11px; white-space: nowrap; padding-left: var(--sp-3); }
+    /* ── Skeleton loader ── */
+    @keyframes shimmer { 0%{background-position:-400px 0} 100%{background-position:400px 0} }
+    .skeleton { background: linear-gradient(90deg,var(--c-border) 25%,var(--c-bg) 50%,var(--c-border) 75%); background-size: 800px 100%; animation: shimmer 1.4s infinite; border-radius: var(--r-sm); }
+    .skel-val { height: 32px; width: 80px; }
+    .skel-label { height: 12px; width: 60px; margin-bottom: 8px; }
+    .skel-delta { height: 12px; width: 100px; margin-top: 8px; }
+    /* ── AI ratio bar ── */
+    .ai-ratio-bar { height: 8px; border-radius: 9999px; background: var(--c-border); overflow: hidden; margin: 8px 0; }
+    .ai-ratio-fill { height: 100%; background: linear-gradient(90deg,var(--c-accent-teal),var(--c-primary-mid)); transition: width 0.8s ease; }
+    /* ── Risk dist pills ── */
+    .risk-dist { display: flex; gap: var(--sp-3); margin-top: var(--sp-3); }
+    .risk-dist-item { flex: 1; text-align: center; padding: var(--sp-3); border-radius: var(--r-md); }
+    .risk-low  { background: rgba(45,157,120,0.1); }
+    .risk-mid  { background: rgba(217,119,6,0.1); }
+    .risk-high { background: rgba(197,48,48,0.1); }
+    .risk-dist-val { font-size: var(--fs-xl); font-weight: var(--fw-bold); }
+    .risk-dist-lbl { font-size: 11px; color: var(--c-text-muted); margin-top: 3px; }
+    /* ── Responsive ── */
+    @media (max-width: 1280px) {
+      .kpi-grid { grid-template-columns: repeat(4,1fr); }
     }
-    .topbar-item { font-size: var(--fs-xs); color: rgba(255,255,255,0.6); display: flex; align-items: center; gap: 6px; }
-    .topbar-val { color: white; font-weight: var(--fw-semi); }
-    /* Tabs */
-    .admin-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--c-border-light); margin-bottom: var(--sp-5); }
-    .admin-tab { padding: 10px 18px; font-size: var(--fs-sm); font-weight: var(--fw-medium); color: var(--c-text-muted); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; transition: all var(--t-fast); margin-bottom: -1px; }
-    .admin-tab:hover { color: var(--c-text); }
-    .admin-tab.active { color: var(--c-accent-teal); border-bottom-color: var(--c-accent-teal); font-weight: var(--fw-semi); }
-    /* Usage heatmap mock */
-    .usage-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; }
-    .usage-cell { height: 18px; border-radius: 3px; transition: opacity var(--t-fast); cursor: default; }
-    .usage-cell:hover { opacity: 0.7; }
-    @media (max-width: 1200px) {
-      .admin-stats { grid-template-columns: repeat(2, 1fr); }
-      .charts-row { grid-template-columns: 1fr 1fr; }
+    @media (max-width: 1100px) {
+      .kpi-grid { grid-template-columns: repeat(2,1fr); }
     }
     @media (max-width: 900px) {
       .admin-layout { grid-template-columns: 1fr; }
       .admin-sidebar { display: none; }
-      .charts-row { grid-template-columns: 1fr; }
+      .kpi-grid { grid-template-columns: repeat(2,1fr); }
+    }
+    @media (max-width: 580px) {
+      .kpi-grid { grid-template-columns: 1fr 1fr; }
     }
   </style>
 </head>
@@ -146,42 +188,59 @@
     </nav>
     <div class="navbar-actions">
       <div class="navbar-quota" style="background:rgba(201,168,76,0.15);border-color:rgba(201,168,76,0.3);">
-        <span style="color:var(--c-gold);">⚙️ Admin</span>
+        <span style="color:var(--c-gold);font-weight:600;">⚙ Admin</span>
       </div>
       <div class="navbar-avatar" id="nav-avatar" onclick="window.location.href='dashboard.html'">?</div>
     </div>
   </div>
 </nav>
 
-<!-- Top summary bar -->
-<div class="admin-topbar" style="margin-top:var(--nav-h);">
-  <div class="topbar-item">🟢 系統狀態 <span class="topbar-val">正常運行</span></div>
-  <div class="topbar-item">👥 總會員數 <span class="topbar-val" id="topTotalUsers">—</span></div>
-  <div class="topbar-item">📊 本月分析 <span class="topbar-val" id="topMonthlyAnalysis">—</span></div>
-  <div class="topbar-item">⚡ 今日分析 <span class="topbar-val" id="topTodayAnalysis">—</span></div>
-  <div class="topbar-item" style="margin-left:auto;">上次更新 <span class="topbar-val" id="topLastUpdated">—</span></div>
+<!-- Top status bar -->
+<div class="admin-topbar">
+  <div class="topbar-item"><div class="topbar-dot"></div>系統運行正常</div>
+  <div class="topbar-item">總會員 <span class="topbar-val" id="topTotalUsers">—</span></div>
+  <div class="topbar-item">本月分析 <span class="topbar-val" id="topMonthAnalyses">—</span></div>
+  <div class="topbar-item">今日分析 <span class="topbar-val" id="topTodayAnalyses">—</span></div>
+  <div class="topbar-item">MAU <span class="topbar-val" id="topMAU">—</span></div>
+  <div class="topbar-item" style="margin-left:auto;font-size:10px;">資料更新 <span class="topbar-val" id="topUpdated">—</span></div>
 </div>
 
 <div class="admin-layout">
-  <!-- Admin Sidebar -->
+  <!-- Sidebar -->
   <aside class="admin-sidebar">
     <div class="admin-sidebar-section">
       <div class="admin-sidebar-title">概覽</div>
-      <a class="admin-nav-link active" onclick="switchAdminTab('overview')"><span class="anl-icon">📊</span>整體概覽</a>
-      <a class="admin-nav-link" onclick="switchAdminTab('analytics')"><span class="anl-icon">📈</span>使用分析</a>
+      <a class="admin-nav-link active" onclick="switchAdminTab('overview',this)">
+        <span class="anl-icon">📊</span>整體概覽
+      </a>
+      <a class="admin-nav-link" onclick="switchAdminTab('analytics',this)">
+        <span class="anl-icon">📈</span>使用分析
+      </a>
     </div>
     <div class="admin-sidebar-section">
       <div class="admin-sidebar-title">管理</div>
-      <a class="admin-nav-link" onclick="switchAdminTab('users')"><span class="anl-icon">👥</span>會員管理</a>
-      <a class="admin-nav-link" onclick="switchAdminTab('analyses')"><span class="anl-icon">📋</span>分析紀錄</a>
-      <a class="admin-nav-link" onclick="switchAdminTab('alerts')"><span class="anl-icon">🔔</span>異常警報 <span class="anl-badge" id="alertBadge">0</span></a>
+      <a class="admin-nav-link" onclick="switchAdminTab('users',this)">
+        <span class="anl-icon">👥</span>會員管理
+      </a>
+      <a class="admin-nav-link" onclick="switchAdminTab('analyses',this)">
+        <span class="anl-icon">📋</span>分析紀錄
+      </a>
+      <a class="admin-nav-link" onclick="switchAdminTab('alerts',this)">
+        <span class="anl-icon">🔔</span>異常警報
+        <span class="anl-badge" id="alertBadge">0</span>
+      </a>
     </div>
     <div class="admin-sidebar-section">
       <div class="admin-sidebar-title">設定</div>
-      <a class="admin-nav-link" onclick="SA.Toast.info('系統設定','此功能將於正式版開放')"><span class="anl-icon">⚙️</span>系統設定</a>
-      <a class="admin-nav-link" onclick="SA.Toast.info('Prompt 管理','此功能將於正式版開放')"><span class="anl-icon">🤖</span>Prompt 管理</a>
-      <a class="admin-nav-link" onclick="SA.Toast.info('產業模板','此功能將於正式版開放')"><span class="anl-icon">🏭</span>產業模板</a>
-      <a class="admin-nav-link" onclick="SA.Toast.info('規則知識庫','此功能將於正式版開放')"><span class="anl-icon">📚</span>規則知識庫</a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('系統設定','此功能將於正式版開放')">
+        <span class="anl-icon">⚙</span>系統設定
+      </a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('Prompt 管理','此功能將於正式版開放')">
+        <span class="anl-icon">🤖</span>Prompt 管理
+      </a>
+      <a class="admin-nav-link" onclick="SA.Toast.info('規則知識庫','此功能將於正式版開放')">
+        <span class="anl-icon">📚</span>規則知識庫
+      </a>
     </div>
     <div class="admin-sidebar-section">
       <div class="admin-sidebar-title">帳號</div>
@@ -190,130 +249,207 @@
     </div>
   </aside>
 
-  <!-- Admin Main -->
+  <!-- Main content -->
   <main class="admin-main">
 
-    <!-- ── Overview Tab ── -->
+    <!-- ══════════ Overview Tab ══════════ -->
     <div id="adminTabOverview">
       <div class="admin-page-header animate-down">
         <div>
-          <div class="admin-page-title">整體概覽 Overview</div>
-          <div class="admin-page-sub" id="adminDateRange">載入中…</div>
+          <div class="admin-page-title">整體概覽</div>
+          <div class="admin-page-sub" id="overviewSub">載入中…</div>
         </div>
         <div style="display:flex;gap:8px;">
-          <button class="btn btn-outline btn-sm" onclick="refreshData()">🔄 重新整理</button>
-          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出報表','此功能將於正式版開放')">📥 匯出報表</button>
+          <button class="btn btn-outline btn-sm" onclick="refreshOverview()">↻ 重新整理</button>
+          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出報表','此功能將於正式版開放')">↓ 匯出報表</button>
         </div>
       </div>
 
-      <!-- Stats -->
-      <div class="admin-stats animate-up">
-        <div class="admin-stat" data-icon="👥">
-          <div class="admin-stat-label">總會員數</div>
-          <div class="admin-stat-value" id="statUsers">—</div>
-          <div class="admin-stat-delta up" id="statUsersDelta"><span style="color:var(--c-success)">↑</span> 本月新增</div>
+      <!-- KPI Row 1 -->
+      <div class="kpi-grid animate-up" id="kpiGrid">
+        <!-- Skeleton placeholders -->
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-icon">👥</div>
+          <div class="kpi-label">總會員數</div>
+          <div class="kpi-value" id="kpiTotalUsers"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiNewUsers"><span class="skeleton skel-delta"></span></div>
         </div>
-        <div class="admin-stat" data-icon="📊">
-          <div class="admin-stat-label">本月分析總數</div>
-          <div class="admin-stat-value" id="statMonthAnalyses">—</div>
-          <div class="admin-stat-delta" id="statMonthDelta" style="color:var(--c-text-muted);">— 上月對比</div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">⚡</div>
+          <div class="kpi-label">月活躍用戶 MAU</div>
+          <div class="kpi-value" id="kpiMAU"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiMAUPct"><span class="skeleton skel-delta"></span></div>
         </div>
-        <div class="admin-stat" data-icon="🎯">
-          <div class="admin-stat-label">最熱門策略</div>
-          <div class="admin-stat-value" style="font-size:var(--fs-xl);" id="statTopStrategy">—</div>
-          <div class="admin-stat-delta" style="color:var(--c-text-muted);" id="statTopStratPct">— 佔比</div>
+        <div class="kpi-card kpi-gold">
+          <div class="kpi-icon">📊</div>
+          <div class="kpi-label">本月分析總數</div>
+          <div class="kpi-value" id="kpiMonthAnalyses"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiAnalysesMoM"><span class="skeleton skel-delta"></span></div>
         </div>
-        <div class="admin-stat" data-icon="⚡">
-          <div class="admin-stat-label">平均風險指數</div>
-          <div class="admin-stat-value" id="statAvgRiskAdmin">—</div>
-          <div class="admin-stat-delta" id="statRiskLevel" style="color:var(--c-text-muted);">整體評估</div>
+        <div class="kpi-card kpi-green">
+          <div class="kpi-icon">📋</div>
+          <div class="kpi-label">累積分析總數</div>
+          <div class="kpi-value" id="kpiTotalAnalyses"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiTodayAnalyses"><span class="skeleton skel-delta"></span></div>
         </div>
-      </div>
-
-      <!-- Charts Row -->
-      <div class="charts-row animate-up">
-        <div class="chart-panel">
-          <div class="chart-panel-title">
-            <span>📈 每月分析量趨勢</span>
-            <span class="badge badge-teal badge-sm">近 6 個月</span>
-          </div>
-          <canvas id="adminTrendChart" height="160"></canvas>
+        <div class="kpi-card kpi-warn">
+          <div class="kpi-icon">💳</div>
+          <div class="kpi-label">付費轉換率</div>
+          <div class="kpi-value" id="kpiConvRate"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiPaidUsers"><span class="skeleton skel-delta"></span></div>
         </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">🎯 策略分佈</div>
-          <canvas id="adminStrategyChart" height="180"></canvas>
+        <div class="kpi-card kpi-teal">
+          <div class="kpi-icon">🤖</div>
+          <div class="kpi-label">AI 引擎使用率</div>
+          <div class="kpi-value" id="kpiAIUsage"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiAIDelta"><span class="skeleton skel-delta"></span></div>
         </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">💳 方案分佈</div>
-          <canvas id="adminPlanChart" height="180"></canvas>
+        <div class="kpi-card kpi-danger">
+          <div class="kpi-icon">⚠</div>
+          <div class="kpi-label">平均風險指數</div>
+          <div class="kpi-value" id="kpiAvgRisk"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiRiskLevel"><span class="skeleton skel-delta"></span></div>
         </div>
-      </div>
-
-      <!-- Second row: industry + usage heatmap -->
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-5);" class="animate-up">
-        <!-- Top Industries -->
-        <div class="chart-panel">
-          <div class="chart-panel-title">🏭 熱門使用情境</div>
-          <div id="industryList">
-            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">載入中…</div>
-          </div>
-        </div>
-        <!-- Usage heatmap (mock) -->
-        <div class="chart-panel">
-          <div class="chart-panel-title">
-            <span>🌡️ 近 12 週使用熱度</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:4px;margin-bottom:8px;font-size:10px;color:var(--c-text-muted);">
-            <span>少</span>
-            <div style="width:12px;height:12px;border-radius:2px;background:#E8EEF4;"></div>
-            <div style="width:12px;height:12px;border-radius:2px;background:#A8D8E8;"></div>
-            <div style="width:12px;height:12px;border-radius:2px;background:#1A9BB5;"></div>
-            <div style="width:12px;height:12px;border-radius:2px;background:#0F2B3D;"></div>
-            <span>多</span>
-          </div>
-          <div class="usage-grid" id="usageHeatmap"></div>
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--c-text-muted);margin-top:6px;" id="heatmapLabels"></div>
+        <div class="kpi-card kpi-blue">
+          <div class="kpi-icon">🎯</div>
+          <div class="kpi-label">最熱門策略</div>
+          <div class="kpi-value" style="font-size:var(--fs-xl);" id="kpiTopStrat"><span class="skeleton skel-val"></span></div>
+          <div class="kpi-delta" id="kpiTopStratPct"><span class="skeleton skel-delta"></span></div>
         </div>
       </div>
 
-      <!-- Recent Analyses Table -->
+      <!-- Growth trend + Plan dist -->
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-4);" class="animate-up">
+        <div class="chart-panel">
+          <div class="panel-title">
+            <div class="panel-title-left">📈 成長趨勢 <span class="badge badge-teal badge-sm" style="margin-left:6px;">近 6 個月</span></div>
+          </div>
+          <canvas id="chartGrowth" height="150"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="panel-title">💳 方案分佈</div>
+          <canvas id="chartPlan" height="180"></canvas>
+          <div id="planLegend" style="margin-top:8px;font-size:11px;color:var(--c-text-muted);"></div>
+        </div>
+      </div>
+
+      <!-- Strategy + Cloud + Segments -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-4);" class="animate-up">
+        <!-- Strategy distribution -->
+        <div class="chart-panel">
+          <div class="panel-title">🎯 策略分佈</div>
+          <canvas id="chartStrategy" height="200"></canvas>
+        </div>
+        <!-- Top Industries (real from segments) -->
+        <div class="chart-panel">
+          <div class="panel-title">🏭 熱門產業</div>
+          <div id="industryBars"><div style="font-size:12px;color:var(--c-text-muted);">載入中…</div></div>
+        </div>
+        <!-- Top Cloud Providers + Risk dist -->
+        <div class="chart-panel">
+          <div class="panel-title">☁ 目標雲端平台</div>
+          <div id="cloudBars" style="margin-bottom:var(--sp-4);"><div style="font-size:12px;color:var(--c-text-muted);">載入中…</div></div>
+          <div class="panel-title" style="margin-top:var(--sp-3);">⚠ 風險分佈</div>
+          <div class="risk-dist">
+            <div class="risk-dist-item risk-low">
+              <div class="risk-dist-val" style="color:var(--c-success);" id="riskLow">—</div>
+              <div class="risk-dist-lbl">低風險</div>
+            </div>
+            <div class="risk-dist-item risk-mid">
+              <div class="risk-dist-val" style="color:var(--c-warning);" id="riskMid">—</div>
+              <div class="risk-dist-lbl">中風險</div>
+            </div>
+            <div class="risk-dist-item risk-high">
+              <div class="risk-dist-val" style="color:var(--c-danger);" id="riskHigh">—</div>
+              <div class="risk-dist-lbl">高風險</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI usage ratio -->
+      <div class="chart-panel animate-up" style="margin-bottom:var(--sp-4);">
+        <div class="panel-title">
+          <div class="panel-title-left">🤖 AI vs 本地引擎使用比例</div>
+          <span id="aiRatioLabel" style="font-size:12px;color:var(--c-text-muted);">—</span>
+        </div>
+        <div class="ai-ratio-bar">
+          <div class="ai-ratio-fill" id="aiRatioFill" style="width:0%"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--c-text-muted);margin-top:4px;">
+          <span style="color:var(--c-accent-teal);font-weight:600;">AI 引擎 (Claude API)</span>
+          <span>本地規則引擎</span>
+        </div>
+      </div>
+
+      <!-- Recent analyses table -->
       <div class="admin-table-card animate-up">
         <div class="admin-table-header">
           <div class="admin-table-title">📋 最近分析記錄</div>
-          <button class="btn btn-outline btn-sm" onclick="switchAdminTab('analyses')">查看全部</button>
+          <button class="btn btn-outline btn-sm" onclick="switchAdminTab('analyses',null)">查看全部 →</button>
         </div>
-        <div class="table-wrap" id="recentAnalysesAdmin">
-          <div class="empty-state" style="padding:40px;">
-            <div class="empty-icon">📭</div>
-            <div class="empty-title">尚無分析記錄</div>
-          </div>
+        <div class="table-wrap" id="recentTable">
+          <div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">載入中…</div></div>
         </div>
       </div>
     </div>
 
-    <!-- ── Users Tab ── -->
+    <!-- ══════════ Analytics Tab ══════════ -->
+    <div id="adminTabAnalytics" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">使用分析</div>
+          <div class="admin-page-sub">深入了解平台使用模式與分析行為</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);" class="animate-up">
+        <div class="chart-panel">
+          <div class="panel-title">📊 報告風格偏好</div>
+          <canvas id="chartStyle" height="200"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="panel-title">⚡ 風險指數分佈</div>
+          <canvas id="chartRiskDist" height="200"></canvas>
+        </div>
+        <div class="chart-panel" style="grid-column:1/-1;">
+          <div class="panel-title">
+            <div class="panel-title-left">📈 新用戶成長（近 6 個月）</div>
+          </div>
+          <canvas id="chartUserGrowth" height="140"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ Users Tab ══════════ -->
     <div id="adminTabUsers" style="display:none;">
       <div class="admin-page-header animate-down">
         <div>
           <div class="admin-page-title">👥 會員管理</div>
-          <div class="admin-page-sub">管理所有已註冊用戶</div>
+          <div class="admin-page-sub">管理所有已註冊用戶，可調整方案與角色</div>
         </div>
-        <div style="display:flex;gap:8px;">
-          <input type="text" class="form-control" placeholder="搜尋用戶…" id="userSearch" style="width:200px;" oninput="filterUsers()">
-          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出用戶列表','此功能將於正式版開放')">📥 匯出</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" class="form-control" placeholder="搜尋姓名/信箱…" id="userSearch" style="width:200px;" oninput="filterUsers()">
+          <select class="form-select" id="planFilter" onchange="filterUsers()" style="width:120px;">
+            <option value="">所有方案</option>
+            <option value="free">免費版</option>
+            <option value="pro">專業版</option>
+            <option value="enterprise">企業版</option>
+          </select>
         </div>
       </div>
       <div class="admin-table-card animate-up">
-        <div class="table-wrap" id="usersTable"></div>
+        <div class="table-wrap" id="usersTable">
+          <div class="empty-state" style="padding:40px;"><div class="empty-icon">👥</div><div class="empty-title">載入中…</div></div>
+        </div>
       </div>
     </div>
 
-    <!-- ── Analyses Tab ── -->
+    <!-- ══════════ Analyses Tab ══════════ -->
     <div id="adminTabAnalyses" style="display:none;">
       <div class="admin-page-header animate-down">
         <div>
           <div class="admin-page-title">📋 所有分析記錄</div>
-          <div class="admin-page-sub">系統全部分析歷史紀錄</div>
+          <div class="admin-page-sub">系統全部分析歷史，含 AI 版本追蹤</div>
         </div>
         <div style="display:flex;gap:8px;">
           <select class="form-select" id="stratFilter" onchange="filterAnalyses()" style="width:160px;">
@@ -324,45 +460,31 @@
             <option value="retain">Retain</option>
             <option value="retire">Retire</option>
           </select>
-          <button class="btn btn-primary btn-sm" onclick="SA.Toast.info('匯出分析記錄','此功能將於正式版開放')">📥 匯出</button>
+          <select class="form-select" id="sourceFilter" onchange="filterAnalyses()" style="width:140px;">
+            <option value="">所有來源</option>
+            <option value="claude-api">AI 引擎</option>
+            <option value="local">本地引擎</option>
+          </select>
         </div>
       </div>
       <div class="admin-table-card animate-up">
-        <div class="table-wrap" id="analysesTable"></div>
-      </div>
-    </div>
-
-    <!-- ── Analytics Tab ── -->
-    <div id="adminTabAnalytics" style="display:none;">
-      <div class="admin-page-header animate-down">
-        <div class="admin-page-title">📈 使用分析</div>
-        <div class="admin-page-sub">深入了解平台使用模式</div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);" class="animate-up">
-        <div class="chart-panel">
-          <div class="chart-panel-title">📊 報告風格分佈</div>
-          <canvas id="styleChart" height="200"></canvas>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-panel-title">⚡ 風險指數分佈</div>
-          <canvas id="riskDistChart" height="200"></canvas>
-        </div>
-        <div class="chart-panel" style="grid-column:1/-1;">
-          <div class="chart-panel-title">📈 累積分析量（所有時間）</div>
-          <canvas id="cumulativeChart" height="140"></canvas>
+        <div class="table-wrap" id="analysesTable">
+          <div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">載入中…</div></div>
         </div>
       </div>
     </div>
 
-    <!-- ── Alerts Tab ── -->
+    <!-- ══════════ Alerts Tab ══════════ -->
     <div id="adminTabAlerts" style="display:none;">
       <div class="admin-page-header animate-down">
-        <div class="admin-page-title">🔔 異常警報記錄</div>
-        <div class="admin-page-sub">系統異常與失敗事件摘要</div>
+        <div>
+          <div class="admin-page-title">🔔 系統警報</div>
+          <div class="admin-page-sub">高風險分析、異常用量、系統事件</div>
+        </div>
       </div>
       <div class="admin-table-card animate-up">
         <div id="alertsList">
-          <!-- Injected by JS -->
+          <div class="empty-state" style="padding:40px;"><div class="empty-icon">⏳</div><div class="empty-title">載入中…</div></div>
         </div>
       </div>
     </div>
@@ -375,8 +497,24 @@
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script>
+/* ──────────────────────────────────────────────
+   State
+────────────────────────────────────────────── */
+let _token = null;
+let _overview = null;
+let _growth = null;
+let _segments = null;
+let _users = null;
+let _analyses = null;
+let _chartsRendered = { overview: false, analytics: false };
+
+const STRAT_LABELS = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
+const STRAT_LABELS_ZH = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+
+/* ──────────────────────────────────────────────
+   Init
+────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', async () => {
-  // Load config (enables Supabase)
   try {
     const cfg = await fetch('/api/config').then(r => r.json());
     window.__SA_CONFIG__ = cfg;
@@ -389,433 +527,574 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.location.href = 'dashboard.html';
     return;
   }
-
   Auth.injectNavUser();
+  document.getElementById('topUpdated').textContent = SA.fmt.datetime(new Date());
+  document.getElementById('overviewSub').textContent = `資料截止：${SA.fmt.datetime(new Date())}`;
 
-  const now = new Date();
-  document.getElementById('adminDateRange').textContent = `資料截止：${SA.fmt.datetime(now)}`;
-  document.getElementById('topLastUpdated').textContent = SA.fmt.datetime(now);
-
-  loadAdminData();
+  await loadToken();
+  loadOverview();
 });
 
-function refreshData() {
-  adminChartsRendered = false;
-  SA.Toast.info('資料更新中', '');
-  loadAdminData();
+async function loadToken() {
+  try {
+    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
+    _token = session?.access_token || null;
+  } catch {}
 }
 
-async function loadAdminData() {
-  // Try Supabase API first
-  if (typeof SupabaseClient !== 'undefined' && SupabaseClient.isConfigured()) {
-    try {
-      const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
-      if (session?.access_token) {
-        const hdrs = { 'Authorization': `Bearer ${session.access_token}` };
-        const [overviewResp, usersResp, analysesResp] = await Promise.all([
-          fetch('/api/admin-data?type=overview',  { headers: hdrs }),
-          fetch('/api/admin-data?type=users',     { headers: hdrs }),
-          fetch('/api/admin-data?type=analyses',  { headers: hdrs }),
-        ]);
-        if (overviewResp.ok && usersResp.ok && analysesResp.ok) {
-          const overview  = await overviewResp.json();
-          const usersData = await usersResp.json();
-          const analysesData = await analysesResp.json();
-          _renderAdminFromAPI(overview.overview || overview, usersData.users || [], analysesData.analyses || []);
-          return;
-        }
+function apiHeaders() {
+  return { 'Authorization': `Bearer ${_token}`, 'Content-Type': 'application/json' };
+}
+
+async function adminFetch(type, extra = '') {
+  const resp = await fetch(`/api/admin-data?type=${type}${extra}`, { headers: apiHeaders() });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  return resp.json();
+}
+
+/* ──────────────────────────────────────────────
+   Overview
+────────────────────────────────────────────── */
+async function loadOverview() {
+  if (!_token) { SA.Toast.error('認證失敗', '請重新登入'); return; }
+  try {
+    const [ovRes, grRes, segRes, recentRes] = await Promise.all([
+      adminFetch('overview'),
+      adminFetch('growth'),
+      adminFetch('segments'),
+      adminFetch('analyses', '&limit=8'),
+    ]);
+    _overview  = ovRes.overview;
+    _growth    = grRes.growth;
+    _segments  = segRes.segments;
+    _analyses  = recentRes.analyses;
+
+    renderKPIs(_overview);
+    renderTopBar(_overview);
+    renderAlertBadge(_overview);
+    renderIndustryBars(_segments.topIndustries || []);
+    renderCloudBars(_segments.topClouds || []);
+    renderRiskDist(_segments.riskDist || [0,0,0]);
+    renderAIRatio(_overview.aiUsagePct || 0);
+    renderRecentTable(_analyses || []);
+
+    // Wait for Chart.js to load then draw charts
+    waitForChart(() => {
+      if (!_chartsRendered.overview) {
+        _chartsRendered.overview = true;
+        renderGrowthChart(_growth || []);
+        renderPlanChart(_overview.planBreakdown || {});
+        renderStrategyChart(_overview.strategyBreakdown || {});
       }
-    } catch (err) { console.warn('[admin] API fetch failed, using localStorage:', err.message); }
+    });
+  } catch (err) {
+    console.error('[admin] loadOverview error:', err);
+    SA.Toast.error('載入失敗', err.message || '請確認登入狀態');
   }
+}
 
-  // localStorage fallback
-  const allUsers = await Auth.getAllUsers();
-  const history  = SA.Store.get('history', []);
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const today     = new Date().toISOString().slice(0, 10);
-  const fakeOverview = {
-    totalUsers: allUsers.length,
-    totalAnalyses: history.length,
-    monthlyAnalyses: history.filter(h => h.timestamp?.startsWith(thisMonth)).length,
-    todayAnalyses: history.filter(h => h.timestamp?.startsWith(today)).length,
-    strategyBreakdown: {},
-  };
-  history.forEach(h => {
-    fakeOverview.strategyBreakdown[h.strategy] = (fakeOverview.strategyBreakdown[h.strategy]||0)+1;
+function refreshOverview() {
+  _chartsRendered.overview = false;
+  destroyChart('chartGrowth');
+  destroyChart('chartPlan');
+  destroyChart('chartStrategy');
+  SA.Toast.info('更新中', '重新載入資料…');
+  document.getElementById('topUpdated').textContent = SA.fmt.datetime(new Date());
+  loadOverview();
+}
+
+/* ──────────────────────────────────────────────
+   KPI Cards
+────────────────────────────────────────────── */
+function renderKPIs(o) {
+  setText('kpiTotalUsers', o.totalUsers);
+  setHtml('kpiNewUsers', deltaHtml(o.usersMoM, `本月新增 ${o.newUsersThisMonth} 人`));
+
+  setText('kpiMAU', o.mau);
+  setHtml('kpiMAUPct', `<span class="nu">活躍率 ${o.mauPct}% of 總用戶</span>`);
+
+  setText('kpiMonthAnalyses', o.monthAnalyses);
+  setHtml('kpiAnalysesMoM', deltaHtml(o.analysesMoM, '對比上月'));
+
+  setText('kpiTotalAnalyses', o.totalAnalyses);
+  setHtml('kpiTodayAnalyses', `<span class="nu">今日 ${o.todayAnalyses} 次</span>`);
+
+  setText('kpiConvRate', `${o.conversionRate}%`);
+  setHtml('kpiPaidUsers', `<span class="nu">付費用戶 ${o.paidUsers} 人</span>`);
+
+  setText('kpiAIUsage', `${o.aiUsagePct}%`);
+  setHtml('kpiAIDelta', `<span class="nu">本地引擎 ${100-o.aiUsagePct}%</span>`);
+
+  const risk = o.avgRiskScore || 0;
+  setText('kpiAvgRisk', risk + '%');
+  const riskColor = risk >= 70 ? 'var(--c-danger)' : risk >= 50 ? 'var(--c-warning)' : 'var(--c-success)';
+  const riskLbl   = risk >= 70 ? '⚠ 高風險' : risk >= 50 ? '⚡ 中等' : '✓ 可控';
+  setHtml('kpiRiskLevel', `<span style="color:${riskColor};">${riskLbl}</span>`);
+
+  setText('kpiTopStrat', o.topStrategy || '—');
+  setHtml('kpiTopStratPct', `<span class="nu">佔比 ${o.topStratPct || 0}%</span>`);
+}
+
+function deltaHtml(pct, suffix) {
+  if (pct === undefined || pct === null || pct === 0) return `<span class="nu">${suffix}</span>`;
+  const up = pct > 0;
+  return `<span class="${up?'up':'dn'}">${up?'↑':'↓'} ${Math.abs(pct)}%</span> <span class="nu">${suffix}</span>`;
+}
+
+function renderTopBar(o) {
+  setText('topTotalUsers', o.totalUsers);
+  setText('topMonthAnalyses', o.monthAnalyses);
+  setText('topTodayAnalyses', o.todayAnalyses);
+  setText('topMAU', o.mau);
+}
+
+function renderAlertBadge(o) {
+  const high = (_segments?.riskDist || [0,0,0])[2] || 0;
+  setText('alertBadge', high);
+}
+
+/* ──────────────────────────────────────────────
+   Bars: Industry & Cloud
+────────────────────────────────────────────── */
+function renderIndustryBars(items) {
+  const el = document.getElementById('industryBars');
+  if (!items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--c-text-muted);">尚無資料</div>'; return; }
+  const max = items[0].count || 1;
+  const colors = ['var(--c-gold)','var(--c-accent-teal)','var(--c-success)','var(--c-primary-mid)','var(--c-warning)','var(--c-text-muted)'];
+  el.innerHTML = items.map((item, i) => `
+    <div class="prog-row">
+      <div class="prog-header">
+        <span class="prog-label">${item.label}</span>
+        <span class="prog-count">${item.count}</span>
+      </div>
+      <div class="prog-bar">
+        <div class="prog-fill" style="width:${Math.round(item.count/max*100)}%;background:${colors[i%colors.length]};"></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderCloudBars(items) {
+  const el = document.getElementById('cloudBars');
+  if (!items.length) { el.innerHTML = '<div style="font-size:12px;color:var(--c-text-muted);">尚無資料</div>'; return; }
+  const max = items[0].count || 1;
+  const colors = ['#FF9900','#0078D4','#4285F4','var(--c-accent-teal)','var(--c-text-muted)'];
+  el.innerHTML = items.map((item, i) => `
+    <div class="prog-row">
+      <div class="prog-header">
+        <span class="prog-label">${item.label}</span>
+        <span class="prog-count">${item.count}</span>
+      </div>
+      <div class="prog-bar">
+        <div class="prog-fill" style="width:${Math.round(item.count/max*100)}%;background:${colors[i%colors.length]};"></div>
+      </div>
+    </div>`).join('');
+}
+
+function renderRiskDist(dist) {
+  // dist = [low, mid, high]
+  setText('riskLow',  dist[0] || 0);
+  setText('riskMid',  dist[1] || 0);
+  setText('riskHigh', dist[2] || 0);
+}
+
+function renderAIRatio(pct) {
+  document.getElementById('aiRatioFill').style.width = pct + '%';
+  document.getElementById('aiRatioLabel').textContent = `AI 佔 ${pct}%，本地引擎佔 ${100-pct}%`;
+}
+
+/* ──────────────────────────────────────────────
+   Charts
+────────────────────────────────────────────── */
+const _chartInstances = {};
+function destroyChart(id) {
+  if (_chartInstances[id]) { _chartInstances[id].destroy(); delete _chartInstances[id]; }
+}
+function waitForChart(cb) {
+  if (typeof Chart !== 'undefined') { cb(); }
+  else { setTimeout(() => waitForChart(cb), 200); }
+}
+function mkChart(id, config) {
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (!el) return;
+  _chartInstances[id] = new Chart(el, config);
+}
+
+const CHART_COLORS = {
+  teal:  'rgba(26,155,181,0.85)',
+  gold:  'rgba(201,168,76,0.85)',
+  blue:  'rgba(15,43,61,0.85)',
+  green: 'rgba(45,157,120,0.85)',
+  warn:  'rgba(217,119,6,0.85)',
+  red:   'rgba(197,48,48,0.85)',
+  grey:  'rgba(107,122,141,0.85)',
+};
+
+function renderGrowthChart(growth) {
+  const labels     = growth.map(m => m.label);
+  const newUsers   = growth.map(m => m.newUsers);
+  const analyses   = growth.map(m => m.analyses);
+  mkChart('chartGrowth', {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '新增用戶',
+          data: newUsers,
+          backgroundColor: 'rgba(26,155,181,0.25)',
+          borderColor: CHART_COLORS.teal,
+          borderWidth: 2,
+          borderRadius: 4,
+          yAxisID: 'y',
+        },
+        {
+          label: '分析次數',
+          data: analyses,
+          type: 'line',
+          backgroundColor: 'transparent',
+          borderColor: CHART_COLORS.gold,
+          borderWidth: 2.5,
+          tension: 0.4,
+          pointBackgroundColor: CHART_COLORS.gold,
+          pointRadius: 4,
+          yAxisID: 'y2',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } },
+      },
+      scales: {
+        y:  { beginAtZero: true, position: 'left',  ticks: { stepSize: 1, font: { size: 11 } }, grid: { color: 'rgba(0,0,0,0.04)' } },
+        y2: { beginAtZero: true, position: 'right', ticks: { stepSize: 1, font: { size: 11 } }, grid: { display: false } },
+      }
+    }
   });
-  _renderAdminFromAPI(fakeOverview, allUsers, history);
 }
 
-function _renderAdminFromAPI(overview, users, analyses) {
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const today     = new Date().toISOString().slice(0, 10);
-
-  // Top bar
-  document.getElementById('topTotalUsers').textContent = overview.totalUsers ?? users.length;
-  document.getElementById('topMonthlyAnalysis').textContent = overview.monthlyAnalyses ?? analyses.filter(a => (a.created_at||a.timestamp)?.startsWith(thisMonth)).length;
-  document.getElementById('topTodayAnalysis').textContent   = overview.todayAnalyses   ?? analyses.filter(a => (a.created_at||a.timestamp)?.startsWith(today)).length;
-
-  // Stats
-  document.getElementById('statUsers').textContent = overview.totalUsers ?? users.length;
-  document.getElementById('statMonthAnalyses').textContent = overview.monthlyAnalyses ?? '—';
-
-  // Strategy breakdown
-  const stratBreak = overview.strategyBreakdown || {};
-  const totalA     = overview.totalAnalyses || analyses.length || 1;
-  const sorted     = Object.entries(stratBreak).sort((a,b)=>b[1]-a[1]);
-  if (sorted.length) {
-    const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
-    document.getElementById('statTopStrategy').textContent = stratLabels[sorted[0][0]] || sorted[0][0];
-    document.getElementById('statTopStratPct').textContent = `${Math.round(sorted[0][1]/totalA*100)}% 佔比`;
-  }
-
-  // Risk avg (from analyses list)
-  const histForRisk = analyses.map(a => ({ risk: a.risk_score ?? a.risk ?? 0 }));
-  const risks = histForRisk.map(h => h.risk).filter(Boolean);
-  if (risks.length) {
-    const avg = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length);
-    document.getElementById('statAvgRiskAdmin').textContent = avg + '%';
-    document.getElementById('statRiskLevel').textContent = avg>=70?'🔴 高風險':avg>=50?'🟡 中等':'🟢 可控';
-  }
-
-  // Normalize analyses for table renderers (support both API shape and localStorage shape)
-  const normAnalyses = analyses.map(a => ({
-    id:          a.id,
-    projectName: a.project_name || a.projectName,
-    strategy:    a.strategy,
-    risk:        a.risk_score ?? a.risk ?? 0,
-    timestamp:   a.created_at || a.timestamp,
-    style:       a.inputs?.reportStyle || a.style || 'executive',
-    kpi:         a.kpi || null,
-    source:      a.source || 'local',
-    userName:    a.user_name || a.user?.name || '—',
-  }));
-
-  // Alert badge
-  const highRiskCount = risks.filter(r => r >= 70).length;
-  document.getElementById('alertBadge').textContent = highRiskCount;
-
-  // Normalize users for table
-  const normUsers = users.map(u => ({
-    id:        u.id,
-    name:      u.name || u.user_name || '—',
-    email:     u.email || '—',
-    plan:      u.plan || 'free',
-    role:      u.role || 'user',
-    company:   u.company || '—',
-    createdAt: u.created_at || u.createdAt,
-    avatar:    (u.name || u.user_name || '?').slice(0, 2).toUpperCase(),
-  }));
-
-  // Render tables
-  renderRecentAnalysesAdmin(normAnalyses.slice(0, 8));
-  renderUsersTable(normUsers);
-  renderAnalysesTable(normAnalyses);
-  renderAlertsTab(normAnalyses, normUsers);
-  renderIndustryList();
-  renderHeatmap();
-
-  // Charts using normalised data
-  const stratCounts = {};
-  normAnalyses.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
-  setTimeout(() => { renderAdminCharts(normAnalyses, normUsers, stratCounts); }, 100);
+function renderPlanChart(planBreakdown) {
+  const { free = 0, pro = 0, enterprise = 0 } = planBreakdown;
+  mkChart('chartPlan', {
+    type: 'doughnut',
+    data: {
+      labels: ['免費版', '專業版', '企業版'],
+      datasets: [{ data: [free, pro, enterprise], backgroundColor: ['#E8EEF4', CHART_COLORS.teal, CHART_COLORS.gold], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '62%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } }
+    }
+  });
+  const total = free + pro + enterprise || 1;
+  document.getElementById('planLegend').innerHTML =
+    `Free ${free} (${Math.round(free/total*100)}%) · Pro ${pro} (${Math.round(pro/total*100)}%) · Ent ${enterprise} (${Math.round(enterprise/total*100)}%)`;
 }
 
-function renderRecentAnalysesAdmin(history) {
-  const el = document.getElementById('recentAnalysesAdmin');
-  if (!history.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`; return; }
-  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+function renderStrategyChart(stratBreakdown) {
+  const keys   = ['rehost','replatform','refactor','retain','retire'];
+  const labels = keys.map(k => STRAT_LABELS[k]);
+  const data   = keys.map(k => stratBreakdown[k] || 0);
+  mkChart('chartStrategy', {
+    type: 'doughnut',
+    data: {
+      labels,
+      datasets: [{ data, backgroundColor: [CHART_COLORS.teal, CHART_COLORS.gold, CHART_COLORS.blue, CHART_COLORS.warn, CHART_COLORS.grey], borderWidth: 0 }]
+    },
+    options: {
+      responsive: true,
+      cutout: '55%',
+      plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 10 } } }
+    }
+  });
+}
+
+/* ──────────────────────────────────────────────
+   Recent Analyses Table
+────────────────────────────────────────────── */
+function renderRecentTable(list) {
+  const el = document.getElementById('recentTable');
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`;
+    return;
+  }
   el.innerHTML = `<table>
-    <thead><tr><th>專案名稱</th><th>策略</th><th>風險</th><th>風格</th><th>時間</th><th>狀態</th></tr></thead>
-    <tbody>${history.map(h => `<tr>
-      <td><span style="font-weight:600;font-size:13px;">${h.projectName||'未命名'}</span></td>
-      <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
-      <td><span style="font-size:12px;font-weight:600;color:${(h.risk||0)>=70?'var(--c-danger)':(h.risk||0)>=50?'var(--c-warning)':'var(--c-success)'}">${h.risk||'—'}%</span></td>
-      <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術版':'完整版'}</span></td>
-      <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</td>
-      <td><span class="badge badge-success" style="font-size:10px;">✅ 成功</span></td>
-    </tr>`).join('')}</tbody>
+    <thead><tr><th>專案名稱</th><th>用戶</th><th>策略</th><th>風險</th><th>來源</th><th>時間</th></tr></thead>
+    <tbody>${list.map(a => {
+      const profile = a.profiles || {};
+      const risk    = a.risk_score || 0;
+      const riskColor = risk>=70?'var(--c-danger)':risk>=50?'var(--c-warning)':'var(--c-success)';
+      return `<tr>
+        <td><span style="font-weight:600;font-size:13px;">${a.project_name||'未命名'}</span></td>
+        <td><span style="font-size:12px;color:var(--c-text-muted);">${profile.name||profile.email||'—'}</span></td>
+        <td><span class="strat-badge strat-${a.strategy}">${STRAT_LABELS_ZH[a.strategy]||a.strategy||'—'}</span></td>
+        <td><span style="font-size:12px;font-weight:700;color:${riskColor};">${risk||'—'}%</span></td>
+        <td><span class="badge ${a.source==='claude-api'?'badge-teal':'badge-primary'}" style="font-size:10px;">${a.source==='claude-api'?'AI':'本地'}</span></td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(a.created_at)}</td>
+      </tr>`;
+    }).join('')}</tbody>
   </table>`;
 }
 
-let allUsersData = [];
+/* ──────────────────────────────────────────────
+   Users Tab
+────────────────────────────────────────────── */
+let _allUsers = [];
+async function loadUsersTab() {
+  if (_users) { renderUsersTable(_users); return; }
+  try {
+    const res = await adminFetch('users');
+    _users = res.users || [];
+    renderUsersTable(_users);
+  } catch (err) {
+    document.getElementById('usersTable').innerHTML =
+      `<div class="empty-state" style="padding:40px;"><div class="empty-icon">⚠</div><div class="empty-title">載入失敗：${err.message}</div></div>`;
+  }
+}
+
 function renderUsersTable(users) {
-  allUsersData = users;
+  _allUsers = users;
   displayUsersTable(users);
 }
+
 function filterUsers() {
-  const q = document.getElementById('userSearch').value.toLowerCase();
-  displayUsersTable(allUsersData.filter(u => u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q)));
+  const q    = (document.getElementById('userSearch').value || '').toLowerCase();
+  const plan = document.getElementById('planFilter').value;
+  displayUsersTable(_allUsers.filter(u => {
+    const nameOk  = !q || (u.name||'').toLowerCase().includes(q) || (u.email||'').toLowerCase().includes(q);
+    const planOk  = !plan || u.plan === plan;
+    return nameOk && planOk;
+  }));
 }
+
 function displayUsersTable(users) {
   const el = document.getElementById('usersTable');
-  if (!users.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">👥</div><div class="empty-title">無符合條件的用戶</div></div>`; return; }
-  const planLabels = { free:'免費版', pro:'專業版', enterprise:'企業版' };
+  if (!users.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">👥</div><div class="empty-title">無符合條件的用戶</div></div>`;
+    return;
+  }
   el.innerHTML = `<table>
-    <thead><tr><th>用戶</th><th>電子信箱</th><th>方案</th><th>角色</th><th>公司</th><th>加入時間</th><th>操作</th></tr></thead>
-    <tbody>${users.map(u => `<tr>
-      <td><div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--c-primary-mid),var(--c-accent-teal));color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${u.avatar||u.name?.slice(0,2)||'?'}</div>
-        <span style="font-weight:600;font-size:13px;">${u.name||'—'}</span>
-      </div></td>
-      <td style="font-size:12px;color:var(--c-text-muted);">${u.email}</td>
-      <td>
-        <select onchange="updateUserPlan('${u.id}', this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
-          <option value="free"     ${u.plan==='free'?'selected':''}>免費版</option>
-          <option value="pro"      ${u.plan==='pro'?'selected':''}>專業版</option>
-          <option value="enterprise" ${u.plan==='enterprise'?'selected':''}>企業版</option>
-        </select>
-      </td>
-      <td>
-        <select onchange="updateUserRole('${u.id}', this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
-          <option value="user"  ${u.role==='user'?'selected':''}>一般用戶</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>管理員</option>
-        </select>
-      </td>
-      <td style="font-size:12px;color:var(--c-text-muted);">${u.company||'—'}</td>
-      <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.date(u.createdAt)}</td>
-      <td><div style="display:flex;align-items:center;gap:6px;"><div class="user-status active"></div><span style="font-size:12px;color:var(--c-success);">活躍</span></div></td>
-    </tr>`).join('')}</tbody>
+    <thead><tr><th>用戶</th><th>信箱</th><th>方案</th><th>角色</th><th>公司</th><th>累積分析</th><th>本月分析</th><th>加入時間</th></tr></thead>
+    <tbody>${users.map(u => {
+      const initials = (u.name||u.email||'?').slice(0,2).toUpperCase();
+      const planBadge = `badge-plan-${u.plan||'free'}`;
+      const planLabel = {free:'免費版',pro:'專業版',enterprise:'企業版'}[u.plan||'free'];
+      return `<tr>
+        <td><div style="display:flex;align-items:center;gap:8px;">
+          <div class="u-avatar">${initials}</div>
+          <span style="font-weight:600;font-size:13px;">${u.name||'—'}</span>
+        </div></td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${u.email||'—'}</td>
+        <td>
+          <select onchange="updateUserPlan('${u.id}',this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
+            <option value="free"       ${u.plan==='free'?'selected':''}>免費版</option>
+            <option value="pro"        ${u.plan==='pro'?'selected':''}>專業版</option>
+            <option value="enterprise" ${u.plan==='enterprise'?'selected':''}>企業版</option>
+          </select>
+        </td>
+        <td>
+          <select onchange="updateUserRole('${u.id}',this.value)" style="font-size:11px;padding:2px 6px;border-radius:4px;border:1px solid var(--c-border);background:var(--c-bg);cursor:pointer;">
+            <option value="user"  ${u.role==='user'?'selected':''}>一般用戶</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>管理員</option>
+          </select>
+        </td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${u.company||'—'}</td>
+        <td style="font-size:13px;font-weight:600;color:var(--c-text);text-align:center;">${u.totalAnalyses||0}</td>
+        <td style="font-size:12px;color:var(--c-text-muted);text-align:center;">${u.monthAnalyses||0}</td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.date(u.created_at)}</td>
+      </tr>`;
+    }).join('')}</tbody>
   </table>`;
 }
 
 async function updateUserPlan(userId, plan) {
   try {
-    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
     const resp = await fetch('/api/admin-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      method: 'POST', headers: apiHeaders(),
       body: JSON.stringify({ userId, plan }),
     });
-    if (resp.ok) SA.Toast.success('方案已更新', `已變更為 ${plan}`);
+    if (resp.ok) SA.Toast.success('方案已更新', `→ ${plan}`);
     else SA.Toast.error('更新失敗', '請稍後再試');
   } catch { SA.Toast.error('更新失敗', '請稍後再試'); }
 }
 
 async function updateUserRole(userId, role) {
   try {
-    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
     const resp = await fetch('/api/admin-data', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      method: 'POST', headers: apiHeaders(),
       body: JSON.stringify({ userId, role }),
     });
-    if (resp.ok) SA.Toast.success('角色已更新', `已變更為 ${role}`);
+    if (resp.ok) SA.Toast.success('角色已更新', `→ ${role}`);
     else SA.Toast.error('更新失敗', '請稍後再試');
   } catch { SA.Toast.error('更新失敗', '請稍後再試'); }
 }
 
-let allAnalysesData = [];
-function renderAnalysesTable(history) {
-  allAnalysesData = history;
-  displayAnalysesTable(history);
+/* ──────────────────────────────────────────────
+   Analyses Tab
+────────────────────────────────────────────── */
+let _allAnalyses = [];
+async function loadAnalysesTab() {
+  if (_allAnalyses.length) { displayAnalysesTable(_allAnalyses); return; }
+  try {
+    const res = await adminFetch('analyses', '&limit=100');
+    _allAnalyses = res.analyses || [];
+    displayAnalysesTable(_allAnalyses);
+  } catch (err) {
+    document.getElementById('analysesTable').innerHTML =
+      `<div class="empty-state" style="padding:40px;"><div class="empty-icon">⚠</div><div class="empty-title">載入失敗：${err.message}</div></div>`;
+  }
 }
+
 function filterAnalyses() {
-  const strat = document.getElementById('stratFilter').value;
-  displayAnalysesTable(strat ? allAnalysesData.filter(h => h.strategy === strat) : allAnalysesData);
+  const strat  = document.getElementById('stratFilter').value;
+  const source = document.getElementById('sourceFilter').value;
+  displayAnalysesTable(_allAnalyses.filter(a =>
+    (!strat  || a.strategy === strat) &&
+    (!source || a.source === source)
+  ));
 }
-function displayAnalysesTable(history) {
+
+function displayAnalysesTable(list) {
   const el = document.getElementById('analysesTable');
-  if (!history.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`; return; }
-  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  if (!list.length) {
+    el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">📭</div><div class="empty-title">尚無分析記錄</div></div>`;
+    return;
+  }
   el.innerHTML = `<table>
-    <thead><tr><th>分析 ID</th><th>專案名稱</th><th>建議策略</th><th>風險指數</th><th>報告風格</th><th>KPI 均分</th><th>分析時間</th></tr></thead>
-    <tbody>${history.map(h => {
-      const kpiAvg = h.kpi ? Math.round((h.kpi.compliance+h.kpi.lzReadiness+h.kpi.techDebt+h.kpi.roi+h.kpi.timeline)/5) : '—';
+    <thead><tr><th>ID</th><th>專案名稱</th><th>用戶</th><th>策略</th><th>風險</th><th>來源</th><th>AI 版本</th><th>時間</th></tr></thead>
+    <tbody>${list.map(a => {
+      const profile   = a.profiles || {};
+      const risk      = a.risk_score || 0;
+      const riskColor = risk>=70?'var(--c-danger)':risk>=50?'var(--c-warning)':'var(--c-success)';
       return `<tr>
-        <td style="font-size:11px;color:var(--c-text-muted);font-family:monospace;">${h.id?.slice(-8)||'—'}</td>
-        <td><span style="font-weight:600;font-size:13px;">${h.projectName||'未命名'}</span></td>
-        <td><span class="strat-badge strat-${h.strategy}">${stratLabels[h.strategy]||h.strategy}</span></td>
-        <td><span style="font-size:12px;font-weight:600;color:${(h.risk||0)>=70?'var(--c-danger)':(h.risk||0)>=50?'var(--c-warning)':'var(--c-success)'}">${h.risk||'—'}%</span></td>
-        <td><span class="badge ${h.style==='executive'?'badge-gold':h.style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${h.style==='executive'?'高層版':h.style==='techpm'?'技術版':'完整版'}</span></td>
-        <td><span style="font-size:13px;font-weight:600;color:${kpiAvg>=70?'var(--c-success)':kpiAvg>=50?'var(--c-warning)':'var(--c-danger)'}">${kpiAvg}${typeof kpiAvg==='number'?'%':''}</span></td>
-        <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</td>
+        <td style="font-size:11px;color:var(--c-text-muted);font-family:monospace;">${(a.id||'').slice(-8)}</td>
+        <td><span style="font-weight:600;font-size:13px;">${a.project_name||'未命名'}</span></td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${profile.name||profile.email||'—'}</td>
+        <td><span class="strat-badge strat-${a.strategy}">${STRAT_LABELS_ZH[a.strategy]||a.strategy||'—'}</span></td>
+        <td><span style="font-size:12px;font-weight:700;color:${riskColor};">${risk||'—'}%</span></td>
+        <td><span class="badge ${a.source==='claude-api'?'badge-teal':'badge-primary'}" style="font-size:10px;">${a.source==='claude-api'?'AI 引擎':'本地'}</span></td>
+        <td style="font-size:11px;color:var(--c-text-muted);font-family:monospace;">${a.prompt_version||'—'}</td>
+        <td style="font-size:12px;color:var(--c-text-muted);">${SA.fmt.relativeTime(a.created_at)}</td>
       </tr>`;
     }).join('')}</tbody>
   </table>`;
 }
 
-function renderAlertsTab(history, users) {
+/* ──────────────────────────────────────────────
+   Analytics Tab Charts
+────────────────────────────────────────────── */
+async function loadAnalyticsTab() {
+  if (_chartsRendered.analytics) return;
+  // Ensure data is loaded
+  if (!_analyses) {
+    try { const res = await adminFetch('analyses','&limit=200'); _analyses = res.analyses||[]; } catch {}
+  }
+  if (!_growth) {
+    try { const res = await adminFetch('growth'); _growth = res.growth||[]; } catch {}
+  }
+  if (!_segments) {
+    try { const res = await adminFetch('segments'); _segments = res.segments||{}; } catch {}
+  }
+
+  waitForChart(() => {
+    _chartsRendered.analytics = true;
+
+    // Style distribution from analyses
+    const styleCounts = { executive:0, techpm:0, full:0 };
+    (_analyses||[]).forEach(a => {
+      const s = a.inputs?.reportStyle || 'full';
+      styleCounts[s] = (styleCounts[s]||0)+1;
+    });
+    mkChart('chartStyle', {
+      type: 'bar',
+      data: {
+        labels: ['高層決策版','技術 PM 版','完整版'],
+        datasets: [{ data: [styleCounts.executive,styleCounts.techpm,styleCounts.full], backgroundColor:[CHART_COLORS.gold,CHART_COLORS.teal,CHART_COLORS.blue], borderRadius:6 }]
+      },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+    });
+
+    // Risk distribution from segments
+    const rd = (_segments||{}).riskDist || [0,0,0];
+    mkChart('chartRiskDist', {
+      type: 'bar',
+      data: {
+        labels: ['低風險','中風險','高風險'],
+        datasets: [{ data: rd, backgroundColor:[CHART_COLORS.green,CHART_COLORS.warn,CHART_COLORS.red], borderRadius:6 }]
+      },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+    });
+
+    // User growth line from growth endpoint
+    const labels   = (_growth||[]).map(m=>m.label);
+    const newUsers = (_growth||[]).map(m=>m.newUsers);
+    mkChart('chartUserGrowth', {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label:'新增用戶', data:newUsers,
+          backgroundColor:'rgba(26,155,181,0.1)', borderColor:CHART_COLORS.teal,
+          fill:true, tension:0.4, pointRadius:5, pointBackgroundColor:CHART_COLORS.teal,
+        }]
+      },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+    });
+  });
+}
+
+/* ──────────────────────────────────────────────
+   Alerts Tab
+────────────────────────────────────────────── */
+function renderAlertsTab() {
   const el = document.getElementById('alertsList');
-  const highRisk = history.filter(h => (h.risk||0) >= 70);
-  const mockAlerts = [
-    { icon: '🔴', title: '高風險分析偵測', desc: `共偵測到 ${highRisk.length} 筆高風險分析（風險指數 ≥ 70%），建議通知對應用戶`, time: '剛剛', level: 'danger' },
-    { icon: '💳', title: '免費額度接近上限', desc: `${users.filter(u=>u.plan==='free').length} 位免費用戶本月分析量接近 3 次上限，可發送升級邀請`, time: '1 小時前', level: 'warning' },
-    { icon: '✅', title: '系統運行正常', desc: '所有 API 服務正常運行，平均回應時間 2.3 秒', time: '持續監控中', level: 'success' },
-    { icon: 'ℹ️', title: '新功能提醒', desc: 'PDF 匯出功能預計下個版本上線，產業模板功能開發中', time: '系統公告', level: 'info' },
+  const highRisk = (_segments?.riskDist||[0,0,0])[2] || 0;
+  const freeUsers = (_overview?.planBreakdown||{}).free || 0;
+  const alerts = [
+    { icon:'🔴', title:`高風險分析：${highRisk} 筆`, desc:`風險指數 ≥ 70% 的分析共 ${highRisk} 筆，建議主動關懷相關用戶`, time:'即時' },
+    { icon:'💳', title:`免費用戶 ${freeUsers} 人`, desc:`可針對免費用戶發送升級邀請，提升付費轉換率（目前 ${_overview?.conversionRate||0}%）`, time:'系統' },
+    { icon:'🤖', title:`AI 引擎使用率 ${_overview?.aiUsagePct||0}%`, desc:`${100-(_overview?.aiUsagePct||0)}% 的分析使用本地規則引擎，可能因 AI 額度或 API key 問題`, time:'系統' },
+    { icon:'✅', title:'API 服務正常', desc:'admin-data、analyze、save-analysis、config 所有端點運行正常', time:'持續監控' },
+    { icon:'ℹ', title:'Prompt 版本追蹤', desc:`目前 AI 引擎 Prompt 版本追蹤中，分析記錄頁可查看各筆使用版本`, time:'系統公告' },
   ];
-  if (!mockAlerts.length) { el.innerHTML = `<div class="empty-state" style="padding:40px;"><div class="empty-icon">✅</div><div class="empty-title">無異常警報</div></div>`; return; }
-  el.innerHTML = mockAlerts.map(a => `
+  el.innerHTML = alerts.map(a => `
     <div class="alert-row">
       <span class="alert-row-icon">${a.icon}</span>
-      <div class="alert-row-content">
+      <div style="flex:1;">
         <div class="alert-title">${a.title}</div>
         <div class="alert-desc">${a.desc}</div>
       </div>
-      <span class="alert-row-time">${a.time}</span>
+      <span class="alert-time">${a.time}</span>
     </div>`).join('');
 }
 
-function renderIndustryList() {
-  const industries = [
-    { name: '金融 / 銀行 / 保險', pct: 38, color: 'var(--c-gold)' },
-    { name: '製造業 / 工業', pct: 22, color: 'var(--c-accent-teal)' },
-    { name: '零售 / 電商', pct: 15, color: 'var(--c-success)' },
-    { name: '醫療 / 生技', pct: 12, color: 'var(--c-info)' },
-    { name: '政府 / 公共事業', pct: 8, color: 'var(--c-warning)' },
-    { name: '其他', pct: 5, color: 'var(--c-text-light)' },
-  ];
-  const el = document.getElementById('industryList');
-  el.innerHTML = industries.map(i => `
-    <div style="margin-bottom:10px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-        <span style="font-size:12px;font-weight:500;color:var(--c-text);">${i.name}</span>
-        <span style="font-size:12px;font-weight:700;color:${i.color}">${i.pct}%</span>
-      </div>
-      <div style="height:5px;background:var(--c-border);border-radius:9999px;overflow:hidden;">
-        <div style="height:100%;width:${i.pct}%;background:${i.color};border-radius:9999px;transition:width 1s ease;"></div>
-      </div>
-    </div>`).join('');
-}
-
-function renderHeatmap() {
-  const el = document.getElementById('usageHeatmap');
-  const labels = document.getElementById('heatmapLabels');
-  const colors = ['#E8EEF4','#C8DDE8','#A8D0E0','#1A9BB5','#0F2B3D'];
-  const weeks = 12;
-  let html = '';
-  const monthLabels = [];
-  for (let w = 0; w < weeks; w++) {
-    const intensity = Math.floor(Math.random() * 5);
-    html += `<div class="usage-cell" style="background:${colors[intensity]};" title="週 ${w+1}：${intensity*3} 次分析"></div>`;
-    if (w % 4 === 0) {
-      const d = new Date(); d.setDate(d.getDate() - (weeks - w) * 7);
-      monthLabels.push(d.toLocaleDateString('zh-TW', { month: 'short', day: 'numeric' }));
-    }
-  }
-  el.innerHTML = html;
-  labels.innerHTML = monthLabels.map(m => `<span>${m}</span>`).join('');
-}
-
-let adminChartsRendered = false;
-function renderAdminCharts(history, users, stratCounts) {
-  if (adminChartsRendered) return;
-  adminChartsRendered = true;
-
-  // Trend chart
-  const months = []; const counts = [];
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(); d.setMonth(d.getMonth() - i);
-    const key = d.toISOString().slice(0, 7);
-    months.push(key.slice(5) + '月');
-    const cnt = history.filter(h => h.timestamp?.startsWith(key)).length;
-    counts.push(cnt > 0 ? cnt : (i === 0 ? history.length : Math.floor(Math.random() * 5)));
-  }
-  new Chart(document.getElementById('adminTrendChart'), {
-    type: 'line',
-    data: {
-      labels: months,
-      datasets: [{
-        label: '分析次數', data: counts,
-        backgroundColor: 'rgba(26,155,181,0.1)', borderColor: 'rgba(26,155,181,0.8)',
-        fill: true, tension: 0.4, pointBackgroundColor: 'rgba(26,155,181,1)', pointRadius: 5,
-      }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
-
-  // Strategy pie
-  const stratData = ['rehost','replatform','refactor','retain','retire'].map(s => stratCounts[s]||0);
-  const total = stratData.reduce((a,b)=>a+b,0) || 5;
-  const displayData = total === 0 ? [2,1,1,1,0] : stratData;
-  new Chart(document.getElementById('adminStrategyChart'), {
-    type: 'doughnut',
-    data: {
-      labels: ['Rehost','Replatform','Refactor','Retain','Retire'],
-      datasets: [{ data: displayData, backgroundColor: ['#1A9BB5','#C9A84C','#0F2B3D','#D97706','#6B7A8D'], borderWidth: 0 }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
-  });
-
-  // Plan chart
-  const planCounts = { free: 0, pro: 0, enterprise: 0 };
-  users.forEach(u => { planCounts[u.plan] = (planCounts[u.plan]||0)+1; });
-  new Chart(document.getElementById('adminPlanChart'), {
-    type: 'pie',
-    data: {
-      labels: ['免費版','專業版','企業版'],
-      datasets: [{ data: [planCounts.free, planCounts.pro, planCounts.enterprise], backgroundColor: ['#E8EEF4','#1A9BB5','#C9A84C'], borderWidth: 0 }]
-    },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 10 } } } } }
-  });
-
-  // Style distribution
-  const styleCounts = { executive: 0, techpm: 0, full: 0 };
-  history.forEach(h => { styleCounts[h.style||'full'] = (styleCounts[h.style||'full']||0)+1; });
-  new Chart(document.getElementById('styleChart'), {
-    type: 'bar',
-    data: {
-      labels: ['高層決策版','技術 PM 版','完整版'],
-      datasets: [{ data: [styleCounts.executive||1, styleCounts.techpm||0, styleCounts.full||0], backgroundColor: ['#C9A84C','#1A9BB5','#0F2B3D'], borderRadius: 6 }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
-
-  // Risk distribution
-  const riskBuckets = [0,0,0,0]; // <30, 30-50, 50-70, 70+
-  history.forEach(h => {
-    const r = h.risk||0;
-    if (r < 30) riskBuckets[0]++; else if (r < 50) riskBuckets[1]++; else if (r < 70) riskBuckets[2]++; else riskBuckets[3]++;
-  });
-  if (riskBuckets.every(b=>b===0)) riskBuckets[1] = 1;
-  new Chart(document.getElementById('riskDistChart'), {
-    type: 'bar',
-    data: {
-      labels: ['低風險\n<30%','中低\n30-50%','中高\n50-70%','高風險\n≥70%'],
-      datasets: [{ data: riskBuckets, backgroundColor: ['#2D9D78','#1A9BB5','#D97706','#C53030'], borderRadius: 6 }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
-  });
-
-  // Cumulative
-  const cumData = []; let cum = 0;
-  const cumMonths = [];
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date(); d.setMonth(d.getMonth() - i);
-    const key = d.toISOString().slice(0, 7);
-    cumMonths.push(key.slice(5) + '月');
-    cum += history.filter(h => h.timestamp?.startsWith(key)).length || (Math.random() > 0.5 ? 1 : 0);
-    cumData.push(cum);
-  }
-  new Chart(document.getElementById('cumulativeChart'), {
-    type: 'line',
-    data: {
-      labels: cumMonths,
-      datasets: [{
-        label: '累積分析量', data: cumData,
-        backgroundColor: 'rgba(201,168,76,0.08)', borderColor: 'rgba(201,168,76,0.8)',
-        fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: 'rgba(201,168,76,1)',
-      }]
-    },
-    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-  });
-}
-
-function switchAdminTab(tab) {
+/* ──────────────────────────────────────────────
+   Tab switching
+────────────────────────────────────────────── */
+function switchAdminTab(tab, el) {
   const tabs = ['Overview','Users','Analyses','Analytics','Alerts'];
   tabs.forEach(t => {
-    const el = document.getElementById(`adminTab${t}`);
-    if (el) el.style.display = t.toLowerCase() === tab ? 'block' : 'none';
+    const el2 = document.getElementById(`adminTab${t}`);
+    if (el2) el2.style.display = t.toLowerCase() === tab ? 'block' : 'none';
   });
   document.querySelectorAll('.admin-nav-link').forEach(l => l.classList.remove('active'));
-  event?.currentTarget?.classList?.add('active');
-  if (tab === 'analytics') { adminChartsRendered = false; loadAdminData(); }
+  if (el) el.classList.add('active');
+
+  if (tab === 'users')    loadUsersTab();
+  if (tab === 'analyses') loadAnalysesTab();
+  if (tab === 'analytics') loadAnalyticsTab();
+  if (tab === 'alerts' && _overview) renderAlertsTab();
 }
 
-// strat-badge styles (reuse from dashboard)
-const style = document.createElement('style');
-style.textContent = `.strat-badge{font-size:10px;padding:2px 8px;border-radius:9999px;font-weight:600;}.strat-rehost{background:rgba(26,155,181,0.12);color:var(--c-accent-teal);}.strat-replatform{background:rgba(201,168,76,0.15);color:#8B6A1F;}.strat-refactor{background:rgba(15,43,61,0.10);color:var(--c-primary-mid);}.strat-retain{background:rgba(217,119,6,0.12);color:var(--c-warning);}.strat-retire{background:rgba(100,100,100,0.12);color:var(--c-text-muted);}`;
-document.head.appendChild(style);
+/* ──────────────────────────────────────────────
+   Helpers
+────────────────────────────────────────────── */
+function setText(id, val) { const e = document.getElementById(id); if (e) e.textContent = val ?? '—'; }
+function setHtml(id, html) { const e = document.getElementById(id); if (e) e.innerHTML = html; }
 </script>
 </body>
 </html>
