@@ -313,6 +313,8 @@ async function googleLogin() {
   if (error) showToast('Google 登入失敗：' + error.message, 'error');
 }
 
+let _fpCooldownEnd = 0; // rate-limit cooldown timestamp
+
 async function handleForgotPassword(e) {
   e.preventDefault();
   const email = document.getElementById('email').value.trim();
@@ -322,11 +324,22 @@ async function handleForgotPassword(e) {
     return;
   }
 
+  // 冷卻期檢查
+  const now = Date.now();
+  if (_fpCooldownEnd > now) {
+    const secs = Math.ceil((_fpCooldownEnd - now) / 1000);
+    SA.Toast.warning(`請等候 ${secs} 秒`, '防止頻繁寄送，請稍後再試');
+    return;
+  }
+
   const client = SupabaseClient.getClient();
   if (!client) {
     SA.Toast.info('系統初始化中', '請稍後再試，或重新整理頁面');
     return;
   }
+
+  // 設定 60 秒前端冷卻（Supabase 免費版限制：每小時每人 4 封）
+  _fpCooldownEnd = now + 60_000;
 
   SA.Toast.info('寄送中…', '正在發送重設信件');
 
@@ -335,14 +348,16 @@ async function handleForgotPassword(e) {
   });
 
   if (!error) {
-    SA.Toast.success('重設信已寄出 ✓', `請查看 ${email} 的收件匣（含垃圾信件夾），點擊連結重設密碼`);
+    SA.Toast.success('重設信已寄出 ✓',
+      `請查看 ${email} 的收件匣（含垃圾信件夾）。若 5 分鐘後仍未收到，請確認信箱是否正確`);
   } else {
+    _fpCooldownEnd = 0; // 失敗時重置冷卻，讓用戶能立即排查後重試
     console.error('[forgotPassword] error:', error);
     let msg = '請稍後再試';
     if (error.message?.includes('redirect') || error.message?.includes('URL'))
-      msg = '系統設定問題，請聯絡管理員更新 Supabase Redirect URL 設定';
-    else if (error.message?.includes('rate') || error.message?.includes('limit'))
-      msg = '寄送過於頻繁，請等候 60 秒後再試';
+      msg = '請聯絡管理員更新 Supabase Redirect URL 設定（Auth → URL Configuration）';
+    else if (error.status === 429 || error.message?.includes('rate') || error.message?.includes('limit'))
+      msg = '已達 Supabase 寄送上限（免費版每小時限制），請等候 60 分鐘後再試，或聯絡管理員升級 SMTP 設定';
     else if (error.message)
       msg = error.message;
     SA.Toast.error('寄送失敗', msg);

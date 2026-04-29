@@ -352,16 +352,16 @@
                   <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">尚無資料</div>
                 </div>
               </div>
-              <!-- 成本概況 -->
+              <!-- 專案概況 -->
               <div>
-                <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;margin-bottom:var(--sp-2);">成本概況</div>
-                <div style="margin-bottom:6px;">
+                <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;margin-bottom:var(--sp-2);">專案概況</div>
+                <div style="margin-bottom:8px;">
                   <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">已分析專案</div>
                   <div style="font-size:var(--fs-lg);font-weight:var(--fw-bold);color:var(--c-primary);" id="insightUniqueProj">—</div>
                 </div>
                 <div>
-                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">平均月成本</div>
-                  <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);color:var(--c-accent-teal);" id="insightAvgCost">—</div>
+                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">最高風險</div>
+                  <div style="font-size:11px;font-weight:var(--fw-semi);" id="insightTopRisk">—</div>
                 </div>
               </div>
               <!-- 風險分布 -->
@@ -820,18 +820,26 @@ function loadStats() {
         </div>`).join('');
     }
 
-    // 已分析專案數 + 平均月成本
+    // 已分析專案數
     const insProj = document.getElementById('insightUniqueProj');
     if (insProj) {
       const uniqueNames = new Set(history.map(h=>(h.projectName||'').trim()).filter(Boolean));
       insProj.textContent = uniqueNames.size || '—';
     }
-    const insCost = document.getElementById('insightAvgCost');
-    if (insCost) {
-      const withCost = history.filter(h => h.monthlyCost > 0);
-      insCost.textContent = withCost.length
-        ? `$${Math.round(withCost.reduce((s,h)=>s+(h.monthlyCost||0),0)/withCost.length).toLocaleString()} USD`
-        : '尚無成本資料';
+
+    // 最高風險專案
+    const insTopRisk = document.getElementById('insightTopRisk');
+    if (insTopRisk && history.length > 0) {
+      const withRisk = history.filter(h => (h.risk||0) > 0);
+      if (withRisk.length > 0) {
+        const top = withRisk.sort((a,b)=>(b.risk||0)-(a.risk||0))[0];
+        const riskVal = top.risk || 0;
+        const clr = riskVal >= 70 ? 'var(--c-danger)' : riskVal >= 40 ? 'var(--c-warning)' : 'var(--c-success)';
+        const name = (top.projectName || '未命名').slice(0, 12);
+        insTopRisk.innerHTML = `<span style="color:${clr};font-weight:700;">${riskVal}%</span> <span style="color:var(--c-text-muted);font-size:10px;">${name}</span>`;
+      } else {
+        insTopRisk.textContent = '尚無資料';
+      }
     }
 
     // 風險分布
