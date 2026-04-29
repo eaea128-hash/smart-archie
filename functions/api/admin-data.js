@@ -194,11 +194,20 @@ export async function onRequest(context) {
 
   // ── Users list ────────────────────────────────────────────
   if (type === 'users') {
-    const { data, error } = await supabase
+    // Try with email first (requires ALTER TABLE profiles ADD COLUMN email TEXT)
+    let { data, error } = await supabase
       .from('profiles')
       .select('id, email, name, company, plan, role, created_at')
       .order('created_at', { ascending: false })
       .limit(200);
+    if (error) {
+      // Fallback: email column may not exist yet
+      ({ data, error } = await supabase
+        .from('profiles')
+        .select('id, name, company, plan, role, created_at')
+        .order('created_at', { ascending: false })
+        .limit(200));
+    }
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsH });
 
     // Enrich with analysis count
@@ -219,13 +228,34 @@ export async function onRequest(context) {
   if (type === 'analyses') {
     const limit  = parseInt(params.limit  || '50', 10);
     const offset = parseInt(params.offset || '0', 10);
-    const { data, error, count } = await supabase
+
+    // Try with prompt_version first (requires ALTER TABLE analyses ADD COLUMN prompt_version TEXT)
+    let { data, error, count } = await supabase
       .from('analyses')
-      .select('id, project_name, strategy, risk_score, source, prompt_version, created_at, profiles!analyses_user_id_fkey(name, email)', { count: 'exact' })
+      .select('id, project_name, strategy, risk_score, source, prompt_version, created_at, user_id', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
+    if (error) {
+      // Fallback: prompt_version column may not exist yet
+      ({ data, error, count } = await supabase
+        .from('analyses')
+        .select('id, project_name, strategy, risk_score, source, created_at, user_id', { count: 'exact' })
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1));
+    }
     if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500, headers: corsH });
-    return new Response(JSON.stringify({ success: true, analyses: data || [], total: count || 0 }),
+
+    // Enrich with profile info (two-step — analyses.user_id → auth.users, profiles.id → auth.users)
+    const userIds = [...new Set((data || []).map(a => a.user_id))];
+    let profileMap = {};
+    if (userIds.length > 0) {
+      const { data: profs } = await supabase
+        .from('profiles').select('id, name, email').in('id', userIds);
+      (profs || []).forEach(p => { profileMap[p.id] = p; });
+    }
+    const enriched = (data || []).map(a => ({ ...a, profiles: profileMap[a.user_id] || {} }));
+
+    return new Response(JSON.stringify({ success: true, analyses: enriched, total: count || 0 }),
       { status: 200, headers: { ...corsH, 'Content-Type': 'application/json' } });
   }
 

@@ -558,16 +558,15 @@ async function adminFetch(type, extra = '') {
 async function loadOverview() {
   if (!_token) { SA.Toast.error('認證失敗', '請重新登入'); return; }
   try {
-    const [ovRes, grRes, segRes, recentRes] = await Promise.all([
+    // Core KPI data — must all succeed
+    const [ovRes, grRes, segRes] = await Promise.all([
       adminFetch('overview'),
       adminFetch('growth'),
       adminFetch('segments'),
-      adminFetch('analyses', '&limit=8'),
     ]);
-    _overview  = ovRes.overview;
-    _growth    = grRes.growth;
-    _segments  = segRes.segments;
-    _analyses  = recentRes.analyses;
+    _overview = ovRes.overview;
+    _growth   = grRes.growth;
+    _segments = segRes.segments;
 
     renderKPIs(_overview);
     renderTopBar(_overview);
@@ -576,7 +575,16 @@ async function loadOverview() {
     renderCloudBars(_segments.topClouds || []);
     renderRiskDist(_segments.riskDist || [0,0,0]);
     renderAIRatio(_overview.aiUsagePct || 0);
-    renderRecentTable(_analyses || []);
+
+    // Recent analyses — fetch separately so its failure doesn't block overview
+    try {
+      const recentRes = await adminFetch('analyses', '&limit=8');
+      _analyses = recentRes.analyses || [];
+    } catch (e) {
+      console.warn('[admin] recent analyses fetch failed:', e.message);
+      _analyses = [];
+    }
+    renderRecentTable(_analyses);
 
     // Wait for Chart.js to load then draw charts
     waitForChart(() => {
