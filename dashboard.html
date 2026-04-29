@@ -619,15 +619,23 @@ function loadStats() {
   const cntM = document.getElementById('historyCntM');
   if (cntM) cntM.textContent = total;
 
-  // Top strategy
+  // Top strategy（跳過 null / 無效值）
+  const validStratKeys = ['rehost','replatform','refactor','retain','retire'];
+  const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
   if (history.length > 0) {
     const stratCounts = {};
-    history.forEach(h => { stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
-    const topStrat = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1])[0][0];
-    const stratLabels = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
-    document.getElementById('statTopStrat').textContent = stratLabels[topStrat] || topStrat;
-    // Avg risk
-    const risks = history.filter(h => h.risk).map(h => h.risk);
+    history.forEach(h => {
+      if (h.strategy && validStratKeys.includes(h.strategy)) {
+        stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1;
+      }
+    });
+    const entries = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1]);
+    if (entries.length > 0) {
+      const topStrat = entries[0][0];
+      document.getElementById('statTopStrat').textContent = stratLabels[topStrat] || topStrat;
+    }
+    // Avg risk（跳過 0 和 null）
+    const risks = history.filter(h => h.risk > 0).map(h => h.risk);
     if (risks.length) document.getElementById('statAvgRisk').textContent = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length) + '%';
   }
 }
