@@ -190,7 +190,7 @@
     <a href="dashboard.html" class="sidebar-link active"><span class="sl-icon">🏠</span>儀表板</a>
     <a href="analyze.html" class="sidebar-link"><span class="sl-icon">☁️</span>新增分析</a>
     <a href="#history" class="sidebar-link" onclick="switchTab('history');toggleMobileDrawer(false)"><span class="sl-icon">📋</span>歷史紀錄 <span class="sl-badge" id="historyCntM">0</span></a>
-    <a href="#charts" class="sidebar-link" onclick="switchTab('charts');toggleMobileDrawer(false)"><span class="sl-icon">📊</span>分析統計</a>
+    <a href="#charts" class="sidebar-link" onclick="switchTab('charts');toggleMobileDrawer(false)"><span class="sl-icon">📊</span>分析看板</a>
   </div>
   <div class="sidebar-section">
     <div class="sidebar-title">帳號管理</div>
@@ -215,7 +215,7 @@
         <a href="dashboard.html" class="sidebar-link active"><span class="sl-icon">🏠</span>儀表板</a>
         <a href="analyze.html" class="sidebar-link"><span class="sl-icon">☁️</span>新增分析</a>
         <a href="#history" class="sidebar-link" onclick="switchTab('history')"><span class="sl-icon">📋</span>歷史紀錄 <span class="sl-badge" id="historyCnt">0</span></a>
-        <a href="#charts" class="sidebar-link" onclick="switchTab('charts')"><span class="sl-icon">📊</span>分析統計</a>
+        <a href="#charts" class="sidebar-link" onclick="switchTab('charts')"><span class="sl-icon">📊</span>分析看板</a>
       </div>
       <div class="sidebar-section">
         <div class="sidebar-title">帳號管理</div>
@@ -274,10 +274,11 @@
         </div>
         <div class="stat-card">
           <div class="stat-card-inner">
-            <div class="stat-icon" style="background:var(--c-danger-bg);color:var(--c-danger);">⚡</div>
+            <div class="stat-icon" style="background:var(--c-danger-bg);color:var(--c-danger);">⚠</div>
             <div>
-              <div class="stat-label">平均風險指數</div>
-              <div class="stat-value" id="statAvgRisk">—</div>
+              <div class="stat-label">需關注項目</div>
+              <div class="stat-value" id="statHighRisk">0</div>
+              <div class="stat-delta" id="statHighRiskDelta" style="color:var(--c-success);">目前無高風險項目</div>
             </div>
           </div>
         </div>
@@ -351,9 +352,20 @@
         </div>
       </div>
 
-      <!-- Charts Tab -->
+      <!-- Charts / Analytics Tab -->
       <div id="tabCharts" style="display:none;">
-        <div class="chart-row animate-up">
+
+        <!-- Portfolio view -->
+        <div class="history-section animate-up" style="margin-bottom:var(--sp-5);">
+          <div class="history-header">
+            <div class="history-header-title">🗂 專案投資組合</div>
+            <span style="font-size:var(--fs-xs);color:var(--c-text-muted);">點擊卡片開啟分析報告</span>
+          </div>
+          <div id="portfolioView" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:var(--sp-3);padding:var(--sp-5);"></div>
+        </div>
+
+        <!-- Trend + Strategy -->
+        <div class="chart-row animate-up" style="margin-bottom:var(--sp-4);">
           <div class="chart-card">
             <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">📈 每月分析趨勢</div>
             <canvas id="trendChart" height="180"></canvas>
@@ -362,6 +374,47 @@
             <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">🎯 策略分佈</div>
             <canvas id="strategyPieChart" height="200"></canvas>
           </div>
+        </div>
+
+        <!-- Cost bar chart -->
+        <div class="chart-card animate-up" style="margin-bottom:var(--sp-4);">
+          <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">💰 各專案月費估算（USD/月）</div>
+          <div id="costBarWrap"><canvas id="costBarChart" height="140"></canvas></div>
+        </div>
+
+        <!-- Risk radar + cost summary -->
+        <div class="chart-row animate-up" style="margin-bottom:var(--sp-4);">
+          <div class="chart-card">
+            <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">🛡 平均風險雷達</div>
+            <canvas id="complianceRadarChart" height="260"></canvas>
+          </div>
+          <div class="chart-card" style="display:flex;flex-direction:column;">
+            <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);margin-bottom:var(--sp-4);">📊 成本彙總</div>
+            <div id="costSummaryPanel" style="flex:1;display:flex;flex-direction:column;gap:var(--sp-2);justify-content:center;"></div>
+          </div>
+        </div>
+
+        <!-- FinOps placeholder -->
+        <div class="chart-card animate-up" style="border:1px dashed var(--c-border);background:linear-gradient(135deg,rgba(26,155,181,0.03),rgba(15,43,61,0.02));margin-bottom:var(--sp-4);">
+          <div style="display:flex;align-items:flex-start;gap:var(--sp-4);margin-bottom:var(--sp-4);">
+            <div style="width:48px;height:48px;border-radius:var(--r-lg);background:linear-gradient(135deg,#0F2B3D,#1A9BB5);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;">🏦</div>
+            <div>
+              <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);color:var(--c-primary);">FinOps 雲端成本治理</div>
+              <div style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:500;margin-top:2px;">即將推出 · Roadmap Q3 2026</div>
+            </div>
+          </div>
+          <p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.8;margin-bottom:var(--sp-4);">
+            整合 <strong style="color:var(--c-primary);">IBM Turbonomic</strong> 智慧資源最佳化引擎，自動分析雲端使用率、識別過度配置（Over-Provisioning），
+            提供即時 Cost-Right-Sizing 建議。適用於國泰金控多雲環境的 FinOps 治理框架，
+            符合 <strong>FINOPS Foundation</strong> 標準與 <strong>MAS TRM</strong> 成本透明度要求。
+          </p>
+          <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-bottom:var(--sp-4);">
+            <span class="badge badge-teal">IBM Turbonomic 整合</span>
+            <span class="badge" style="background:rgba(201,168,76,0.15);color:#8B6A1F;">成本可視化儀表板</span>
+            <span class="badge" style="background:rgba(45,157,120,0.12);color:var(--c-success);">Right-Sizing 建議</span>
+            <span class="badge" style="background:var(--c-bg);color:var(--c-text-muted);border:1px solid var(--c-border);">多雲成本比較</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="SA.Toast.info('FinOps 功能', '此功能正在開發中，預計 Q3 2026 推出')">了解更多</button>
         </div>
       </div>
 
@@ -443,7 +496,7 @@
                   <li class="text-sm text-muted">✅ 完整報告 + 技術PM版</li>
                   <li class="text-sm text-muted">✅ PDF / PPT 匯出</li>
                   <li class="text-sm text-muted">✅ 歷史紀錄保存</li>
-                  <li class="text-sm text-muted">✅ 分析統計圖表</li>
+                  <li class="text-sm text-muted">✅ 分析看板圖表</li>
                 </ul>
                 <button class="btn btn-accent btn-block" id="upgradePro" onclick="startCheckout('pro')">🚀 升級 Pro — NT$1,990/月</button>
               </div>
@@ -603,6 +656,8 @@ async function loadHistory() {
             shareEnabled:a.share_enabled,
             inputs:      a.inputs  || null,
             result:      a.result  || null,
+            monthlyCost: a.result?.costEstimate?.mid || null,
+            version:     a.prompt_version || null,
           }));
           renderRecentHistory(_historyCache.slice(0, 5));
           renderFullHistory(_historyCache);
@@ -644,9 +699,15 @@ function loadStats() {
       const topStrat = entries[0][0];
       document.getElementById('statTopStrat').textContent = stratLabels[topStrat] || topStrat;
     }
-    // Avg risk（跳過 0 和 null）
-    const risks = history.filter(h => h.risk > 0).map(h => h.risk);
-    if (risks.length) document.getElementById('statAvgRisk').textContent = Math.round(risks.reduce((a,b)=>a+b,0)/risks.length) + '%';
+    // 需關注項目：風險指數 >= 70 的分析
+    const highRiskCount = history.filter(h => (h.risk ?? 0) >= 70).length;
+    const hrEl = document.getElementById('statHighRisk');
+    if (hrEl) hrEl.textContent = highRiskCount;
+    const hrDelta = document.getElementById('statHighRiskDelta');
+    if (hrDelta) {
+      hrDelta.textContent = highRiskCount > 0 ? `${highRiskCount} 個專案風險指數 ≥ 70` : '目前無高風險項目';
+      hrDelta.style.color = highRiskCount > 0 ? 'var(--c-danger)' : 'var(--c-success)';
+    }
   }
 }
 
@@ -672,6 +733,13 @@ function buildHistoryRow(h, isDup = false) {
     : (canOpen ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();genShareLink('${h.id}')" title="產生分享連結">分享</button>` : '');
   const delBtn   = `<button class="hist-btn hist-btn-del" onclick="event.stopPropagation();deleteHistoryItem('${h.id}')" title="刪除此記錄">🗑</button>`;
 
+  const cost = h.monthlyCost
+    ? `<span style="font-size:12px;font-weight:700;color:var(--c-accent-teal);">$${Number(h.monthlyCost).toLocaleString()}</span><span style="font-size:10px;color:var(--c-text-muted);"> USD/月</span>`
+    : `<span style="font-size:12px;color:var(--c-text-muted);">—</span>`;
+  const ver = h.version
+    ? `<span style="font-size:11px;font-family:monospace;color:var(--c-text-muted);">v${h.version}</span>`
+    : `<span class="badge ${styleBadge}" style="font-size:10px;">${styleLabel}</span>`;
+
   return `<tr style="cursor:${canOpen?'pointer':'default'};" onclick="${canOpen?`loadHistoryItem('${h.id}')`:''}">
     <td>
       <div style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:4px;">
@@ -681,14 +749,8 @@ function buildHistoryRow(h, isDup = false) {
       <div style="font-size:11px;color:var(--c-text-muted);">${SA.fmt.relativeTime(h.timestamp)}</div>
     </td>
     <td><span class="strat-badge strat-${stratKey}">${stratLabels[stratKey]}</span></td>
-    <td>
-      <div style="display:flex;align-items:center;gap:6px;" title="${riskTip}">
-        <span class="risk-dot" style="background:${riskColor};box-shadow:0 0 0 2px ${riskColor}22;"></span>
-        <span class="risk-mini"><span class="risk-mini-fill" style="width:${riskVal}%;background:${riskColor};"></span></span>
-        <span style="font-size:12px;font-weight:700;color:${riskColor};min-width:32px;">${riskVal || '—'}%</span>
-      </div>
-    </td>
-    <td><span class="badge ${styleBadge}" style="font-size:10px;">${styleLabel}</span></td>
+    <td>${ver}</td>
+    <td>${cost}</td>
     <td onclick="event.stopPropagation();">
       <div class="hist-actions">${viewBtn}${shareBtn}${delBtn}</div>
     </td>
@@ -704,8 +766,9 @@ function detectDups(list) {
 
 const HIST_THEAD = `<thead><tr>
   <th>專案名稱</th><th>建議策略</th>
-  <th style="cursor:help;" title="整體風險指數：由合規、技術、營運、時程、資料、業務 6 維度平均計算">風險指數 ⓘ</th>
-  <th>報告風格</th><th style="min-width:200px;">操作</th>
+  <th>版本</th>
+  <th>每月成本估算</th>
+  <th style="min-width:210px;">操作</th>
 </tr></thead>`;
 
 function renderRecentHistory(history) {
@@ -745,13 +808,19 @@ function renderHistoryTable(list) {
 async function deleteHistoryItem(id) {
   if (!confirm('確定要刪除此分析記錄？刪除後無法復原。')) return;
   try {
-    // Supabase path
+    // API path（使用 service_role 繞過 RLS）
     if (typeof SupabaseClient !== 'undefined' && SupabaseClient.isConfigured()) {
       const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
       if (session?.access_token) {
-        const { error } = await SupabaseClient.getClient()
-          .from('analyses').delete().eq('id', id);
-        if (error) throw new Error(error.message);
+        const resp = await fetch('/api/delete-analysis', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+          body: JSON.stringify({ id }),
+        });
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          throw new Error(errData.error || `HTTP ${resp.status}`);
+        }
       }
     }
     // Remove from cache & re-render
@@ -831,10 +900,48 @@ function renderCharts() {
   if (chartsRendered) return;
   chartsRendered = true;
   const history = _historyCache || SA.Store.get('history', []);
+  const stratLabels = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+  const stratColors = { rehost:'var(--c-accent-teal)', replatform:'#C9A84C', refactor:'var(--c-primary-mid)', retain:'var(--c-warning)', retire:'var(--c-text-muted)' };
 
-  // Trend chart (last 6 months)
-  const months = [];
-  const counts = [];
+  // ── Portfolio view ─────────────────────────────────────────
+  const portfolioEl = document.getElementById('portfolioView');
+  if (portfolioEl) {
+    if (!history.length) {
+      portfolioEl.innerHTML = `<div style="grid-column:1/-1;text-align:center;color:var(--c-text-muted);padding:var(--sp-6);">尚無分析記錄，<a href="analyze.html" style="color:var(--c-accent-teal);">立即開始分析</a></div>`;
+    } else {
+      portfolioEl.innerHTML = history.map(h => {
+        const color = stratColors[h.strategy] || 'var(--c-primary)';
+        const cost = h.monthlyCost ? `$${Number(h.monthlyCost).toLocaleString()} USD/月` : '— USD/月';
+        const riskV = h.risk ?? 0;
+        const riskC = riskV >= 70 ? 'var(--c-danger)' : riskV >= 50 ? 'var(--c-warning)' : 'var(--c-success)';
+        const riskL = riskV >= 70 ? '高風險' : riskV >= 50 ? '中風險' : '低風險';
+        const canOpen = !!(h.result || h.inputs);
+        return `<div class="chart-card" style="cursor:${canOpen?'pointer':'default'};border-left:3px solid ${color};transition:box-shadow var(--t-fast),transform var(--t-fast);"
+          onclick="${canOpen?`loadHistoryItem('${h.id}')`:''}"
+          onmouseenter="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'"
+          onmouseleave="this.style.boxShadow='';this.style.transform=''">
+          <div style="font-weight:600;font-size:13px;color:var(--c-text);margin-bottom:var(--sp-2);line-height:1.4;">${h.projectName || '未命名專案'}</div>
+          <div style="margin-bottom:var(--sp-3);">
+            <span class="strat-badge strat-${h.strategy||'rehost'}">${stratLabels[h.strategy]||h.strategy}</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);font-size:11px;">
+            <div style="background:var(--c-bg);border-radius:var(--r-sm);padding:6px;">
+              <div style="color:var(--c-text-muted);margin-bottom:2px;">風險</div>
+              <div style="font-weight:700;color:${riskC};">${riskV}% ${riskL}</div>
+            </div>
+            <div style="background:var(--c-bg);border-radius:var(--r-sm);padding:6px;">
+              <div style="color:var(--c-text-muted);margin-bottom:2px;">月費估算</div>
+              <div style="font-weight:700;color:var(--c-accent-teal);">${cost}</div>
+            </div>
+          </div>
+          <div style="font-size:10px;color:var(--c-text-light);margin-top:var(--sp-2);">${SA.fmt.relativeTime(h.timestamp)}</div>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── Trend chart ────────────────────────────────────────────
+  const months = [], counts = [];
   for (let i = 5; i >= 0; i--) {
     const d = new Date(); d.setMonth(d.getMonth() - i);
     const key = d.toISOString().slice(0, 7);
@@ -847,7 +954,7 @@ function renderCharts() {
     options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
   });
 
-  // Strategy pie
+  // ── Strategy pie ───────────────────────────────────────────
   const stratCounts = { rehost:0, replatform:0, refactor:0, retain:0, retire:0 };
   history.forEach(h => { if (stratCounts[h.strategy] !== undefined) stratCounts[h.strategy]++; });
   new Chart(document.getElementById('strategyPieChart'), {
@@ -858,6 +965,72 @@ function renderCharts() {
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
   });
+
+  // ── Cost bar chart ─────────────────────────────────────────
+  const costItems = history.filter(h => h.monthlyCost > 0);
+  const costWrap  = document.getElementById('costBarWrap');
+  if (costItems.length) {
+    new Chart(document.getElementById('costBarChart'), {
+      type: 'bar',
+      data: {
+        labels: costItems.map(h => h.projectName || '未命名'),
+        datasets: [{ label: 'USD/月', data: costItems.map(h => h.monthlyCost), backgroundColor: 'rgba(26,155,181,0.7)', borderRadius: 5 }],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { callback: v => `$${v.toLocaleString()}` } } },
+      },
+    });
+  } else if (costWrap) {
+    costWrap.innerHTML = `<div style="text-align:center;padding:var(--sp-5);color:var(--c-text-muted);font-size:var(--fs-sm);">成本估算資料來自 AI 分析結果，新增分析後即可查看</div>`;
+  }
+
+  // ── Compliance radar ───────────────────────────────────────
+  const radarEl = document.getElementById('complianceRadarChart');
+  if (radarEl && history.length > 0) {
+    const dims = ['compRisk','techRisk','opRisk','timelineRisk','dataRisk','bizRisk'];
+    const dimLabels = ['合規','技術','營運','時程','資料','業務'];
+    const avg = dims.map(d => {
+      const vals = history.map(h => h.result?.riskRadar?.[d] || 0).filter(v => v > 0);
+      return vals.length ? Math.round(vals.reduce((a,b)=>a+b,0)/vals.length) : 0;
+    });
+    new Chart(radarEl, {
+      type: 'radar',
+      data: {
+        labels: dimLabels,
+        datasets: [{ label: '平均風險', data: avg, backgroundColor: 'rgba(197,48,48,0.1)', borderColor: 'rgba(197,48,48,0.7)', pointBackgroundColor: 'rgba(197,48,48,0.8)', borderWidth: 2 }],
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false } },
+        scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 25, font: { size: 10 } } } },
+      },
+    });
+  }
+
+  // ── Cost summary panel ─────────────────────────────────────
+  const summaryEl = document.getElementById('costSummaryPanel');
+  if (summaryEl) {
+    const withCost = history.filter(h => (h.monthlyCost || 0) > 0);
+    const total = withCost.reduce((s, h) => s + (h.monthlyCost || 0), 0);
+    const avg   = withCost.length ? Math.round(total / withCost.length) : 0;
+    const max   = withCost.length ? Math.max(...withCost.map(h => h.monthlyCost)) : 0;
+    if (withCost.length === 0) {
+      summaryEl.innerHTML = `<div style="color:var(--c-text-muted);font-size:var(--fs-sm);">成本估算資料來自 AI 分析。<br>請執行 AI 引擎分析以獲得成本數據。</div>`;
+    } else {
+      summaryEl.innerHTML = [
+        ['投資組合月費總計', `$${total.toLocaleString()} USD`],
+        ['每次分析平均月費', `$${avg.toLocaleString()} USD`],
+        ['最高月費專案',     `$${max.toLocaleString()} USD`],
+        ['含成本估算記錄',   `${withCost.length} / ${history.length}`],
+      ].map(([label, val]) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:var(--sp-2) 0;border-bottom:1px solid var(--c-border-light);">
+          <span style="font-size:var(--fs-xs);color:var(--c-text-muted);">${label}</span>
+          <span style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);">${val}</span>
+        </div>`).join('');
+    }
+  }
 }
 
 async function saveProfile() {

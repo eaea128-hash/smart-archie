@@ -302,7 +302,7 @@ const Auth = (() => {
 
   function isLoggedIn() {
     if (!useSupabase()) return !!lsCurrentUser();
-    return !!Object.keys(localStorage).find(k => k.includes('supabase') && k.includes('auth-token'));
+    return !!Object.keys(localStorage).find(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
   }
 
   function requireAuth(redirect = 'login.html') {

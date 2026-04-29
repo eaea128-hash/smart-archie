@@ -51,7 +51,7 @@ export async function onRequest(context) {
     // 先嘗試完整欄位
     let { data, error, count } = await supabase
       .from('analyses')
-      .select('id, project_name, strategy, risk_score, share_token, created_at, inputs, result', { count: 'exact' })
+      .select('id, project_name, strategy, risk_score, share_token, share_enabled, created_at, inputs, result', { count: 'exact' })
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
