@@ -479,15 +479,15 @@
               <textarea id="painPoints" class="form-control" placeholder="例：現有系統維護費用高、難以快速擴展，業務需要在新產品上線前完成上雲…" rows="3" required></textarea>
             </div>
             <div class="form-group">
-              <label class="form-label">上雲主要目標</label>
-              <select id="cloudGoal" class="form-select">
-                <option value="cost">💰 降低維運成本</option>
-                <option value="speed">⚡ 提升交付速度</option>
-                <option value="api">🔗 API 化轉型</option>
-                <option value="elastic">📈 彈性擴展</option>
-                <option value="ai">🤖 AI 應用落地</option>
-                <option value="compliance">🛡️ 法規合規</option>
-              </select>
+              <label class="form-label">上雲主要目標 <span style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:400;">（可複選）</span></label>
+              <div class="toggle-group" id="cloudGoal" style="flex-wrap:wrap;">
+                <button class="toggle-btn active" data-value="cost">💰 降低維運成本</button>
+                <button class="toggle-btn" data-value="speed">⚡ 提升交付速度</button>
+                <button class="toggle-btn" data-value="api">🔗 API 化轉型</button>
+                <button class="toggle-btn" data-value="elastic">📈 彈性擴展</button>
+                <button class="toggle-btn" data-value="ai">🤖 AI 應用落地</button>
+                <button class="toggle-btn" data-value="compliance">🛡️ 法規合規</button>
+              </div>
             </div>
             <div class="form-group">
               <label class="form-label">預期時程</label>
@@ -917,7 +917,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   SA.initRangeSliders();
   // Init all toggle groups
   document.querySelectorAll('.toggle-group').forEach(g => {
-    SA.initToggleGroup(g, false);
+    const isMulti = g.id === 'cloudGoal'; // 複選欄位
+    SA.initToggleGroup(g, isMulti);
   });
 
   // ── Replay mode: re-render a history record ──────────────────
@@ -1000,7 +1001,7 @@ function collectInputs() {
   return {
     projectName:           document.getElementById('projectName').value,
     painPoints:            document.getElementById('painPoints').value,
-    cloudGoal:             document.getElementById('cloudGoal').value,
+    cloudGoal:             getToggleVal('cloudGoal'),  // array（複選）
     timeline:              getToggleVal('timeline'),
     systemAge:             document.getElementById('systemAge').value,
     isCoreSystem:          getToggleVal('isCoreSystem'),
@@ -1203,7 +1204,7 @@ function _buildAPIInputs(inputs) {
     targetCloud:   cloudMap[inputs.targetCloud] || 'AWS',
     systemCount:   sizeServerMap[inputs.systemSize] || 20,
     regulatoryRequirements: regulatoryReqs,
-    migrationDriver: inputs.cloudGoal || 'cost',
+    migrationDriver: Array.isArray(inputs.cloudGoal) ? inputs.cloudGoal.join(', ') : (inputs.cloudGoal || 'cost'),
     timelineMonths:  timelineMonthsMap[inputs.timeline] || 12,
     budgetUSD:       budgetMap[inputs.budget] || 500000,
     currentInfra:    inputs.isVirtualized === 'yes' ? 'virtualized-on-premises' : 'on-premises',
@@ -1219,7 +1220,7 @@ function _buildAPIInputs(inputs) {
     monthlyTrafficGB: inputs.txVolume === 'high' ? 5000 : inputs.txVolume === 'medium' ? 1000 : 200,
     description: [
       inputs.painPoints || '',
-      inputs.cloudGoal ? `Cloud Goal: ${inputs.cloudGoal}` : '',
+      inputs.cloudGoal?.length ? `Cloud Goals: ${Array.isArray(inputs.cloudGoal) ? inputs.cloudGoal.join(', ') : inputs.cloudGoal}` : '',
       inputs.techStack  ? `Tech Stack: ${inputs.techStack}` : '',
       inputs.archType   ? `Architecture: ${inputs.archType}` : '',
       `System Age: ${inputs.systemAge || 5} years`,
