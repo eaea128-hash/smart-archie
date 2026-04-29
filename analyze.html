@@ -1002,6 +1002,7 @@ function setStyle(s) {
   reportStyle = s;
   document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
   document.querySelector(`[data-style="${s}"]`)?.classList.add('active');
+  if (currentResult) renderResult(currentResult, s); // 重新渲染不同版本
 }
 
 function toggleSection(id) {
@@ -1014,11 +1015,17 @@ function getToggleVal(id) {
   return active ? active.dataset.value : null;
 }
 
+// 複選版（用於 cloudGoal 等多選欄位）
+function getToggleVals(id) {
+  return Array.from(document.querySelectorAll(`#${id} .toggle-btn.active`))
+    .map(b => b.dataset.value).filter(Boolean);
+}
+
 function collectInputs() {
   return {
     projectName:           document.getElementById('projectName').value,
     painPoints:            document.getElementById('painPoints').value,
-    cloudGoal:             getToggleVal('cloudGoal'),  // array（複選）
+    cloudGoal:             getToggleVals('cloudGoal'),  // array（複選）
     timeline:              getToggleVal('timeline'),
     systemAge:             document.getElementById('systemAge').value,
     isCoreSystem:          getToggleVal('isCoreSystem'),
@@ -1739,37 +1746,67 @@ function renderResult(r, style) {
     </div>
   </div>
 
-  <!-- Sustainability Card -->
-  ${r.sustainability ? `
-  <div class="result-section">
+  <!-- Sustainability Card（永遠顯示，無論是否填選填欄位）-->
+  <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">🌱</span>永續發展與碳排影響</div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4);" class="carbon-grid">
       <div class="card" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.04);">
         <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:28px;font-weight:800;color:#16a34a;">${r.sustainability.carbon_reduction_pct || 0}%</div>
+          <div style="font-size:32px;font-weight:800;color:#16a34a;">${r.sustainability?.carbon_reduction_pct ?? '–'}${r.sustainability?.carbon_reduction_pct != null ? '%' : ''}</div>
           <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">預估碳排降低</div>
         </div>
       </div>
       <div class="card" style="border-color:rgba(26,155,181,0.3);">
         <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:28px;font-weight:800;color:var(--c-accent-teal);">${r.sustainability.annual_co2_reduction_tonnes || '–'}</div>
+          <div style="font-size:32px;font-weight:800;color:var(--c-accent-teal);">${r.sustainability?.annual_co2_reduction_tonnes ?? '–'}</div>
           <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">噸 CO₂/年 減少</div>
         </div>
       </div>
       <div class="card" style="border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.04);">
         <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:16px;font-weight:700;color:var(--c-primary);margin-top:4px;">${r.sustainability.recommended_region || '–'}</div>
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">最低碳強度 Region 推薦</div>
+          <div style="font-size:13px;font-weight:700;color:var(--c-primary);margin-top:4px;">${r.sustainability?.recommended_region || '–'}</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">最低碳強度 Region</div>
+          ${r.sustainability?.recommended_region_intensity ? `<div style="font-size:11px;color:#16a34a;margin-top:2px;">${r.sustainability.recommended_region_intensity} gCO₂/kWh</div>` : ''}
         </div>
       </div>
     </div>
-    ${r.sustainability.rationale ? `<div class="card" style="margin-bottom:var(--sp-4);"><div class="card-body"><p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.7;margin:0;">${r.sustainability.rationale}</p></div></div>` : ''}
-    ${(r.sustainability.esg_guidance || []).length ? `
-    <div class="card"><div class="card-body">
-      <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);margin-bottom:var(--sp-3);">📋 ESG 合規指引</div>
-      ${r.sustainability.esg_guidance.map(g => `<div style="font-size:var(--fs-sm);color:var(--c-text-muted);padding:4px 0;border-bottom:1px solid var(--c-border-light);">• ${g}</div>`).join('')}
-    </div></div>` : ''}
-  </div>` : ''}
+    ${r.sustainability?.rationale ? `
+    <div class="card" style="margin-bottom:var(--sp-4);border-left:3px solid #16a34a;">
+      <div class="card-body">
+        <div style="font-size:var(--fs-xs);font-weight:var(--fw-semi);color:#16a34a;margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.5px;">碳排計算說明</div>
+        <p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.7;margin:0;">${r.sustainability.rationale}</p>
+      </div>
+    </div>` : ''}
+    ${(r.sustainability?.esg_guidance || []).length ? `
+    <div class="card" style="margin-bottom:var(--sp-4);">
+      <div class="card-body">
+        <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);margin-bottom:var(--sp-3);">📋 ESG 合規行動建議</div>
+        <div style="display:grid;gap:var(--sp-2);">
+          ${r.sustainability.esg_guidance.map((g,i) => `
+          <div style="display:flex;gap:var(--sp-3);align-items:flex-start;padding:var(--sp-3);background:var(--c-surface-2);border-radius:var(--r-md);">
+            <span style="background:#16a34a;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i+1}</span>
+            <span style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.5;">${g}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+    ${r.sustainability?.provider_commitment ? `
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+      <div class="card"><div class="card-body">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">☁️ 雲端供應商承諾</div>
+        <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">${r.sustainability.provider_commitment}</div>
+      </div></div>
+      ${r.sustainability?.monitoring_tool ? `<div class="card"><div class="card-body">
+        <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">📊 碳排監控工具</div>
+        <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">${r.sustainability.monitoring_tool}</div>
+      </div></div>` : ''}
+    </div>` : ''}
+    ${!r.sustainability ? `
+    <div style="text-align:center;padding:var(--sp-6);color:var(--c-text-muted);">
+      <div style="font-size:32px;margin-bottom:var(--sp-2);">🌿</div>
+      <div style="font-size:var(--fs-sm);">如需碳排估算，請在左側「永續發展與碳排評估」中選擇碳排承諾目標後重新分析。</div>
+    </div>` : ''}
+  </div>
 
   <!-- API Source Badge -->
   ${r.source === 'claude-api' ? `
