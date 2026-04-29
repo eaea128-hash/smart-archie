@@ -182,9 +182,10 @@
       <a href="admin-dashboard.html" class="nav-link" id="adminLink" style="display:none;">後台管理</a>
     </nav>
     <div class="navbar-actions">
-      <div class="navbar-quota">
+      <div class="navbar-quota" id="navQuotaWrap" title="本月已用分析次數 / 上限">
         <span class="quota-dot"></span>
-        <span id="nav-quota">0/3 次</span>
+        <span style="font-size:10px;color:rgba(255,255,255,0.5);margin-right:2px;">本月</span>
+        <span id="nav-quota">0/3</span>
       </div>
       <button class="btn btn-gold btn-sm" id="navUpgradeBtn" onclick="switchTab('plan')" style="display:none;font-size:12px;padding:5px 12px;">🚀 升級</button>
       <div class="nav-avatar-wrap">
@@ -318,13 +319,10 @@
       <div id="tabOverview">
         <!-- Quota Card -->
         <div class="quota-card animate-up" id="quotaCard">
-          <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:16px;">
-            <div>
-              <div style="font-size:var(--fs-xs);opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">本月分析額度</div>
-              <div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);"><span id="quotaUsed">0</span> / <span id="quotaLimit">3</span> 次</div>
-              <div style="font-size:var(--fs-xs);opacity:0.7;margin-top:4px;">方案：<span id="quotaPlan" style="font-weight:600;">免費版 (Free)</span> ・ 剩餘 <span id="quotaRemaining">3</span> 次</div>
-            </div>
-            <button class="btn btn-gold" onclick="switchTab('plan')">🚀 升級方案</button>
+          <div>
+            <div style="font-size:var(--fs-xs);opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">本月分析額度</div>
+            <div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);"><span id="quotaUsed">0</span> / <span id="quotaLimit">3</span> 次</div>
+            <div style="font-size:var(--fs-xs);opacity:0.7;margin-top:4px;">方案：<span id="quotaPlan" style="font-weight:600;">免費版 (Free)</span> ・ 剩餘 <span id="quotaRemaining">3</span> 次</div>
           </div>
           <div class="quota-bar-bg">
             <div class="quota-bar-fill" id="quotaBarFill" style="width:0%"></div>
@@ -335,12 +333,12 @@
         <div style="margin-bottom:var(--sp-3);font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text-muted);text-transform:uppercase;letter-spacing:0.5px;">使用概況</div>
         <div class="insight-row">
           <div class="insight-card">
-            <div class="insight-val" id="insightTotal">—</div>
-            <div class="insight-label">累計分析次數</div>
+            <div class="insight-val" id="insightUniqueProj">—</div>
+            <div class="insight-label">已分析專案數</div>
           </div>
           <div class="insight-card">
-            <div class="insight-val" style="font-size:var(--fs-lg);color:var(--c-accent-teal);" id="insightTopStrat">—</div>
-            <div class="insight-label">最常建議策略</div>
+            <div class="insight-val" style="font-size:var(--fs-lg);color:var(--c-accent-teal);" id="insightAvgCost">—</div>
+            <div class="insight-label">平均月成本估算</div>
           </div>
           <div class="insight-card">
             <div class="insight-val" style="font-size:var(--fs-md);color:var(--c-gold);" id="insightLastDate">—</div>
@@ -772,19 +770,27 @@ function loadStats() {
     }
 
     // ── 使用概況 insight cards ──
-    const insTotal = document.getElementById('insightTotal');
-    if (insTotal) insTotal.textContent = total;
-
-    const insStrat = document.getElementById('insightTopStrat');
-    if (insStrat) {
-      const stratCounts = {};
-      const validSK = ['rehost','replatform','refactor','retain','retire'];
-      const stratL  = { rehost:'Rehost', replatform:'Replatform', refactor:'Refactor', retain:'Retain', retire:'Retire' };
-      history.forEach(h => { if (h.strategy && validSK.includes(h.strategy)) stratCounts[h.strategy] = (stratCounts[h.strategy]||0)+1; });
-      const top = Object.entries(stratCounts).sort((a,b)=>b[1]-a[1])[0];
-      insStrat.textContent = top ? (stratL[top[0]] || top[0]) : '—';
+    // 已分析專案數：唯一專案名稱數
+    const insProj = document.getElementById('insightUniqueProj');
+    if (insProj) {
+      const uniqueNames = new Set(history.map(h => (h.projectName||'').trim()).filter(Boolean));
+      insProj.textContent = uniqueNames.size || '—';
     }
 
+    // 平均月成本：有成本資料的分析取平均
+    const insCost = document.getElementById('insightAvgCost');
+    if (insCost) {
+      const withCost = history.filter(h => h.monthlyCost > 0);
+      if (withCost.length > 0) {
+        const avg = Math.round(withCost.reduce((s,h)=>s+(h.monthlyCost||0),0) / withCost.length);
+        insCost.textContent = `$${avg.toLocaleString()}`;
+        insCost.title = 'USD / 月（平均值）';
+      } else {
+        insCost.textContent = '—';
+      }
+    }
+
+    // 最後分析日期
     const insDate = document.getElementById('insightLastDate');
     if (insDate && history.length > 0) {
       const sorted = [...history].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));

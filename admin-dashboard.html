@@ -232,13 +232,13 @@
     </div>
     <div class="admin-sidebar-section">
       <div class="admin-sidebar-title">設定</div>
-      <a class="admin-nav-link" onclick="SA.Toast.info('系統設定','此功能將於正式版開放')">
+      <a class="admin-nav-link" onclick="switchAdminTab('settings',this)">
         <span class="anl-icon">⚙</span>系統設定
       </a>
-      <a class="admin-nav-link" onclick="SA.Toast.info('Prompt 管理','此功能將於正式版開放')">
+      <a class="admin-nav-link" onclick="switchAdminTab('prompt',this)">
         <span class="anl-icon">🤖</span>Prompt 管理
       </a>
-      <a class="admin-nav-link" onclick="SA.Toast.info('規則知識庫','此功能將於正式版開放')">
+      <a class="admin-nav-link" onclick="switchAdminTab('rules',this)">
         <span class="anl-icon">📚</span>規則知識庫
       </a>
     </div>
@@ -485,6 +485,165 @@
       <div class="admin-table-card animate-up">
         <div id="alertsList">
           <div class="empty-state" style="padding:40px;"><div class="empty-icon">⏳</div><div class="empty-title">載入中…</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════ Settings Tab ══════════ -->
+    <div id="adminTabSettings" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">⚙ 系統設定</div>
+          <div class="admin-page-sub">平台配額、AI 模型、環境狀態</div>
+        </div>
+      </div>
+      <!-- Plan Quota Config -->
+      <div class="admin-table-card animate-up" style="margin-bottom:var(--sp-4);">
+        <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">📊 各方案分析額度</div>
+        <table class="admin-table" style="width:100%;">
+          <thead><tr><th>方案</th><th>月額度（次）</th><th>AI 分析</th><th>匯出</th><th>分享</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-primary">Free</span></td><td><strong>3</strong> 次/月</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td><span class="badge badge-teal">Pro</span></td><td><strong>30</strong> 次/月</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td><span class="badge badge-gold">Enterprise</span></td><td><strong>999</strong> 次/月</td><td>✓</td><td>✓</td><td>✓</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <!-- AI Engine Config -->
+      <div class="admin-table-card animate-up" style="margin-bottom:var(--sp-4);">
+        <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">🤖 AI 引擎設定</div>
+        <div style="padding:var(--sp-4) var(--sp-5);display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);">
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">模型</div><div style="font-weight:600;font-size:var(--fs-sm);">claude-opus-4-6</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">分析框架</div><div style="font-weight:600;font-size:var(--fs-sm);">6R + Landing Zone</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">RAG 向量搜尋</div><div style="font-weight:600;font-size:var(--fs-sm);" id="ragStatus">檢查中…</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">知識庫來源</div><div style="font-weight:600;font-size:var(--fs-sm);">pgvector (Supabase)</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">報告版本</div><div style="font-weight:600;font-size:var(--fs-sm);">exec / techpm / full</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">法規框架</div><div style="font-weight:600;font-size:var(--fs-sm);">MAS TRM / ISO 27001 / GDPR</div></div>
+        </div>
+      </div>
+      <!-- Env Status -->
+      <div class="admin-table-card animate-up">
+        <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">🔑 環境變數狀態</div>
+        <div style="padding:var(--sp-4) var(--sp-5);display:grid;grid-template-columns:repeat(2,1fr);gap:var(--sp-3);">
+          <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--c-success);">✓</span><span style="font-size:var(--fs-sm);">ANTHROPIC_API_KEY（AI 分析）</span></div>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="color:var(--c-success);">✓</span><span style="font-size:var(--fs-sm);">SUPABASE_SERVICE_ROLE_KEY</span></div>
+          <div style="display:flex;align-items:center;gap:8px;" id="envStripe"><span style="color:var(--c-warning);">⚠</span><span style="font-size:var(--fs-sm);">STRIPE_SECRET_KEY（待設定）</span></div>
+          <div style="display:flex;align-items:center;gap:8px;" id="envOpenAI"><span style="color:var(--c-warning);">⚠</span><span style="font-size:var(--fs-sm);">OPENAI_API_KEY / RAG（待設定）</span></div>
+          <div style="display:flex;align-items:center;gap:8px;" id="envResend"><span style="color:var(--c-warning);">⚠</span><span style="font-size:var(--fs-sm);">RESEND_API_KEY（Email 待設定）</span></div>
+          <div style="display:flex;align-items:center;gap:8px;" id="envSentry"><span style="color:var(--c-warning);">⚠</span><span style="font-size:var(--fs-sm);">SENTRY_DSN（監控待設定）</span></div>
+        </div>
+        <div style="padding:var(--sp-3) var(--sp-5);background:var(--c-bg);border-top:1px solid var(--c-border-light);font-size:var(--fs-xs);color:var(--c-text-muted);">⚠ 待設定項目請至 Cloudflare Pages → Settings → Environment Variables 設定</div>
+      </div>
+    </div>
+
+    <!-- ══════════ Prompt Tab ══════════ -->
+    <div id="adminTabPrompt" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">🤖 Prompt 管理</div>
+          <div class="admin-page-sub">AI 分析提示詞版本與設定追蹤</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4);margin-bottom:var(--sp-4);">
+        <div class="admin-table-card animate-up">
+          <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">📌 目前設定</div>
+          <div style="padding:var(--sp-4) var(--sp-5);">
+            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">分析引擎</span><span style="font-size:var(--fs-sm);font-weight:600;">Claude Opus 4.6 (API)</span></div>
+            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">分析維度</span><span style="font-size:var(--fs-sm);font-weight:600;">6R × Landing Zone × 成本 × 風險</span></div>
+            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">報告格式</span><span style="font-size:var(--fs-sm);font-weight:600;">高層版 / 技術PM版 / 完整版</span></div>
+            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">語言</span><span style="font-size:var(--fs-sm);font-weight:600;">繁體中文（回覆）</span></div>
+            <div class="prog-row"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">JSON 結構化輸出</span><span style="font-size:var(--fs-sm);font-weight:600;">✓ 強制解析</span></div>
+          </div>
+        </div>
+        <div class="admin-table-card animate-up">
+          <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">📐 分析結構</div>
+          <div style="padding:var(--sp-4) var(--sp-5);">
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);">每次分析包含以下模組：</div>
+            <div style="display:flex;flex-direction:column;gap:6px;">
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">① 6R 策略評估（Rehost/Replatform/Refactor/Retain/Retire）</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">② Landing Zone 架構建議</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">③ 成本估算（Low / Mid / High 三區間）</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">④ 風險評估（合規/技術/營運/時程/資料/業務）</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">⑤ 遷移路線圖 + 里程碑</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">⑥ RAG 知識庫增強（案例/合規/廠商/架構）</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="admin-table-card animate-up">
+        <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">📋 版本記錄</div>
+        <table class="admin-table" style="width:100%;">
+          <thead><tr><th>版本</th><th>更新日期</th><th>主要變更</th><th>狀態</th></tr></thead>
+          <tbody>
+            <tr><td><code>v1.0</code></td><td>2026-03-01</td><td>初始版本：6R 基本分析</td><td><span class="badge badge-primary">歷史</span></td></tr>
+            <tr><td><code>v1.5</code></td><td>2026-04-01</td><td>新增 Landing Zone + 成本三區間</td><td><span class="badge badge-primary">歷史</span></td></tr>
+            <tr><td><code>v2.0</code></td><td>2026-04-22</td><td>RAG 注入 + 三種報告版本 + JSON 強制</td><td><span class="badge badge-teal">目前</span></td></tr>
+          </tbody>
+        </table>
+        <div style="padding:var(--sp-3) var(--sp-5);background:var(--c-bg);border-top:1px solid var(--c-border-light);font-size:var(--fs-xs);color:var(--c-text-muted);">修改 Prompt 請編輯 <code>functions/api/analyze.js</code>，部署後自動生效。如需版本追蹤，請在 <code>prompt_version</code> 欄位更新。</div>
+      </div>
+    </div>
+
+    <!-- ══════════ Rules / RAG Tab ══════════ -->
+    <div id="adminTabRules" style="display:none;">
+      <div class="admin-page-header animate-down">
+        <div>
+          <div class="admin-page-title">📚 規則知識庫</div>
+          <div class="admin-page-sub">RAG 向量知識庫管理（案例 / 合規 / 廠商 / 架構）</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="document.getElementById('ragAddForm').style.display = document.getElementById('ragAddForm').style.display === 'none' ? 'block' : 'none'">＋ 新增文件</button>
+      </div>
+      <!-- Add Form -->
+      <div id="ragAddForm" style="display:none;" class="admin-table-card animate-up" style="margin-bottom:var(--sp-4);">
+        <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">新增 RAG 文件</div>
+        <div style="padding:var(--sp-5);display:grid;gap:var(--sp-3);">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+            <div>
+              <label style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;display:block;">標題 *</label>
+              <input type="text" id="ragTitle" class="form-control" placeholder="文件標題">
+            </div>
+            <div>
+              <label style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;display:block;">分類 *</label>
+              <select id="ragCategory" class="form-select">
+                <option value="case_study">案例研究 (case_study)</option>
+                <option value="compliance">合規法規 (compliance)</option>
+                <option value="vendor">廠商比較 (vendor)</option>
+                <option value="governance">治理框架 (governance)</option>
+                <option value="architecture">架構最佳實踐 (architecture)</option>
+                <option value="pricing">成本參考 (pricing)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;display:block;">內容 *（支援 Markdown）</label>
+            <textarea id="ragContent" class="form-control" rows="5" placeholder="輸入知識庫文件內容，AI 分析時將自動引用相關段落…"></textarea>
+          </div>
+          <div style="display:flex;gap:var(--sp-2);">
+            <button class="btn btn-primary btn-sm" onclick="submitRagDoc()">儲存並索引</button>
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('ragAddForm').style.display='none'">取消</button>
+          </div>
+          <div id="ragAddMsg" style="display:none;font-size:var(--fs-xs);padding:8px 12px;border-radius:6px;"></div>
+        </div>
+      </div>
+      <!-- Search -->
+      <div class="admin-table-card animate-up" style="margin-bottom:var(--sp-4);">
+        <div style="padding:var(--sp-3) var(--sp-5);display:flex;gap:var(--sp-2);">
+          <input type="text" id="ragSearchQ" class="form-control" placeholder="搜尋知識庫…" style="flex:1;">
+          <select id="ragSearchCat" class="form-select" style="width:180px;">
+            <option value="">所有分類</option>
+            <option value="case_study">案例研究</option>
+            <option value="compliance">合規法規</option>
+            <option value="vendor">廠商比較</option>
+            <option value="governance">治理框架</option>
+            <option value="architecture">架構最佳實踐</option>
+            <option value="pricing">成本參考</option>
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="searchRagDocs()">搜尋</button>
+        </div>
+      </div>
+      <div class="admin-table-card animate-up">
+        <div id="ragResults">
+          <div class="empty-state" style="padding:40px;"><div class="empty-icon">🔍</div><div class="empty-title">輸入關鍵字搜尋知識庫</div><div class="empty-desc">或新增第一筆文件開始建立知識庫</div></div>
         </div>
       </div>
     </div>
@@ -1084,7 +1243,7 @@ function renderAlertsTab() {
    Tab switching
 ────────────────────────────────────────────── */
 function switchAdminTab(tab, el) {
-  const tabs = ['Overview','Users','Analyses','Analytics','Alerts'];
+  const tabs = ['Overview','Users','Analyses','Analytics','Alerts','Settings','Prompt','Rules'];
   tabs.forEach(t => {
     const el2 = document.getElementById(`adminTab${t}`);
     if (el2) el2.style.display = t.toLowerCase() === tab ? 'block' : 'none';
@@ -1096,6 +1255,79 @@ function switchAdminTab(tab, el) {
   if (tab === 'analyses') loadAnalysesTab();
   if (tab === 'analytics') loadAnalyticsTab();
   if (tab === 'alerts' && _overview) renderAlertsTab();
+}
+
+/* ──────────────────────────────────────────────
+   RAG Knowledge Base (Rules Tab)
+────────────────────────────────────────────── */
+async function submitRagDoc() {
+  const title    = document.getElementById('ragTitle')?.value?.trim();
+  const category = document.getElementById('ragCategory')?.value;
+  const content  = document.getElementById('ragContent')?.value?.trim();
+  const msgEl    = document.getElementById('ragAddMsg');
+
+  if (!title || !content) {
+    msgEl.textContent = '請填寫標題與內容';
+    msgEl.style.cssText = 'display:block;background:rgba(197,48,48,0.1);color:var(--c-danger);';
+    return;
+  }
+
+  msgEl.textContent = '索引中…';
+  msgEl.style.cssText = 'display:block;background:rgba(26,155,181,0.1);color:var(--c-accent-teal);';
+
+  try {
+    const resp = await fetch('/api/rag-ingest', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` },
+      body: JSON.stringify({ title, category, content }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    msgEl.textContent = '✓ 文件已成功索引到知識庫';
+    msgEl.style.cssText = 'display:block;background:rgba(45,157,120,0.1);color:var(--c-success);';
+    document.getElementById('ragTitle').value = '';
+    document.getElementById('ragContent').value = '';
+  } catch (e) {
+    msgEl.textContent = `失敗：${e.message}`;
+    msgEl.style.cssText = 'display:block;background:rgba(197,48,48,0.1);color:var(--c-danger);';
+  }
+}
+
+async function searchRagDocs() {
+  const q   = document.getElementById('ragSearchQ')?.value?.trim();
+  const cat = document.getElementById('ragSearchCat')?.value;
+  const el  = document.getElementById('ragResults');
+
+  if (!q) {
+    el.innerHTML = '<div class="empty-state" style="padding:40px;"><div class="empty-icon">🔍</div><div class="empty-title">請輸入搜尋關鍵字</div></div>';
+    return;
+  }
+
+  el.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="empty-title">搜尋中…</div></div>';
+  try {
+    const resp = await fetch('/api/rag-search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_token}` },
+      body: JSON.stringify({ query: q, category: cat || undefined, limit: 10 }),
+    });
+    const data = await resp.json().catch(() => ({}));
+    if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+    const docs = data.results || data.documents || [];
+    if (!docs.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:40px;"><div class="empty-icon">🔎</div><div class="empty-title">無符合結果</div><div class="empty-desc">嘗試不同關鍵字或新增相關文件</div></div>';
+      return;
+    }
+    el.innerHTML = `<table class="admin-table" style="width:100%;">
+      <thead><tr><th>標題</th><th>分類</th><th>相似度</th><th>內容摘要</th></tr></thead>
+      <tbody>${docs.map(d => `<tr>
+        <td style="font-weight:600;">${d.title || '—'}</td>
+        <td><span class="badge badge-teal" style="font-size:10px;">${d.category || '—'}</span></td>
+        <td>${d.similarity !== undefined ? (d.similarity*100).toFixed(1)+'%' : '—'}</td>
+        <td style="font-size:12px;color:var(--c-text-muted);max-width:300px;">${(d.content||'').slice(0,100)}…</td>
+      </tr>`).join('')}</tbody></table>`;
+  } catch (e) {
+    el.innerHTML = `<div class="empty-state" style="padding:30px;"><div class="empty-title" style="color:var(--c-danger);">搜尋失敗：${e.message}</div></div>`;
+  }
 }
 
 /* ──────────────────────────────────────────────
