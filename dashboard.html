@@ -162,6 +162,7 @@
       .stats-row { grid-template-columns: repeat(2, 1fr); }
       .insight-row { grid-template-columns: 1fr; }
       .plan-grid { grid-template-columns: 1fr !important; }
+      #insightPanel { grid-template-columns: 1fr !important; }
     }
   </style>
 </head>
@@ -196,7 +197,7 @@
             <div class="nud-plan" id="nud-plan">—</div>
           </div>
           <div class="nud-item" onclick="switchTab('profile');closeUserDropdown()">👤 個人資料</div>
-          <div class="nud-item nud-upgrade" id="nud-upgrade" onclick="switchTab('plan');closeUserDropdown()" style="display:none;">🚀 升級方案</div>
+          <div class="nud-item" onclick="switchTab('plan');closeUserDropdown()">💳 方案與額度</div>
           <div class="nud-divider"></div>
           <div class="nud-item" onclick="Auth.logout()" style="color:var(--c-danger);">🚪 登出</div>
         </div>
@@ -317,32 +318,60 @@
 
       <!-- Tab content wrapper -->
       <div id="tabOverview">
-        <!-- Quota Card -->
-        <div class="quota-card animate-up" id="quotaCard">
-          <div>
-            <div style="font-size:var(--fs-xs);opacity:0.6;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">本月分析額度</div>
-            <div style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);"><span id="quotaUsed">0</span> / <span id="quotaLimit">3</span> 次</div>
-            <div style="font-size:var(--fs-xs);opacity:0.7;margin-top:4px;">方案：<span id="quotaPlan" style="font-weight:600;">免費版 (Free)</span> ・ 剩餘 <span id="quotaRemaining">3</span> 次</div>
-          </div>
-          <div class="quota-bar-bg">
-            <div class="quota-bar-fill" id="quotaBarFill" style="width:0%"></div>
-          </div>
-        </div>
 
-        <!-- Usage Insights -->
-        <div style="margin-bottom:var(--sp-3);font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-text-muted);text-transform:uppercase;letter-spacing:0.5px;">使用概況</div>
-        <div class="insight-row">
-          <div class="insight-card">
-            <div class="insight-val" id="insightUniqueProj">—</div>
-            <div class="insight-label">已分析專案數</div>
+        <!-- ── 分析洞察面板 ── -->
+        <div style="display:grid;grid-template-columns:240px 1fr;gap:var(--sp-4);margin-bottom:var(--sp-5);" class="animate-up" id="insightPanel">
+          <!-- 帳號狀態（精簡） -->
+          <div style="background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-5);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;justify-content:space-between;">
+            <div>
+              <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:var(--sp-3);">本月額度</div>
+              <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:var(--sp-2);">
+                <span style="font-size:var(--fs-2xl);font-weight:var(--fw-bold);color:var(--c-primary);" id="quotaUsed">0</span>
+                <span style="font-size:var(--fs-sm);color:var(--c-text-muted);">/ <span id="quotaLimit">3</span> 次</span>
+              </div>
+              <div class="quota-bar-bg" style="margin-bottom:var(--sp-3);">
+                <div class="quota-bar-fill" id="quotaBarFill" style="width:0%"></div>
+              </div>
+              <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">方案：<span id="quotaPlan" style="color:var(--c-text);font-weight:600;">—</span></div>
+              <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">剩餘 <span id="quotaRemaining" style="font-weight:600;color:var(--c-success);">—</span> 次</div>
+            </div>
+            <a href="analyze.html" class="btn btn-primary btn-sm" style="margin-top:var(--sp-4);text-align:center;">＋ 新增分析</a>
           </div>
-          <div class="insight-card">
-            <div class="insight-val" style="font-size:var(--fs-lg);color:var(--c-accent-teal);" id="insightAvgCost">—</div>
-            <div class="insight-label">平均月成本估算</div>
-          </div>
-          <div class="insight-card">
-            <div class="insight-val" style="font-size:var(--fs-md);color:var(--c-gold);" id="insightLastDate">—</div>
-            <div class="insight-label">最後分析日期</div>
+
+          <!-- 分析洞察 -->
+          <div style="background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-5);box-shadow:var(--shadow-sm);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-4);">
+              <span style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">分析洞察</span>
+              <span style="font-size:var(--fs-xs);color:var(--c-text-muted);" id="insightLastDate">最後更新：—</span>
+            </div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);">
+              <!-- 策略分布 -->
+              <div>
+                <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;margin-bottom:var(--sp-2);">策略分布</div>
+                <div id="insightStratDist" style="display:flex;flex-direction:column;gap:5px;">
+                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">尚無資料</div>
+                </div>
+              </div>
+              <!-- 成本概況 -->
+              <div>
+                <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;margin-bottom:var(--sp-2);">成本概況</div>
+                <div style="margin-bottom:6px;">
+                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">已分析專案</div>
+                  <div style="font-size:var(--fs-lg);font-weight:var(--fw-bold);color:var(--c-primary);" id="insightUniqueProj">—</div>
+                </div>
+                <div>
+                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">平均月成本</div>
+                  <div style="font-size:var(--fs-md);font-weight:var(--fw-semi);color:var(--c-accent-teal);" id="insightAvgCost">—</div>
+                </div>
+              </div>
+              <!-- 風險分布 -->
+              <div>
+                <div style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:600;margin-bottom:var(--sp-2);">風險分布</div>
+                <div id="insightRiskDist" style="display:flex;flex-direction:column;gap:5px;">
+                  <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">尚無資料</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -769,32 +798,67 @@ function loadStats() {
       hrDelta.style.color = highRiskCount > 0 ? 'var(--c-danger)' : 'var(--c-success)';
     }
 
-    // ── 使用概況 insight cards ──
-    // 已分析專案數：唯一專案名稱數
-    const insProj = document.getElementById('insightUniqueProj');
-    if (insProj) {
-      const uniqueNames = new Set(history.map(h => (h.projectName||'').trim()).filter(Boolean));
-      insProj.textContent = uniqueNames.size || '—';
+    // ── 分析洞察面板 ──
+    const validSK  = ['rehost','replatform','refactor','retain','retire'];
+    const stratL   = { rehost:'直接遷移', replatform:'平台調整', refactor:'架構重構', retain:'暫緩保留', retire:'下線退場' };
+    const stratClr = { rehost:'var(--c-accent-teal)', replatform:'var(--c-gold)', refactor:'var(--c-primary-mid)', retain:'var(--c-warning)', retire:'var(--c-text-muted)' };
+
+    // 策略分布 mini-bars
+    const stratDistEl = document.getElementById('insightStratDist');
+    if (stratDistEl && history.length > 0) {
+      const sc = {};
+      history.forEach(h => { if (h.strategy && validSK.includes(h.strategy)) sc[h.strategy] = (sc[h.strategy]||0)+1; });
+      const top = Object.entries(sc).sort((a,b)=>b[1]-a[1]).slice(0,4);
+      const maxV = top[0]?.[1] || 1;
+      stratDistEl.innerHTML = top.map(([k,v]) => `
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="font-size:10px;width:52px;color:var(--c-text-muted);flex-shrink:0;">${stratL[k]||k}</span>
+          <div style="flex:1;height:6px;background:var(--c-border);border-radius:3px;overflow:hidden;">
+            <div style="width:${Math.round(v/maxV*100)}%;height:100%;background:${stratClr[k]||'var(--c-primary)'};border-radius:3px;"></div>
+          </div>
+          <span style="font-size:10px;color:var(--c-text-muted);width:14px;text-align:right;">${v}</span>
+        </div>`).join('');
     }
 
-    // 平均月成本：有成本資料的分析取平均
+    // 已分析專案數 + 平均月成本
+    const insProj = document.getElementById('insightUniqueProj');
+    if (insProj) {
+      const uniqueNames = new Set(history.map(h=>(h.projectName||'').trim()).filter(Boolean));
+      insProj.textContent = uniqueNames.size || '—';
+    }
     const insCost = document.getElementById('insightAvgCost');
     if (insCost) {
       const withCost = history.filter(h => h.monthlyCost > 0);
-      if (withCost.length > 0) {
-        const avg = Math.round(withCost.reduce((s,h)=>s+(h.monthlyCost||0),0) / withCost.length);
-        insCost.textContent = `$${avg.toLocaleString()}`;
-        insCost.title = 'USD / 月（平均值）';
-      } else {
-        insCost.textContent = '—';
-      }
+      insCost.textContent = withCost.length
+        ? `$${Math.round(withCost.reduce((s,h)=>s+(h.monthlyCost||0),0)/withCost.length).toLocaleString()} USD`
+        : '尚無成本資料';
     }
 
-    // 最後分析日期
+    // 風險分布
+    const riskDistEl = document.getElementById('insightRiskDist');
+    if (riskDistEl && history.length > 0) {
+      const low  = history.filter(h=>(h.risk||0) < 40 && (h.risk||0) > 0).length;
+      const mid  = history.filter(h=>(h.risk||0) >= 40 && (h.risk||0) < 70).length;
+      const high = history.filter(h=>(h.risk||0) >= 70).length;
+      riskDistEl.innerHTML = [
+        { label:'低風險', val:low,  clr:'var(--c-success)' },
+        { label:'中風險', val:mid,  clr:'var(--c-warning)' },
+        { label:'高風險', val:high, clr:'var(--c-danger)'  },
+      ].map(r=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${r.clr};flex-shrink:0;display:inline-block;"></span>
+            <span style="font-size:11px;color:var(--c-text-muted);">${r.label}</span>
+          </div>
+          <span style="font-size:12px;font-weight:600;color:${r.val>0?r.clr:'var(--c-text-muted)'};">${r.val}</span>
+        </div>`).join('');
+    }
+
+    // 最後分析日期（顯示在洞察右上角）
     const insDate = document.getElementById('insightLastDate');
     if (insDate && history.length > 0) {
-      const sorted = [...history].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
-      insDate.textContent = sorted[0]?.timestamp ? SA.fmt.date(new Date(sorted[0].timestamp)) : '—';
+      const sorted = [...history].sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
+      insDate.textContent = sorted[0]?.timestamp ? `最後更新：${SA.fmt.date(new Date(sorted[0].timestamp))}` : '—';
     }
   }
 }

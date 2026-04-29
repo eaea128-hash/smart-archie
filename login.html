@@ -321,15 +321,31 @@ async function handleForgotPassword(e) {
     document.getElementById('email').focus();
     return;
   }
-  if (!Auth.useSupabase()) {
-    SA.Toast.info('Demo 模式', '忘記密碼功能需要連接 Supabase，Demo 模式下無法使用');
+
+  const client = SupabaseClient.getClient();
+  if (!client) {
+    SA.Toast.info('系統初始化中', '請稍後再試，或重新整理頁面');
     return;
   }
-  const ok = await Auth.forgotPassword(email);
-  if (ok) {
-    SA.Toast.success('重設信已寄出', `請查看 ${email} 的收件匣，點擊連結重設密碼`);
+
+  SA.Toast.info('寄送中…', '正在發送重設信件');
+
+  const { error } = await client.auth.resetPasswordForEmail(email, {
+    redirectTo: `${location.origin}/reset-password.html`,
+  });
+
+  if (!error) {
+    SA.Toast.success('重設信已寄出 ✓', `請查看 ${email} 的收件匣（含垃圾信件夾），點擊連結重設密碼`);
   } else {
-    SA.Toast.error('寄送失敗', '請確認 Email 是否正確，或稍後再試');
+    console.error('[forgotPassword] error:', error);
+    let msg = '請稍後再試';
+    if (error.message?.includes('redirect') || error.message?.includes('URL'))
+      msg = '系統設定問題，請聯絡管理員更新 Supabase Redirect URL 設定';
+    else if (error.message?.includes('rate') || error.message?.includes('limit'))
+      msg = '寄送過於頻繁，請等候 60 秒後再試';
+    else if (error.message)
+      msg = error.message;
+    SA.Toast.error('寄送失敗', msg);
   }
 }
 </script>
