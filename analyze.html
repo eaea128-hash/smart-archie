@@ -1866,10 +1866,11 @@ function renderResult(r, style) {
         <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">${r.sustainability.monitoring_tool}</div>
       </div></div>` : ''}
     </div>` : ''}
-    ${!r.sustainability ? `
-    <div style="text-align:center;padding:var(--sp-6);color:var(--c-text-muted);">
+    ${!r.sustainability || (r.sustainability.carbon_reduction_pct == null && !r.sustainability.recommended_region) ? `
+    <div style="text-align:center;padding:var(--sp-6);background:rgba(34,197,94,0.04);border-radius:var(--r-lg);border:1px dashed rgba(34,197,94,0.3);">
       <div style="font-size:32px;margin-bottom:var(--sp-2);">🌿</div>
-      <div style="font-size:var(--fs-sm);">如需碳排估算，請在左側「永續發展與碳排評估」中選擇碳排承諾目標後重新分析。</div>
+      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);margin-bottom:var(--sp-3);">此分析記錄建立時未包含碳排計算</div>
+      <button onclick="runAnalysis()" style="background:linear-gradient(135deg,#16a34a,#15803d);color:white;border:none;border-radius:var(--r-md);padding:8px 20px;font-size:var(--fs-sm);font-weight:var(--fw-semi);cursor:pointer;">重新分析以取得碳排資料</button>
     </div>` : ''}
   </div>
 

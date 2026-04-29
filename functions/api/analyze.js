@@ -605,7 +605,7 @@ export async function onRequest(context) {
           tools:      MCP_TOOLS,
           messages:   [{
             role: 'user',
-            content: `The user is migrating to ${inputs.targetCloud}. Their sustainability goal is "${inputs.sustainabilityGoal}" and ESG framework is "${inputs.esgFramework}". Use the tools to look up carbon intensity data and calculate CO2 reduction for approximately ${inputs.systemCount || 20} servers migrating to the lowest-carbon region.`,
+            content: `The user is migrating to ${inputs.targetCloud} (region preference: ${inputs.targetRegion || 'flexible'}). Use the tools to: 1) look up carbon intensity for ALL regions of ${inputs.targetCloud}, 2) calculate CO2 reduction for ${inputs.systemCount || 20} servers moving from on-premises to the lowest-carbon region. Always produce concrete numbers — do not skip even if no sustainability goal was specified. Sustainability goal: "${inputs.sustainabilityGoal || 'general reduction'}", ESG framework: "${inputs.esgFramework || 'none specified'}".`,
           }],
         });
 
