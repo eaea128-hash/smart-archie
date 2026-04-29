@@ -77,21 +77,6 @@
     .login-form-header { margin-bottom: var(--sp-8); }
     .login-form-title { font-size: var(--fs-2xl); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-1); }
     .login-form-sub { font-size: var(--fs-sm); color: var(--c-text-muted); }
-    /* Demo badge */
-    .demo-badge {
-      background: var(--c-gold-lt); border: 1px solid rgba(201,168,76,0.3);
-      border-radius: var(--r-lg); padding: var(--sp-3) var(--sp-4);
-      margin-bottom: var(--sp-5); font-size: var(--fs-xs); color: #8B6A1F;
-    }
-    .demo-badge strong { display: block; margin-bottom: 6px; color: var(--c-gold); }
-    .demo-cred {
-      display: flex; align-items: center; justify-content: space-between;
-      background: white; border: 1px solid rgba(201,168,76,0.2);
-      border-radius: var(--r-sm); padding: 6px 10px; margin-bottom: 4px; cursor: pointer;
-      transition: background var(--t-fast);
-    }
-    .demo-cred:hover { background: var(--c-gold-lt); }
-    .demo-cred:last-child { margin-bottom: 0; }
     /* Password toggle */
     .pw-wrap { position: relative; }
     .pw-toggle {
@@ -127,7 +112,7 @@
   <!-- Left Brand Panel -->
   <div class="login-brand">
     <div class="brand-hero">
-      <div class="brand-logo-lg">A</div>
+      <div class="brand-logo-lg">CF</div>
       <div class="brand-headline">讓雲端決策<br>更<span>清晰</span>、更快速</div>
       <div class="brand-desc">CloudFrame 是 AI 驅動的雲端顧問平台，協助企業將模糊的雲端需求，轉化為可執行的架構建議與治理策略。</div>
       <div class="brand-features">
@@ -153,25 +138,13 @@
     <div class="login-form-wrap animate-up">
       <div class="login-form-header">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:var(--sp-5);">
-          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--c-accent-teal),var(--c-gold));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:white;">A</div>
+          <div style="width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--c-accent-teal),var(--c-gold));display:flex;align-items:center;justify-content:center;font-weight:900;font-size:16px;color:white;">CF</div>
           <span style="font-size:var(--fs-md);font-weight:var(--fw-bold);color:var(--c-primary);">CloudFrame</span>
         </div>
         <div class="login-form-title">登入您的帳號</div>
         <div class="login-form-sub">歡迎回來！請輸入您的帳號資訊</div>
       </div>
 
-      <!-- Demo credentials -->
-      <div class="demo-badge">
-        <strong>🎮 Demo 帳號（點擊快速填入）</strong>
-        <div class="demo-cred" onclick="fillDemo('demo@smartarchie.ai','demo1234')">
-          <span>👤 一般使用者</span>
-          <span style="color:var(--c-text-light);">demo@smartarchie.ai</span>
-        </div>
-        <div class="demo-cred" onclick="fillDemo('admin@smartarchie.ai','admin1234')">
-          <span>⚙️ 管理員</span>
-          <span style="color:var(--c-text-light);">admin@smartarchie.ai</span>
-        </div>
-      </div>
 
       <form id="loginForm" onsubmit="handleLogin(event)">
         <div class="form-group">
@@ -252,13 +225,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     SA.Toast.success('密碼已重設', '請用新密碼登入');
   }
 });
-
-function fillDemo(email, pw) {
-  document.getElementById('email').value = email;
-  document.getElementById('password').value = pw;
-  document.getElementById('email').closest('.form-group').classList.remove('has-error');
-  document.getElementById('password').closest('.form-group').classList.remove('has-error');
-}
 
 function togglePW() {
   const input = document.getElementById('password');

@@ -91,7 +91,7 @@
     <!-- Form Panel -->
     <div class="reg-form-panel">
       <div class="reg-logo">
-        <div class="reg-logo-icon">A</div>
+        <div class="reg-logo-icon">CF</div>
         <span class="reg-logo-name">CloudFrame</span>
       </div>
       <div class="reg-title">建立免費帳號</div>
@@ -344,7 +344,7 @@ async function handleRegister(e) {
       // Supabase 模式：需要 Email 驗證
       SA.Toast.success('註冊成功！', `驗證信已寄至 ${email}，請點擊信中連結啟用帳號`);
       // 顯示驗證提示畫面
-      document.querySelector('.register-layout').innerHTML = `
+      document.querySelector('.reg-layout').innerHTML = `
         <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--c-primary);padding:var(--sp-8);">
           <div style="background:white;border-radius:var(--r-xl);padding:var(--sp-10);max-width:480px;width:100%;text-align:center;">
             <div style="font-size:56px;margin-bottom:var(--sp-5);">📧</div>
