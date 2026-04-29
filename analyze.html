@@ -158,6 +158,23 @@
     }
     .kpi-card-label { font-size: var(--fs-xs); color: var(--c-text-muted); font-weight: var(--fw-medium); margin-bottom: var(--sp-3); text-transform: uppercase; letter-spacing: 0.5px; }
     .kpi-card-score { font-size: var(--fs-2xl); font-weight: var(--fw-bold); margin-bottom: var(--sp-2); }
+    /* Score tooltip */
+    .score-tooltip-wrap { position: relative; display: inline-block; cursor: help; }
+    .score-tooltip-wrap .score-tooltip-box {
+      display: none; position: absolute; bottom: calc(100% + 8px); left: 50%;
+      transform: translateX(-50%);
+      background: var(--c-primary); color: white;
+      font-size: 11px; font-weight: 400; line-height: 1.5;
+      padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
+      width: 220px; white-space: normal; z-index: 100;
+      box-shadow: var(--shadow-md);
+      pointer-events: none;
+    }
+    .score-tooltip-wrap .score-tooltip-box::after {
+      content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+      border: 5px solid transparent; border-top-color: var(--c-primary);
+    }
+    .score-tooltip-wrap:hover .score-tooltip-box { display: block; }
 
     /* Strategy section */
     .strategy-banner {
@@ -1318,13 +1335,14 @@ function renderResult(r, style) {
     <div class="kpi-grid">
       ${kpiItems.map(item => `
       <div class="kpi-card" style="position:relative;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--sp-3);">
-          <div class="kpi-card-label" style="margin:0;">${item.label}</div>
-          <span title="${item.tip}" style="cursor:help;width:16px;height:16px;border-radius:50%;background:var(--c-border);color:var(--c-text-muted);font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">?</span>
+        <div class="kpi-card-label">${item.label}</div>
+        <div class="kpi-card-score ${colorClass(item.val)}">
+          <span class="score-tooltip-wrap">
+            ${item.val}<small style="font-size:14px;font-weight:500;"> / 100</small>
+            <div class="score-tooltip-box">${item.tip}</div>
+          </span>
         </div>
-        <div class="kpi-card-score ${colorClass(item.val)}">${item.val}<small style="font-size:14px;font-weight:500;"> / 100</small></div>
         <div class="kpi-bar"><div class="kpi-fill ${barClass(item.val)}" data-width="${item.val}%" style="--target:${item.val}%"></div></div>
-        <div style="font-size:11px;color:var(--c-text-muted);margin-top:6px;line-height:1.5;">${item.tip}</div>
       </div>`).join('')}
       <div class="kpi-card" style="background:var(--c-primary);border-color:transparent;">
         <div class="kpi-card-label" style="color:rgba(255,255,255,0.6)">整體評分</div>
