@@ -930,6 +930,92 @@ export async function onRequest(context) {
       }
     }
 
+    // ── Server-side sustainability: always compute from CARBON_DATA ───────────
+    // Do NOT rely on Claude to generate carbon numbers — compute directly and merge.
+    if (jsonResult) {
+      const providerKey = (inputs.targetCloud || 'AWS').toLowerCase();
+      const provData    = CARBON_DATA[providerKey];
+      if (provData) {
+        const serverCount = inputs.systemCount || 20;
+        // Find lowest-carbon region
+        const sorted = Object.entries(provData.regions).sort((a, b) => a[1].intensity - b[1].intensity);
+        const [lowestCode, lowestRegion] = sorted[0];
+        // Calculate CO2 reduction vs Taiwan on-prem baseline
+        const kwhPerYear   = serverCount * ANNUAL_SERVER_KWH;
+        const onpremCO2    = kwhPerYear * ONPREM_INTENSITY / 1e6;      // tonnes/yr
+        const cloudCO2     = kwhPerYear * lowestRegion.intensity / 1e6; // tonnes/yr
+        const reductionPct = Math.max(0, Math.round((onpremCO2 - cloudCO2) / onpremCO2 * 100));
+        const reductionTon = Math.max(0, Math.round((onpremCO2 - cloudCO2) * 10) / 10);
+
+        // ESG guidance based on stated framework
+        const esgFramework = inputs.esgFramework || 'none';
+        const esgGuidance = {
+          tcfd:   ['揭露氣候相關財務風險（TCFD框架）', '建立情境分析（2°C / 4°C）', '量化碳排基準數據（Scope 1/2/3）'],
+          gri:    ['依 GRI 305-1/2/3 揭露溫室氣體排放', '設定科學基礎目標（SBTi）', '建立碳排監控 Dashboard'],
+          sbti:   ['提交 SBTi 承諾書', '設定 1.5°C 對齊目標', '建立年度減排路徑'],
+          twse:   ['依台灣 TWSE 永續報告書 GRI/SASB 規範揭露', '建立董事會永續治理機制', '量化 Scope 2 排放（市場基礎法）'],
+          none:   ['建議選擇 GRI Standards 作為揭露框架', '優先建立碳排基準數據', '評估加入 RE100 或 SBTi'],
+        };
+
+        // Build complete sustainability object — server-computed, reliable
+        const serverSustainability = {
+          carbon_reduction_pct:         reductionPct,
+          annual_co2_reduction_tonnes:  reductionTon,
+          recommended_region:           lowestRegion.name,
+          recommended_region_intensity: lowestRegion.intensity,
+          renewable_pct:                lowestRegion.renewable,
+          onprem_baseline_intensity:    ONPREM_INTENSITY,
+          rationale: `依據台灣電網碳強度（${ONPREM_INTENSITY} gCO₂eq/kWh）為基準，遷移 ${serverCount} 台伺服器至 ${provData.regions[lowestCode].name}（${lowestRegion.intensity} gCO₂eq/kWh，${lowestRegion.renewable}% 再生能源）後，預估每年減少 ${reductionTon} 噸 CO₂，碳排強度降低 ${reductionPct}%。計算方法：每台伺服器年耗電 ${ANNUAL_SERVER_KWH} kWh × ${serverCount} 台 = ${(kwhPerYear/1000).toFixed(0)} MWh/年。`,
+          esg_guidance: esgGuidance[esgFramework] || esgGuidance.none,
+          provider_commitment: provData.commitment,
+          monitoring_tool:     provData.tool,
+          all_regions_ranked:  sorted.slice(0, 5).map(([c, d]) => `${d.name}: ${d.intensity} gCO₂/kWh (${d.renewable}% RE)`),
+        };
+
+        // Merge: server numbers take priority; Claude's rationale/esg can enrich if present
+        const claudeSustainability = jsonResult.sustainability || {};
+        jsonResult.sustainability = {
+          ...serverSustainability,
+          // Accept Claude's rationale/esg_guidance only if they contain real content
+          rationale:    (claudeSustainability.rationale && claudeSustainability.rationale.length > 30 && !claudeSustainability.rationale.includes('string'))
+                          ? claudeSustainability.rationale : serverSustainability.rationale,
+          esg_guidance: (Array.isArray(claudeSustainability.esg_guidance) && claudeSustainability.esg_guidance.length > 0 && !claudeSustainability.esg_guidance[0].includes('string'))
+                          ? claudeSustainability.esg_guidance : serverSustainability.esg_guidance,
+        };
+      }
+
+      // ── Server-side cost: merge FinOps TCO if Claude returned 0s ─────────────
+      try {
+        const tco = calculateFinOpsTCO(inputs);
+        const cs  = jsonResult.cost?.scenarios || {};
+        const recM = cs.recommended?.monthly_usd;
+        const conM = cs.conservative?.monthly_usd;
+        const aggM = cs.aggressive?.monthly_usd;
+        // Only override if Claude returned 0 or missing
+        if (!recM || recM === 0) {
+          jsonResult.cost = jsonResult.cost || {};
+          jsonResult.cost.scenarios = {
+            conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: 'On-Demand 定價，20% 容量緩衝，最小化管理服務' },
+            recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: '60% Reserved Instances (1年期) + 40% On-Demand，右側配置' },
+            aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: '80% Reserved Instances (3年期) + Spot/Serverless，PaaS整合' },
+          };
+          jsonResult.cost.migration_cost_usd = tco.migration_cost_usd;
+          jsonResult.cost.roi_3yr            = tco.roi_3yr;
+          jsonResult.cost.payback_months     = tco.payback_months;
+          jsonResult.cost.cost_drivers       = [
+            `運算資源 (${inputs.targetCloud}): $${tco.breakdown.compute_monthly}/月`,
+            `資料庫託管服務: $${tco.breakdown.database_monthly}/月`,
+            `儲存空間: $${tco.breakdown.storage_monthly}/月`,
+            `網路流量: $${tco.breakdown.network_monthly}/月`,
+            `安全監控服務: $${tco.breakdown.managed_services_monthly}/月`,
+            tco.breakdown.dr_monthly > 0 ? `DR 備援: $${tco.breakdown.dr_monthly}/月` : null,
+          ].filter(Boolean);
+        }
+      } catch (tcoErr) {
+        console.warn('[FinOps] TCO calculation error:', tcoErr.message);
+      }
+    }
+
     return new Response(
       JSON.stringify({
         success:       true,
@@ -937,7 +1023,7 @@ export async function onRequest(context) {
         raw:           jsonResult ? undefined : rawText,
         usage:         message.usage,
         model:         message.model,
-        prompt_version: PROMPT_VERSION, // 可追溯性：記錄使用的 prompt 版本
+        prompt_version: PROMPT_VERSION,
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
