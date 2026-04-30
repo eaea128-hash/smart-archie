@@ -12,7 +12,6 @@
  *   data: {"type":"error","message":"..."}
  */
 
-import Anthropic        from '@anthropic-ai/sdk';
 import { createClient } from '@supabase/supabase-js';
 
 // ── Carbon Intensity Data (gCO2eq/kWh) — Source: Cloud provider official data ──
@@ -809,18 +808,18 @@ export async function onRequest(context) {
     });
   }
 
-  // Auth check — API key must be configured
-  if (!env.ANTHROPIC_API_KEY) {
-    console.error('[analyze] ANTHROPIC_API_KEY not set');
+  // Auth check — Workers AI binding must be available
+  if (!env.AI) {
+    console.error('[analyze] Cloudflare AI binding not configured. Add [ai] binding = "AI" in wrangler.toml and enable in Cloudflare Dashboard.');
     return new Response(
-      JSON.stringify({ error: 'API key not configured. Please set ANTHROPIC_API_KEY in your environment.' }),
+      JSON.stringify({ error: 'AI binding not configured. Please enable Workers AI in Cloudflare Dashboard → Settings → Functions → AI bindings.' }),
       { status: 503, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   }
 
   // Rate limit
-  const MODEL          = env.CLAUDE_MODEL      || 'claude-opus-4-6';
-  const MAX_TOKENS     = parseInt(env.CLAUDE_MAX_TOKENS || '8000', 10);
+  const CF_AI_MODEL    = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct';
+  const MAX_TOKENS     = parseInt(env.CLAUDE_MAX_TOKENS || '3072', 10);
   const RATE_LIMIT_RPH = parseInt(env.RATE_LIMIT_RPH   || '20',   10);
 
   const sessionId = request.headers.get('x-session-id') || request.headers.get('x-forwarded-for') || 'default';
@@ -846,72 +845,24 @@ export async function onRequest(context) {
   const supabase  = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
   const openaiKey = env.OPENAI_API_KEY;
 
-  // Call Claude with MCP tool_use → final analysis → return result
+  // Call Cloudflare Workers AI → full analysis → return result
   try {
-    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY });
-
     // ── RAG：取得相關知識庫文件 ──────────────────────────────
     const ragContext  = await getRagContext(inputs, supabase, openaiKey);
     const userMessage = buildUserMessage(inputs) + ragContext;
 
-    // ── Phase 1: MCP Tool Use — gather carbon intensity data ─
-    let toolContextMessages = [];
-    const hasSustainability = inputs.sustainabilityGoal && inputs.sustainabilityGoal !== 'none';
-    const provider = (inputs.targetCloud || 'AWS').toLowerCase();
-
-    // 永遠計算碳排影響（永續區塊永遠顯示）
-    if (true) { // was: if (hasSustainability || inputs.esgFramework !== 'none')
-      try {
-        const toolPhase = await client.messages.create({
-          model:      MODEL,
-          max_tokens: 1024,
-          tools:      MCP_TOOLS,
-          messages:   [{
-            role: 'user',
-            content: `The user is migrating to ${inputs.targetCloud} (region preference: ${inputs.targetRegion || 'flexible'}). Use the tools to: 1) look up carbon intensity for ALL regions of ${inputs.targetCloud}, 2) calculate CO2 reduction for ${inputs.systemCount || 20} servers moving from on-premises to the lowest-carbon region. Always produce concrete numbers — do not skip even if no sustainability goal was specified. Sustainability goal: "${inputs.sustainabilityGoal || 'general reduction'}", ESG framework: "${inputs.esgFramework || 'none specified'}".`,
-          }],
-        });
-
-        // Execute tool calls
-        const toolResults = [];
-        for (const block of toolPhase.content) {
-          if (block.type === 'tool_use') {
-            const result = executeMCPTool(block.name, block.input);
-            console.log(`[MCP] Tool called: ${block.name}`, block.input);
-            toolResults.push({
-              type: 'tool_result',
-              tool_use_id: block.id,
-              content: JSON.stringify(result),
-            });
-          }
-        }
-
-        if (toolResults.length > 0) {
-          toolContextMessages = [
-            { role: 'user',      content: toolPhase.content[0]?.type === 'text' ? toolPhase.content : 'Use tools to gather carbon data' },
-            { role: 'assistant', content: toolPhase.content },
-            { role: 'user',      content: toolResults },
-          ];
-        }
-      } catch (toolErr) {
-        console.warn('[MCP] Tool phase skipped:', toolErr.message);
-      }
-    }
-
-    // ── Phase 2: Full analysis with tool context ──────────────
-    const analysisMessages = toolContextMessages.length > 0
-      ? [
-          ...toolContextMessages,
-          { role: 'user', content: `Now perform the full cloud advisory analysis. ${userMessage}\n\nIMPORTANT: Include a complete "sustainability" object in your JSON output using the carbon data from the tools above.` },
-        ]
-      : [{ role: 'user', content: userMessage }];
-
-    const message = await client.messages.create({
-      model:      MODEL,
+    // ── Workers AI: single-pass analysis ─────────────────────
+    // (MCP tool phase removed — carbon data computed server-side after response)
+    const aiResponse = await env.AI.run(CF_AI_MODEL, {
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user',   content: userMessage },
+      ],
       max_tokens: MAX_TOKENS,
-      system:     SYSTEM_PROMPT,
-      messages:   analysisMessages,
     });
+
+    // Workers AI returns { response: "..." }
+    const message = { content: [{ type: 'text', text: aiResponse.response || '' }], model: CF_AI_MODEL };
 
     // Extract JSON from response
     let jsonResult = null;
@@ -1021,15 +972,14 @@ export async function onRequest(context) {
         success:       true,
         result:        jsonResult,
         raw:           jsonResult ? undefined : rawText,
-        usage:         message.usage,
-        model:         message.model,
+        model:         CF_AI_MODEL,
         prompt_version: PROMPT_VERSION,
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
 
   } catch (err) {
-    console.error('[analyze] Claude API error:', err);
+    console.error('[analyze] Workers AI error:', err);
     const status = err.status || err.statusCode || 500;
     const msg    = err.message || 'Internal server error';
     // 備援機制提示：告知前端可使用本地 rule-based engine

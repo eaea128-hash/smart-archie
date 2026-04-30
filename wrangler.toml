@@ -3,6 +3,9 @@ compatibility_date = "2026-04-28"
 compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "."
 
+[ai]
+binding = "AI"
+
 [vars]
 NODE_ENV          = "production"
 SUPABASE_URL      = "https://oxownfzafrveihxhuxay.supabase.co"
