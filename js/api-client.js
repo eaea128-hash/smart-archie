@@ -237,10 +237,10 @@
     const recCost  = cost.scenarios?.recommended || {};
     const consCost = cost.scenarios?.conservative || {};
     const aggCost  = cost.scenarios?.aggressive   || {};
-    const mid      = recCost.monthly_usd   || 5000;
-    const low      = consCost.monthly_usd  || Math.round(mid * 0.7);
-    const high     = aggCost.monthly_usd   || Math.round(mid * 1.4);
-    const migBase  = cost.migration_cost_usd || mid * 3;
+    const mid      = recCost.monthly_usd   != null && recCost.monthly_usd   > 0 ? recCost.monthly_usd   : 5000;
+    const low      = consCost.monthly_usd  != null && consCost.monthly_usd  > 0 ? consCost.monthly_usd  : Math.round(mid * 0.7);
+    const high     = aggCost.monthly_usd   != null && aggCost.monthly_usd   > 0 ? aggCost.monthly_usd   : Math.round(mid * 1.4);
+    const migBase  = cost.migration_cost_usd > 0 ? cost.migration_cost_usd : mid * 3;
     const costEstimate = {
       low, mid, high,
       annualLow:    low  * 12,
@@ -378,6 +378,7 @@
       techPM,
       nextSteps,
       decisions,
+      sustainability: r.sustainability || null,  // ← was missing, causing blank section
 
       // Extra API-only data available for enhanced rendering
       _api: {

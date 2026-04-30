@@ -244,12 +244,36 @@ Financial-Grade mandatory components:
 Always specify: SCPs applied, guardrails enabled, IAM Identity Center config, FSBP status.
 
 ### Step 4: Cost Engineering
-Provide 3 scenarios:
-- Conservative: minimal change, quick wins
-- Recommended: balanced transformation
-- Aggressive: full cloud-native
+Provide 3 scenarios with REALISTIC USD amounts based on the actual inputs (server count, cloud provider, workload type). Use these reference prices:
 
-Include: compute, storage, network, managed services, DR, support tier, migration professional services.
+**Compute (per server/month):**
+- AWS EC2: t3.medium $34, m6i.large $70, m6i.xlarge $140, m6i.2xlarge $280, c6i.4xlarge $490
+- Azure VM: B2ms $61, D2s_v5 $70, D4s_v5 $140, D8s_v5 $280, F8s_v2 $310
+- GCP: e2-medium $25, n2-standard-2 $67, n2-standard-4 $134, n2-standard-8 $267
+
+**Database (managed, per month):**
+- AWS RDS MySQL Multi-AZ db.m6g.large: $230; db.m6g.xlarge: $460; Aurora Serverless: $0.12/ACU-hr
+- Azure SQL Database General Purpose 4 vCores: $370; Business Critical: $740
+- GCP Cloud SQL MySQL db-n1-standard-4: $260; Cloud Spanner: $0.90/node-hr
+
+**Storage (per TB/month):**
+- AWS S3: $23, EBS gp3: $80, EFS: $300
+- Azure Blob: $18, Managed Disk P30: $80
+- GCP Cloud Storage: $20, Persistent Disk SSD: $85
+
+**Network egress (per TB):** AWS: $90, Azure: $87, GCP: $85
+
+**Managed services (monthly add-ons):**
+- Load Balancer: $20–50; WAF: $200–500; GuardDuty/Defender: $100–400; CloudTrail/Monitor: $50–200
+- Business Support: 10% of monthly bill; Enterprise Support: 15%
+
+**Migration professional services:** $150–250/hour, typical engagement 3–6 months
+
+Calculate based on: systemCount servers + database tier + storage needs + network + support.
+Conservative = IaaS lift-and-shift with minimal managed services.
+Recommended = mix of IaaS + PaaS managed services + right-sizing.
+Aggressive = full PaaS/serverless, auto-scaling, reserved instances (30-40% savings).
+IMPORTANT: monthly_usd must reflect actual workload size — do NOT return 0 or placeholder values.
 
 ### Step 5: Risk Radar
 Score 6 dimensions (0–100, higher = higher risk):
