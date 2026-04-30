@@ -148,6 +148,47 @@ function executeMCPTool(name, input) {
   return { error: `Unknown tool: ${name}` };
 }
 
+// ── FinOps TCO Calculator (IBM FinOps Framework 2026-Q1) ─────────────────────
+const FINOPS_PRICING = {
+  aws:   { compute: { perServer: { small:34,medium:140,large:560,enterprise:1120 } }, database: { monthly: { small:100,medium:460,large:920,enterprise:2760 } }, storage: { ebs_gp3_per_tb:80 }, network: { egress_per_tb:90 }, support: { business_pct:0.10,enterprise_pct:0.15 }, reserved_1yr_discount:0.35, reserved_3yr_discount:0.55, spot_discount:0.70 },
+  azure: { compute: { perServer: { small:61,medium:192,large:770,enterprise:1540 } }, database: { monthly: { small:185,medium:740,large:1480,enterprise:4440 } }, storage: { managed_disk_per_tb:80 }, network: { egress_per_tb:87 }, support: { business_pct:0.10,enterprise_pct:0.15 }, reserved_1yr_discount:0.33, reserved_3yr_discount:0.50, spot_discount:0.60 },
+  gcp:   { compute: { perServer: { small:25,medium:134,large:536,enterprise:1072 } }, database: { monthly: { small:46,medium:260,large:520,enterprise:1800 } }, storage: { persistent_ssd_per_tb:85 }, network: { egress_per_tb:85 }, support: { business_pct:0.09,enterprise_pct:0.13 }, reserved_1yr_discount:0.37, reserved_3yr_discount:0.57, spot_discount:0.60 },
+};
+const MANAGED_SVC = { waf:{small:50,medium:200,large:500,enterprise:1000}, monitoring:{small:30,medium:100,large:300,enterprise:600}, security:{small:100,medium:300,large:800,enterprise:1800}, cdn:{small:20,medium:80,large:250,enterprise:600}, backup:{small:30,medium:100,large:300,enterprise:700} };
+
+function calculateFinOpsTCO(inputs) {
+  const provider = (inputs.targetCloud||'AWS').toLowerCase();
+  const p = FINOPS_PRICING[provider] || FINOPS_PRICING.aws;
+  const tier = inputs.companySize || 'medium';
+  const serverCount = inputs.systemCount || 20;
+  const hasFinancial = inputs.dataClassification === 'highly-confidential';
+  const needsDR = inputs.drRequirements === 'rto4h';
+  const computePerServer = p.compute.perServer[tier] || p.compute.perServer.medium;
+  const totalCompute = computePerServer * serverCount;
+  const dbInstances = tier==='enterprise'?4:tier==='large'?2:1;
+  const totalDB = (p.database.monthly[tier]||p.database.monthly.medium) * dbInstances;
+  const storageTB = tier==='enterprise'?100:tier==='large'?30:tier==='medium'?10:3;
+  const storageKey = provider==='aws'?'ebs_gp3_per_tb':provider==='azure'?'managed_disk_per_tb':'persistent_ssd_per_tb';
+  const totalStorage = storageTB * (p.storage[storageKey]||80);
+  const networkTB = tier==='enterprise'?50:tier==='large'?15:tier==='medium'?5:2;
+  const totalNetwork = networkTB * p.network.egress_per_tb;
+  const totalManaged = MANAGED_SVC.monitoring[tier]+MANAGED_SVC.security[tier]+MANAGED_SVC.backup[tier]+(hasFinancial?MANAGED_SVC.waf[tier]:0)+MANAGED_SVC.cdn[tier];
+  const drCost = needsDR ? (totalCompute+totalDB)*0.4 : 0;
+  const supportTier = tier==='enterprise'?p.support.enterprise_pct:p.support.business_pct;
+  const baseMonthly = totalCompute+totalDB+totalStorage+totalNetwork+totalManaged+drCost;
+  const supportCost = baseMonthly*supportTier;
+  const onDemandTotal = Math.round(baseMonthly+supportCost);
+  const conservative = Math.round(onDemandTotal*1.20);
+  const recommended = Math.round((totalCompute*0.6*(1-p.reserved_1yr_discount)+totalCompute*0.4)+(totalDB*0.7*(1-p.reserved_1yr_discount)+totalDB*0.3)+totalStorage+totalNetwork+totalManaged+drCost+supportCost);
+  const aggressive = Math.round((totalCompute*0.8*(1-p.reserved_3yr_discount)+totalCompute*0.2*(1-p.spot_discount))+(totalDB*0.8*(1-p.reserved_3yr_discount))+totalStorage*0.7+totalNetwork*0.8+totalManaged+drCost*0.6+supportCost*0.8);
+  const durationMonths = tier==='enterprise'?8:tier==='large'?5:tier==='medium'?3:2;
+  const teamHrCost = tier==='enterprise'?(2*220+4*160+1*130+2*200):tier==='large'?(1*220+3*160+1*130+1*200):(1*220+2*160+1*130);
+  const migrationCost = Math.round(teamHrCost*160*durationMonths);
+  const onPremEstimate = onDemandTotal*1.8;
+  const cloudSavings3yr = (onPremEstimate-recommended)*36-migrationCost;
+  return { conservative, recommended, aggressive, migration_cost_usd:migrationCost, roi_3yr: cloudSavings3yr>0?`3年節省 USD $${Math.round(cloudSavings3yr).toLocaleString()}`:'3年達損益平衡', payback_months:Math.round(migrationCost/((onPremEstimate-recommended)||1)), breakdown:{ compute_monthly:Math.round(totalCompute), database_monthly:Math.round(totalDB), storage_monthly:Math.round(totalStorage), network_monthly:Math.round(totalNetwork), managed_services_monthly:Math.round(totalManaged), dr_monthly:Math.round(drCost) }, methodology:`IBM FinOps TCO (${provider.toUpperCase()} ${tier}, ${serverCount} servers)` };
+}
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const MODEL          = process.env.CLAUDE_MODEL      || 'claude-opus-4-6';
 const MAX_TOKENS     = parseInt(process.env.CLAUDE_MAX_TOKENS || '8000', 10);
@@ -530,6 +571,18 @@ function buildUserMessage(inputs) {
 
 ## Additional Context
 ${description || 'No additional context provided.'}
+
+## Pre-Calculated FinOps TCO (IBM FinOps Framework — use these as your cost baseline)
+${(() => {
+  try {
+    const tco = calculateFinOpsTCO(inputs);
+    return `- Conservative: USD $${tco.conservative.toLocaleString()}/month | Recommended: USD $${tco.recommended.toLocaleString()}/month | Aggressive: USD $${tco.aggressive.toLocaleString()}/month
+- Migration cost: USD $${tco.migration_cost_usd.toLocaleString()} | ${tco.roi_3yr} | Payback: ${tco.payback_months}m
+- Breakdown: Compute $${tco.breakdown.compute_monthly}/mo · DB $${tco.breakdown.database_monthly}/mo · Storage $${tco.breakdown.storage_monthly}/mo · Network $${tco.breakdown.network_monthly}/mo · Managed $${tco.breakdown.managed_services_monthly}/mo · DR $${tco.breakdown.dr_monthly}/mo
+- Methodology: ${tco.methodology}
+INSTRUCTION: Use these pre-calculated values as cost.scenarios in JSON output. Adjust ±15% with explanation in cost_drivers.`;
+  } catch(e) { return '(Cost pre-calculation unavailable)'; }
+})()}
 
 ---
 Please deliver a complete cloud advisory analysis following the CloudFrame framework. Apply all relevant international cloud best practices and regulatory requirements for the stated jurisdiction and industry. Return your response as a single valid JSON object matching the specified schema.`;

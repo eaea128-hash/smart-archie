@@ -1904,9 +1904,8 @@ function renderResult(r, style) {
     </div>` : ''}
     ${!r.sustainability || (r.sustainability.carbon_reduction_pct == null && !r.sustainability.recommended_region) ? `
     <div style="text-align:center;padding:var(--sp-6);background:rgba(34,197,94,0.04);border-radius:var(--r-lg);border:1px dashed rgba(34,197,94,0.3);">
-      <div style="font-size:32px;margin-bottom:var(--sp-2);">🌿</div>
-      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);margin-bottom:var(--sp-3);">此分析記錄建立時未包含碳排計算</div>
-      <button onclick="runAnalysis()" style="background:linear-gradient(135deg,#16a34a,#15803d);color:white;border:none;border-radius:var(--r-md);padding:8px 20px;font-size:var(--fs-sm);font-weight:var(--fw-semi);cursor:pointer;">重新分析以取得碳排資料</button>
+      <div style="font-size:28px;margin-bottom:var(--sp-2);">🌿</div>
+      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);">此記錄建立時未包含碳排計算，請在左側填寫表單後執行新分析以取得碳排數據</div>
     </div>` : ''}
   </div>
 
