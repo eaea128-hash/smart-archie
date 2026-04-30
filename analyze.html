@@ -946,10 +946,46 @@ document.addEventListener('DOMContentLoaded', async () => {
       try {
         const item = JSON.parse(raw);
         sessionStorage.removeItem('cf_replay');
-        // Merge inputs back so left-panel shows correct project name
-        if (item.inputs?.projectName) {
-          const el = document.getElementById('projectName');
-          if (el) el.value = item.inputs.projectName;
+        // Restore all inputs back to form so re-analysis works correctly
+        if (item.inputs) {
+          const inp = item.inputs;
+          // Text inputs
+          const textFields = ['projectName','painPoints','systemAge','archType','techStack',
+            'dataSize','dataRetention','txVolume','slaRequirement','envCount',
+            'systemCount','industryVertical','targetCloud','targetRegion','currentInfra'];
+          textFields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && inp[id] != null) el.value = inp[id];
+          });
+          // Select inputs
+          const selectFields = ['sustainabilityGoal','esgFramework'];
+          selectFields.forEach(id => {
+            const el = document.getElementById(id);
+            if (el && inp[id] != null) el.value = inp[id];
+          });
+          // Toggle buttons (single-select)
+          const toggleFields = ['timeline','isCoreSystem','techDebt','isVirtualized',
+            'hasExternalIntegration','hasPersonalData','hasSensitiveData','hasFinancialData',
+            'hasTrafficSpike','downtimeTolerance','needDR','systemSize','cloudMaturity',
+            'hasLandingZone','hasIAM','hasMultiAccount','isMajorOutsource','complianceLevel',
+            'budget','carbonBaseline'];
+          toggleFields.forEach(id => {
+            const val = inp[id];
+            if (val == null) return;
+            const btn = document.querySelector(`#${id} .toggle-btn[data-value="${val}"]`);
+            if (btn) {
+              document.querySelectorAll(`#${id} .toggle-btn`).forEach(b => b.classList.remove('active'));
+              btn.classList.add('active');
+            }
+          });
+          // Multi-select toggles (cloudGoal)
+          if (Array.isArray(inp.cloudGoal)) {
+            document.querySelectorAll('#cloudGoal .toggle-btn').forEach(b => b.classList.remove('active'));
+            inp.cloudGoal.forEach(v => {
+              const btn = document.querySelector(`#cloudGoal .toggle-btn[data-value="${v}"]`);
+              if (btn) btn.classList.add('active');
+            });
+          }
         }
         // If result is a full rendered object with required fields, replay it
         if (item.result && typeof item.result === 'object' && item.result.strategy6R && item.result.executiveSummary) {
