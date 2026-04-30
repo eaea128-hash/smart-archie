@@ -130,7 +130,172 @@
     if (typeof AnalyzeEngine === 'undefined') {
       throw new Error('AnalyzeEngine not loaded. Please include analyze-engine.js');
     }
-    return await AnalyzeEngine.analyze(inputs);
+    const result = await AnalyzeEngine.analyze(inputs);
+    // Always inject sustainability and FinOps cost for local results too
+    if (!result.sustainability || !result.sustainability.carbon_reduction_pct) {
+      result.sustainability = _computeSustainability(inputs, result.sustainability);
+    }
+    if (!result.costEstimate || !result.costEstimate.mid || result.costEstimate.mid === 5000) {
+      const fc = _computeFinOpsCost(inputs, null);
+      const sc = fc.scenarios || {};
+      result.costEstimate = {
+        ...(result.costEstimate || {}),
+        low:  sc.conservative?.monthly_usd || result.costEstimate?.low  || 3000,
+        mid:  sc.recommended?.monthly_usd  || result.costEstimate?.mid  || 5000,
+        high: sc.aggressive?.monthly_usd   || result.costEstimate?.high || 7000,
+        annualLow:  (sc.conservative?.monthly_usd || 3000) * 12,
+        annualHigh: (sc.aggressive?.monthly_usd   || 7000) * 12,
+        annual:     (sc.recommended?.monthly_usd  || 5000) * 12,
+        roi3yr:      fc.roi_3yr || '',
+        paybackMths: fc.payback_months || 18,
+        scenarios:   sc,
+      };
+    }
+    return result;
+  }
+
+  // ── Carbon intensity data (client-side copy, always available) ────────────
+  const CARBON_DATA_CLIENT = {
+    aws:   {
+      regions: {
+        'ap-east-1':      { name:'Hong Kong',   intensity:799, renewable:5  },
+        'ap-southeast-1': { name:'Singapore',   intensity:408, renewable:25 },
+        'ap-northeast-1': { name:'Tokyo',       intensity:463, renewable:30 },
+        'ap-south-1':     { name:'Mumbai',      intensity:708, renewable:20 },
+        'eu-north-1':     { name:'Stockholm',   intensity:8,   renewable:99 },
+        'eu-west-1':      { name:'Ireland',     intensity:316, renewable:72 },
+        'us-east-1':      { name:'N. Virginia', intensity:415, renewable:65 },
+        'us-west-2':      { name:'Oregon',      intensity:136, renewable:89 },
+      },
+      commitment: 'Net Zero by 2040, 100% renewable energy by 2025',
+      tool: 'AWS Customer Carbon Footprint Tool',
+    },
+    azure: {
+      regions: {
+        'eastasia':      { name:'Hong Kong',  intensity:790, renewable:5  },
+        'southeastasia': { name:'Singapore',  intensity:408, renewable:25 },
+        'japaneast':     { name:'Tokyo',      intensity:463, renewable:30 },
+        'swedencentral': { name:'Sweden',     intensity:8,   renewable:99 },
+        'northeurope':   { name:'Ireland',    intensity:316, renewable:72 },
+        'westeurope':    { name:'Netherlands',intensity:390, renewable:55 },
+      },
+      commitment: 'Carbon negative by 2030, remove all historical carbon by 2050',
+      tool: 'Azure Emissions Impact Dashboard',
+    },
+    gcp: {
+      regions: {
+        'asia-east1':      { name:'Taiwan',    intensity:509, renewable:15 },
+        'asia-east2':      { name:'Hong Kong', intensity:790, renewable:5  },
+        'asia-northeast1': { name:'Tokyo',     intensity:463, renewable:30 },
+        'asia-southeast1': { name:'Singapore', intensity:408, renewable:25 },
+        'europe-north1':   { name:'Finland',   intensity:35,  renewable:97 },
+        'europe-west1':    { name:'Belgium',   intensity:150, renewable:85 },
+        'us-central1':     { name:'Iowa',      intensity:356, renewable:90 },
+      },
+      commitment: 'Carbon-free energy 24/7 by 2030, carbon neutral since 2007',
+      tool: 'GCP Carbon Footprint',
+    },
+  };
+  const ONPREM_INTENSITY_CLIENT = 509; // gCO2eq/kWh — Taiwan grid average
+  const ANNUAL_KWH_PER_SERVER   = 8760;
+
+  // ── FinOps pricing (client-side, 2026-Q1) ─────────────────────────────────
+  const FINOPS_CLIENT = {
+    aws:   { compute:{ small:34,medium:140,large:560,enterprise:1120 }, db:{ small:100,medium:460,large:920,enterprise:2760 }, reserved1yr:0.35, reserved3yr:0.55, spot:0.70 },
+    azure: { compute:{ small:61,medium:192,large:770,enterprise:1540 }, db:{ small:185,medium:740,large:1480,enterprise:4440 }, reserved1yr:0.33, reserved3yr:0.50, spot:0.60 },
+    gcp:   { compute:{ small:25,medium:134,large:536,enterprise:1072 }, db:{ small:46,medium:260,large:520,enterprise:1800  }, reserved1yr:0.37, reserved3yr:0.57, spot:0.60 },
+  };
+
+  /**
+   * Always compute sustainability client-side from CARBON_DATA_CLIENT.
+   * Called regardless of what the server returns.
+   */
+  function _computeSustainability(inputs, serverSustainability) {
+    // If server already gave us good data, use it
+    const s = serverSustainability;
+    if (s && s.carbon_reduction_pct > 0 && s.recommended_region && !s.recommended_region.includes('string')) {
+      return s;
+    }
+
+    // Compute from scratch
+    const providerRaw = (inputs.targetCloud || inputs.target_cloud || 'AWS');
+    const providerKey = providerRaw.toLowerCase().replace('-cloud','').replace('multi','aws');
+    const provData    = CARBON_DATA_CLIENT[providerKey] || CARBON_DATA_CLIENT.aws;
+    const serverCount = inputs.systemCount || inputs.system_count || 20;
+
+    // Find lowest-carbon region
+    const sorted = Object.entries(provData.regions).sort((a, b) => a[1].intensity - b[1].intensity);
+    const [, lowestRegion] = sorted[0];
+
+    const kwhPerYear   = serverCount * ANNUAL_KWH_PER_SERVER;
+    const onpremCO2    = kwhPerYear * ONPREM_INTENSITY_CLIENT / 1e6;
+    const cloudCO2     = kwhPerYear * lowestRegion.intensity   / 1e6;
+    const reductionPct = Math.max(0, Math.round((onpremCO2 - cloudCO2) / onpremCO2 * 100));
+    const reductionTon = Math.max(0, Math.round((onpremCO2 - cloudCO2) * 10) / 10);
+
+    const esgMap = {
+      tcfd: ['揭露氣候相關財務風險（TCFD框架）','建立情境分析（2°C / 4°C）','量化碳排基準數據（Scope 1/2/3）'],
+      gri:  ['依 GRI 305-1/2/3 揭露溫室氣體排放','設定科學基礎目標（SBTi）','建立碳排監控 Dashboard'],
+      sbti: ['提交 SBTi 承諾書','設定 1.5°C 對齊目標','建立年度減排路徑'],
+      twse: ['依台灣 TWSE 永續報告書 GRI/SASB 規範揭露','建立董事會永續治理機制','量化 Scope 2 排放（市場基礎法）'],
+    };
+    const ef = (inputs.esgFramework || inputs.esg_framework || 'none').toLowerCase();
+
+    return {
+      carbon_reduction_pct:         reductionPct,
+      annual_co2_reduction_tonnes:  reductionTon,
+      recommended_region:           lowestRegion.name,
+      recommended_region_intensity: lowestRegion.intensity,
+      renewable_pct:                lowestRegion.renewable,
+      rationale: `依台灣電網碳強度基準（${ONPREM_INTENSITY_CLIENT} gCO₂eq/kWh），遷移 ${serverCount} 台伺服器至 ${lowestRegion.name}（${lowestRegion.intensity} gCO₂eq/kWh，${lowestRegion.renewable}% 再生能源），預估每年減少碳排 ${reductionTon} 噸（降幅 ${reductionPct}%）。計算依據：${serverCount} 台 × ${ANNUAL_KWH_PER_SERVER.toLocaleString()} kWh/年 = ${Math.round(kwhPerYear/1000)} MWh/年。`,
+      esg_guidance:      esgMap[ef] || ['建議選擇 GRI Standards 作為揭露框架','優先建立碳排基準數據（Scope 1/2）','評估加入 RE100 或 SBTi'],
+      provider_commitment: provData.commitment,
+      monitoring_tool:     provData.tool,
+    };
+  }
+
+  /**
+   * Always compute FinOps cost client-side.
+   * Called regardless of what the server returns.
+   */
+  function _computeFinOpsCost(inputs, serverCost) {
+    const cs = serverCost?.scenarios;
+    const recM = cs?.recommended?.monthly_usd;
+    if (recM && recM > 0) return serverCost; // server gave us real numbers
+
+    const providerKey = (inputs.targetCloud || 'AWS').toLowerCase().split('-')[0];
+    const p = FINOPS_CLIENT[providerKey] || FINOPS_CLIENT.aws;
+    const tier = inputs.companySize || 'medium';
+    const n    = inputs.systemCount || 20;
+    const storage_per_tb = 80, network_per_tb = 90;
+    const storageTB = tier==='enterprise'?100:tier==='large'?30:tier==='medium'?10:3;
+    const networkTB = tier==='enterprise'?50:tier==='large'?15:tier==='medium'?5:2;
+    const dbInstances = tier==='enterprise'?4:tier==='large'?2:1;
+    const compute   = (p.compute[tier]||p.compute.medium) * n;
+    const db        = (p.db[tier]||p.db.medium) * dbInstances;
+    const storage   = storageTB * storage_per_tb;
+    const network   = networkTB * network_per_tb;
+    const managed   = { small:260, medium:780, large:1850, enterprise:3900 }[tier] || 780;
+    const base      = compute + db + storage + network + managed;
+    const support   = base * (tier==='enterprise' ? 0.15 : 0.10);
+    const onDemand  = Math.round(base + support);
+    const recommended_m = Math.round(compute*0.6*(1-p.reserved1yr)+compute*0.4 + db*0.7*(1-p.reserved1yr)+db*0.3 + storage+network+managed+support);
+    const aggressive_m  = Math.round(compute*0.8*(1-p.reserved3yr)+compute*0.2*(1-p.spot) + db*0.8*(1-p.reserved3yr) + storage*0.7+network*0.8+managed+support*0.8);
+    const conservative_m = Math.round(onDemand * 1.2);
+    const durMo = tier==='enterprise'?8:tier==='large'?5:tier==='medium'?3:2;
+    const migCost = Math.round((tier==='enterprise'?9600:tier==='large'?6400:4480) * 160 * durMo / 160);
+    const saving3yr = (onDemand*1.8 - recommended_m)*36 - migCost;
+    return {
+      scenarios: {
+        conservative: { monthly_usd:conservative_m, annual_usd:conservative_m*12, description:`On-Demand 定價 + 20% 容量緩衝（${(inputs.targetCloud||'AWS')} ${tier} tier, ${n} servers）` },
+        recommended:  { monthly_usd:recommended_m,  annual_usd:recommended_m*12,  description:`60% Reserved Instances 1年期 + 右側配置（FinOps IBM 方法論）` },
+        aggressive:   { monthly_usd:aggressive_m,   annual_usd:aggressive_m*12,   description:`80% Reserved 3年期 + Spot/Preemptible + PaaS 整合` },
+      },
+      migration_cost_usd: migCost,
+      roi_3yr:       saving3yr>0 ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}` : '3年達損益平衡',
+      payback_months: Math.round(migCost / Math.max(1, onDemand*1.8 - recommended_m)),
+      cost_drivers:  [`運算資源 $${Math.round(compute)}/月`, `資料庫服務 $${Math.round(db)}/月`, `儲存空間 $${Math.round(storage)}/月`, `網路流量 $${Math.round(network)}/月`, `安全監控 $${Math.round(managed)}/月`],
+    };
   }
 
   /**
@@ -233,14 +398,16 @@
       scpSummary:    lz.compliance_controls?.join('、') || lz.identity || '',
     };
 
-    // Cost — map API scenarios to local format
-    const recCost  = cost.scenarios?.recommended || {};
-    const consCost = cost.scenarios?.conservative || {};
-    const aggCost  = cost.scenarios?.aggressive   || {};
-    const mid      = recCost.monthly_usd   != null && recCost.monthly_usd   > 0 ? recCost.monthly_usd   : 5000;
-    const low      = consCost.monthly_usd  != null && consCost.monthly_usd  > 0 ? consCost.monthly_usd  : Math.round(mid * 0.7);
-    const high     = aggCost.monthly_usd   != null && aggCost.monthly_usd   > 0 ? aggCost.monthly_usd   : Math.round(mid * 1.4);
-    const migBase  = cost.migration_cost_usd > 0 ? cost.migration_cost_usd : mid * 3;
+    // Cost — always use FinOps client computation as authoritative fallback
+    const computedCost = _computeFinOpsCost(inputs, cost);
+    const computedScenarios = computedCost.scenarios || {};
+    const recCost  = computedScenarios.recommended  || {};
+    const consCost = computedScenarios.conservative || {};
+    const aggCost  = computedScenarios.aggressive   || {};
+    const mid  = recCost.monthly_usd  || 5000;
+    const low  = consCost.monthly_usd || Math.round(mid * 0.7);
+    const high = aggCost.monthly_usd  || Math.round(mid * 1.4);
+    const migBase = computedCost.migration_cost_usd || mid * 3;
     const costEstimate = {
       low, mid, high,
       annualLow:    low  * 12,
@@ -248,11 +415,11 @@
       annual:       mid  * 12,
       migrationLow:  Math.round(migBase * 0.8),
       migrationHigh: Math.round(migBase * 1.3),
-      drivers: (cost.cost_drivers || ['Compute', 'Storage', 'Network']).map(d =>
+      drivers: (computedCost.cost_drivers || cost.cost_drivers || ['Compute', 'Storage', 'Network']).map(d =>
         typeof d === 'string' ? { name: d, pct: 30 } : d),
-      roi3yr:      cost.roi_3yr || '',
-      paybackMths: cost.payback_months || 18,
-      scenarios:   cost.scenarios || {},
+      roi3yr:      computedCost.roi_3yr || cost.roi_3yr || '',
+      paybackMths: computedCost.payback_months || cost.payback_months || 18,
+      scenarios:   computedScenarios,
     };
 
     // Risk Radar
@@ -378,7 +545,7 @@
       techPM,
       nextSteps,
       decisions,
-      sustainability: r.sustainability || null,  // ← was missing, causing blank section
+      sustainability: _computeSustainability(inputs, r.sustainability),  // always computed, never blank
 
       // Extra API-only data available for enhanced rendering
       _api: {
