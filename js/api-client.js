@@ -131,26 +131,27 @@
       throw new Error('AnalyzeEngine not loaded. Please include analyze-engine.js');
     }
     const result = await AnalyzeEngine.analyze(inputs);
-    // Always inject sustainability and FinOps cost for local results too
-    if (!result.sustainability || !result.sustainability.carbon_reduction_pct) {
-      result.sustainability = _computeSustainability(inputs, result.sustainability);
-    }
-    if (!result.costEstimate || !result.costEstimate.mid || result.costEstimate.mid === 5000) {
-      const fc = _computeFinOpsCost(inputs, null);
-      const sc = fc.scenarios || {};
-      result.costEstimate = {
-        ...(result.costEstimate || {}),
-        low:  sc.conservative?.monthly_usd || result.costEstimate?.low  || 3000,
-        mid:  sc.recommended?.monthly_usd  || result.costEstimate?.mid  || 5000,
-        high: sc.aggressive?.monthly_usd   || result.costEstimate?.high || 7000,
-        annualLow:  (sc.conservative?.monthly_usd || 3000) * 12,
-        annualHigh: (sc.aggressive?.monthly_usd   || 7000) * 12,
-        annual:     (sc.recommended?.monthly_usd  || 5000) * 12,
-        roi3yr:      fc.roi_3yr || '',
-        paybackMths: fc.payback_months || 18,
-        scenarios:   sc,
-      };
-    }
+
+    // Always override with FinOps calculator (input-aware, not bucket-based)
+    const fc = _computeFinOpsCost(inputs, null);
+    const sc = fc.scenarios || {};
+    result.costEstimate = {
+      ...(result.costEstimate || {}),
+      low:          sc.conservative?.monthly_usd || result.costEstimate?.low  || 3000,
+      mid:          sc.recommended?.monthly_usd  || result.costEstimate?.mid  || 5000,
+      high:         sc.aggressive?.monthly_usd   || result.costEstimate?.high || 7000,
+      annualLow:    (sc.conservative?.monthly_usd || 3000) * 12,
+      annualHigh:   (sc.aggressive?.monthly_usd   || 7000) * 12,
+      annual:       (sc.recommended?.monthly_usd  || 5000) * 12,
+      roi3yr:       fc.roi_3yr || '',
+      paybackMths:  fc.payback_months || 18,
+      scenarios:    sc,
+      drivers:      fc.cost_drivers.map(d => ({ name: d, pct: 0 })),
+    };
+
+    // Always inject sustainability
+    result.sustainability = _computeSustainability(inputs, result.sustainability);
+
     return result;
   }
 
@@ -255,46 +256,101 @@
   }
 
   /**
-   * Always compute FinOps cost client-side.
-   * Called regardless of what the server returns.
+   * FinOps TCO — uses ALL form inputs for realistic variation.
+   * Factors: provider, server count, traffic, data size, DR, compliance, personal/financial data, env count.
    */
   function _computeFinOpsCost(inputs, serverCost) {
     const cs = serverCost?.scenarios;
     const recM = cs?.recommended?.monthly_usd;
-    if (recM && recM > 0) return serverCost; // server gave us real numbers
+    if (recM && recM > 0) return serverCost; // server returned real numbers
 
     const providerKey = (inputs.targetCloud || 'AWS').toLowerCase().split('-')[0];
-    const p = FINOPS_CLIENT[providerKey] || FINOPS_CLIENT.aws;
-    const tier = inputs.companySize || 'medium';
-    const n    = inputs.systemCount || 20;
-    const storage_per_tb = 80, network_per_tb = 90;
-    const storageTB = tier==='enterprise'?100:tier==='large'?30:tier==='medium'?10:3;
-    const networkTB = tier==='enterprise'?50:tier==='large'?15:tier==='medium'?5:2;
-    const dbInstances = tier==='enterprise'?4:tier==='large'?2:1;
-    const compute   = (p.compute[tier]||p.compute.medium) * n;
-    const db        = (p.db[tier]||p.db.medium) * dbInstances;
-    const storage   = storageTB * storage_per_tb;
-    const network   = networkTB * network_per_tb;
-    const managed   = { small:260, medium:780, large:1850, enterprise:3900 }[tier] || 780;
-    const base      = compute + db + storage + network + managed;
-    const support   = base * (tier==='enterprise' ? 0.15 : 0.10);
-    const onDemand  = Math.round(base + support);
-    const recommended_m = Math.round(compute*0.6*(1-p.reserved1yr)+compute*0.4 + db*0.7*(1-p.reserved1yr)+db*0.3 + storage+network+managed+support);
-    const aggressive_m  = Math.round(compute*0.8*(1-p.reserved3yr)+compute*0.2*(1-p.spot) + db*0.8*(1-p.reserved3yr) + storage*0.7+network*0.8+managed+support*0.8);
-    const conservative_m = Math.round(onDemand * 1.2);
-    const durMo = tier==='enterprise'?8:tier==='large'?5:tier==='medium'?3:2;
-    const migCost = Math.round((tier==='enterprise'?9600:tier==='large'?6400:4480) * 160 * durMo / 160);
-    const saving3yr = (onDemand*1.8 - recommended_m)*36 - migCost;
+    const p    = FINOPS_CLIENT[providerKey] || FINOPS_CLIENT.aws;
+    const tier = inputs.companySize || inputs.systemSize || 'medium';
+    // Use actual server count if available; else derive from size tier
+    const sizeServerMap = { small: 10, medium: 50, large: 200, enterprise: 500 };
+    const n = Math.max(1, parseInt(inputs.systemCount) || sizeServerMap[tier] || 50);
+
+    // ── Traffic multiplier (txVolume drives compute scaling) ──────────────────
+    const txMult = { low: 0.55, medium: 1.0, high: 1.9, very_high: 3.2 }[inputs.txVolume] || 1.0;
+
+    // ── Data size → storage TB ────────────────────────────────────────────────
+    const storageTB = { small: 2, medium: 10, large: 60, very_large: 250 }[inputs.dataSize] || 10;
+    const networkTB = { low: 1, medium: 5,  high: 25,  very_high: 100  }[inputs.txVolume]  || 5;
+
+    // ── Core cost components ──────────────────────────────────────────────────
+    const compute  = Math.round((p.compute[tier] || p.compute.medium) * n * txMult);
+    const dbInst   = { small: 1, medium: 1, large: 2, enterprise: 4 }[tier] || 1;
+    const db       = Math.round((p.db[tier] || p.db.medium) * dbInst);
+    const storage  = Math.round(storageTB * 80);   // EBS gp3/Managed Disk
+    const network  = Math.round(networkTB * 90);   // Internet egress
+
+    // ── Compliance & security add-ons ─────────────────────────────────────────
+    const complianceMult = { low: 1.0, medium: 1.18, high: 1.55 }[inputs.complianceLevel] || 1.18;
+    const secBase  = { small: 120, medium: 380, large: 1100, enterprise: 2800 }[tier] || 380;
+    const secTotal = Math.round(secBase * complianceMult
+      + (inputs.hasPersonalData  === 'yes' ? 220 : 0)
+      + (inputs.hasFinancialData === 'yes' ? 550 : 0));
+
+    // ── DR cost (multi-region replication ≈ 45% of compute) ──────────────────
+    const drCost = inputs.needDR === 'yes' ? Math.round(compute * 0.45) : 0;
+
+    // ── Multi-environment multiplier ──────────────────────────────────────────
+    const envCount   = Math.max(1, parseInt(inputs.envCount) || 2);
+    const envMult    = envCount >= 4 ? 1.30 : envCount >= 3 ? 1.15 : 1.0;
+
+    // ── Managed / monitoring services ─────────────────────────────────────────
+    const managed = { small: 180, medium: 560, large: 1400, enterprise: 3200 }[tier] || 560;
+
+    // ── Aggregate ─────────────────────────────────────────────────────────────
+    const subtotal  = (compute + db + storage + network + secTotal + drCost + managed) * envMult;
+    const support   = Math.round(subtotal * (tier === 'enterprise' ? 0.15 : 0.10));
+    const onDemand  = Math.round(subtotal + support);
+
+    // ── IBM FinOps 3 scenarios ────────────────────────────────────────────────
+    const recommended_m = Math.round(
+      (compute*0.6*(1-p.reserved1yr) + compute*0.4
+       + db*0.7*(1-p.reserved1yr)    + db*0.3
+       + storage + network + secTotal + drCost*0.8 + managed + support) * envMult
+    );
+    const aggressive_m = Math.round(
+      (compute*0.8*(1-p.reserved3yr) + compute*0.2*(1-p.spot)
+       + db*0.8*(1-p.reserved3yr)
+       + storage*0.70 + network*0.80 + secTotal + drCost*0.60 + managed*0.90 + support*0.80) * envMult
+    );
+    const conservative_m = Math.round(onDemand * 1.20);
+
+    // ── Migration cost (hours × rate × complexity) ────────────────────────────
+    const complexFactor  = complianceMult * (inputs.needDR === 'yes' ? 1.35 : 1.0)
+                           * (inputs.hasFinancialData === 'yes' ? 1.25 : 1.0);
+    const baseHours      = { small: 320, medium: 1000, large: 3200, enterprise: 7500 }[tier] || 1000;
+    const migCost        = Math.round(baseHours * 165 * complexFactor / 100) * 100;
+
+    const saving3yr = (onDemand * 1.8 - recommended_m) * 36 - migCost;
+    const payback   = Math.round(migCost / Math.max(1, onDemand * 1.8 - recommended_m));
+
+    const cloud = inputs.targetCloud || 'AWS';
     return {
       scenarios: {
-        conservative: { monthly_usd:conservative_m, annual_usd:conservative_m*12, description:`On-Demand 定價 + 20% 容量緩衝（${(inputs.targetCloud||'AWS')} ${tier} tier, ${n} servers）` },
-        recommended:  { monthly_usd:recommended_m,  annual_usd:recommended_m*12,  description:`60% Reserved Instances 1年期 + 右側配置（FinOps IBM 方法論）` },
-        aggressive:   { monthly_usd:aggressive_m,   annual_usd:aggressive_m*12,   description:`80% Reserved 3年期 + Spot/Preemptible + PaaS 整合` },
+        conservative: { monthly_usd: conservative_m, annual_usd: conservative_m * 12,
+          description: `On-Demand 定價 + 20% 容量緩衝（${cloud}, ${n} servers, ${inputs.txVolume||'medium'} 流量, ${inputs.complianceLevel||'medium'} 合規）` },
+        recommended:  { monthly_usd: recommended_m,  annual_usd: recommended_m  * 12,
+          description: `60% Reserved 1年期 + 右側配置（IBM FinOps 建議）` },
+        aggressive:   { monthly_usd: aggressive_m,   annual_usd: aggressive_m   * 12,
+          description: `80% Reserved 3年期 + Spot/Preemptible + PaaS 整合` },
       },
       migration_cost_usd: migCost,
-      roi_3yr:       saving3yr>0 ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}` : '3年達損益平衡',
-      payback_months: Math.round(migCost / Math.max(1, onDemand*1.8 - recommended_m)),
-      cost_drivers:  [`運算資源 $${Math.round(compute)}/月`, `資料庫服務 $${Math.round(db)}/月`, `儲存空間 $${Math.round(storage)}/月`, `網路流量 $${Math.round(network)}/月`, `安全監控 $${Math.round(managed)}/月`],
+      roi_3yr:       saving3yr > 0 ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}` : '3年達損益平衡',
+      payback_months: payback,
+      cost_drivers: [
+        `${cloud} 運算 (${n} servers × $${Math.round((p.compute[tier]||140) * txMult)}/月 × ${txMult}x 流量倍率): $${compute}/月`,
+        `資料庫 (${dbInst} instance): $${db}/月`,
+        `儲存空間 (${storageTB} TB EBS/Blob): $${storage}/月`,
+        `網路出口 (${networkTB} TB/月): $${network}/月`,
+        `安全合規 (${inputs.complianceLevel||'medium'} 等級${inputs.hasFinancialData==='yes'?', 金融資料':''}: $${secTotal}/月`,
+        ...(drCost > 0 ? [`異地 DR 備援: $${drCost}/月`] : []),
+        ...(envCount >= 3 ? [`多環境 ${envCount} 套 (×${envMult}): +${Math.round((envMult-1)*100)}%`] : []),
+      ],
     };
   }
 
