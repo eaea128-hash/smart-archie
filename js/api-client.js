@@ -200,11 +200,48 @@
   const ONPREM_INTENSITY_CLIENT = 509; // gCO2eq/kWh — Taiwan grid average
   const ANNUAL_KWH_PER_SERVER   = 8760;
 
-  // ── FinOps pricing (client-side, 2026-Q1) ─────────────────────────────────
+  // ── FinOps pricing (client-side, 2026-Q1 — Singapore / Asia-Pacific region)
+  // Sources: AWS EC2 On-Demand ap-southeast-1, Azure Southeast Asia, GCP asia-southeast1
+  // Compute = per-server/month on-demand; DB = managed DB instance/month
+  // storage_per_tb = blended object+block (primarily object: S3/Blob/GCS)
+  // Reserved discounts from: conzit.com 2026 cloud pricing comparison
   const FINOPS_CLIENT = {
-    aws:   { compute:{ small:34,medium:140,large:560,enterprise:1120 }, db:{ small:100,medium:460,large:920,enterprise:2760 }, reserved1yr:0.35, reserved3yr:0.55, spot:0.70 },
-    azure: { compute:{ small:61,medium:192,large:770,enterprise:1540 }, db:{ small:185,medium:740,large:1480,enterprise:4440 }, reserved1yr:0.33, reserved3yr:0.50, spot:0.60 },
-    gcp:   { compute:{ small:25,medium:134,large:536,enterprise:1072 }, db:{ small:46,medium:260,large:520,enterprise:1800  }, reserved1yr:0.37, reserved3yr:0.57, spot:0.60 },
+    aws: {
+      // EC2: t3.medium $34, m6i.large $79, m6i.xlarge $158, m6i.2xlarge $316 (ap-southeast-1)
+      compute:      { small: 34,  medium: 158, large: 632,  enterprise: 1264 },
+      // RDS MySQL Multi-AZ (ap-southeast-1): db.t3.medium $115, db.m6g.large $490
+      db:           { small: 115, medium: 490, large: 980,  enterprise: 2940 },
+      // Object storage: S3 $23/TB; block (EBS gp3) $80/TB → blended $32/TB
+      storage_per_tb: 32,
+      egress_per_tb:  90,  // Internet egress first 10TB/month
+      reserved1yr: 0.37,   // Savings Plans 1yr (market 2026: 37%)
+      reserved3yr: 0.57,   // Savings Plans 3yr (market 2026: 57%)
+      spot:        0.70,   // Spot Instances average saving
+    },
+    azure: {
+      // VM: B2ms $65, D4s_v5 $162, D16s_v5 $648 (Southeast Asia on-demand)
+      compute:      { small: 65,  medium: 162, large: 648,  enterprise: 1296 },
+      // Azure SQL Database GP (Southeast Asia): 2-vCore $190, 8-vCore $760
+      db:           { small: 190, medium: 760, large: 1520, enterprise: 4560 },
+      // Object storage: Blob $18/TB; Premium SSD v2 $113/TB → blended $28/TB
+      storage_per_tb: 28,
+      egress_per_tb:  87,
+      reserved1yr: 0.40,   // Azure Reservations 1yr (market 2026: 40%) ← was 33%
+      reserved3yr: 0.60,   // Azure Reservations 3yr (market 2026: 60%) ← was 50%
+      spot:        0.60,   // Azure Spot VMs
+    },
+    gcp: {
+      // VM: e2-medium $27, n2-standard-4 $158, n2-standard-16 $556 (asia-southeast1)
+      compute:      { small: 27,  medium: 158, large: 556,  enterprise: 1112 },
+      // Cloud SQL MySQL (asia-southeast1): db-f1-micro $50, db-n1-standard-4 $270
+      db:           { small: 50,  medium: 270, large: 540,  enterprise: 1900 },
+      // Object storage: GCS $20/TB; Persistent Disk SSD $170/TB → blended $30/TB
+      storage_per_tb: 30,
+      egress_per_tb:  85,
+      reserved1yr: 0.37,   // Committed Use Discounts 1yr (market 2026: 37%)
+      reserved3yr: 0.60,   // CUD 3yr (market 2026: 60%) ← was 57%
+      spot:        0.60,   // Preemptible VMs
+    },
   };
 
   /**
@@ -278,12 +315,12 @@
     const storageTB = { small: 2, medium: 10, large: 60, very_large: 250 }[inputs.dataSize] || 10;
     const networkTB = { low: 1, medium: 5,  high: 25,  very_high: 100  }[inputs.txVolume]  || 5;
 
-    // ── Core cost components ──────────────────────────────────────────────────
+    // ── Core cost components (provider-specific rates) ────────────────────────
     const compute  = Math.round((p.compute[tier] || p.compute.medium) * n * txMult);
     const dbInst   = { small: 1, medium: 1, large: 2, enterprise: 4 }[tier] || 1;
     const db       = Math.round((p.db[tier] || p.db.medium) * dbInst);
-    const storage  = Math.round(storageTB * 80);   // EBS gp3/Managed Disk
-    const network  = Math.round(networkTB * 90);   // Internet egress
+    const storage  = Math.round(storageTB * (p.storage_per_tb || 30));  // provider-specific blended rate
+    const network  = Math.round(networkTB * (p.egress_per_tb  || 90));  // provider-specific egress
 
     // ── Compliance & security add-ons ─────────────────────────────────────────
     const complianceMult = { low: 1.0, medium: 1.18, high: 1.55 }[inputs.complianceLevel] || 1.18;

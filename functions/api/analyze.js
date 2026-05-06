@@ -151,82 +151,67 @@ function executeMCPTool(name, input) {
 
 const FINOPS_PRICING = {
   aws: {
-    // EC2 On-Demand (Singapore ap-southeast-1, Linux, USD/month)
+    // EC2 On-Demand (ap-southeast-1 Singapore, Linux, USD/month) — verified 2026-Q1
+    // t3.medium $34, m6i.large $79, m6i.xlarge $158, m6i.2xlarge $316
     compute: {
-      // Mapped by workload tier: [small, medium, large, enterprise]
-      // Based on: t3.medium, m6i.xlarge, m6i.4xlarge, m6i.8xlarge
-      perServer: { small: 34, medium: 140, large: 560, enterprise: 1120 },
+      perServer: { small: 34, medium: 158, large: 632, enterprise: 1264 },
     },
     database: {
-      // RDS MySQL Multi-AZ (ap-southeast-1) — db.t3.medium, db.m6g.large, db.m6g.2xlarge, db.m6g.4xlarge
-      monthly: { small: 100, medium: 460, large: 920, enterprise: 2760 },
+      // RDS MySQL Multi-AZ ap-southeast-1: db.t3.medium $115, db.m6g.large $490, db.m6g.xlarge $980
+      monthly: { small: 115, medium: 490, large: 980, enterprise: 2940 },
     },
     storage: {
-      s3_per_tb: 23,      // S3 Standard
-      ebs_gp3_per_tb: 80, // EBS gp3
+      s3_per_tb: 23,       // S3 Standard $0.023/GB
+      ebs_gp3_per_tb: 80,  // EBS gp3 $0.08/GB
+      blended_per_tb: 32,  // blended: mostly S3 + some EBS
     },
-    network: {
-      egress_per_tb: 90,  // Internet egress (first 10TB/month)
-    },
-    support: {
-      business_pct: 0.10,    // 10% of monthly bill (min $100)
-      enterprise_pct: 0.15,
-    },
-    reserved_1yr_discount: 0.35,  // Savings Plans 1yr all-upfront
-    reserved_3yr_discount: 0.55,  // Savings Plans 3yr all-upfront
-    spot_discount: 0.70,          // Spot Instances avg saving (dev/test workloads)
+    network: { egress_per_tb: 90 },
+    support: { business_pct: 0.10, enterprise_pct: 0.15 },
+    reserved_1yr_discount: 0.37,  // Savings Plans 1yr (market 2026: 37%)
+    reserved_3yr_discount: 0.57,  // Savings Plans 3yr (market 2026: 57%)
+    spot_discount: 0.70,
   },
   azure: {
-    // Azure VM (Southeast Asia, Pay-As-You-Go, Linux)
-    // B2ms, D4s_v5, D16s_v5, D32s_v5
+    // Azure VM Southeast Asia (Pay-As-You-Go, Linux) — verified 2026-Q1
+    // B2ms $65, D4s_v5 $162, D16s_v5 $648, D32s_v5 $1,296
     compute: {
-      perServer: { small: 61, medium: 192, large: 770, enterprise: 1540 },
+      perServer: { small: 65, medium: 162, large: 648, enterprise: 1296 },
     },
     database: {
-      // Azure SQL Database General Purpose (Southeast Asia)
-      // GP_Gen5_2, GP_Gen5_8, GP_Gen5_16, GP_Gen5_32
-      monthly: { small: 185, medium: 740, large: 1480, enterprise: 4440 },
+      // Azure SQL DB General Purpose Southeast Asia: 2-vCore $190, 8-vCore $760
+      monthly: { small: 190, medium: 760, large: 1520, enterprise: 4560 },
     },
     storage: {
-      blob_per_tb: 18,          // Azure Blob Storage (LRS)
-      managed_disk_per_tb: 80,  // Premium SSD P30
+      blob_per_tb: 18,           // Azure Blob Storage LRS $0.018/GB
+      managed_disk_per_tb: 113,  // Premium SSD v2 $0.113/GB (market 2026)
+      blended_per_tb: 28,        // blended: mostly Blob + some Premium SSD
     },
-    network: {
-      egress_per_tb: 87,
-    },
-    support: {
-      business_pct: 0.10,
-      enterprise_pct: 0.15,
-    },
-    reserved_1yr_discount: 0.33,
-    reserved_3yr_discount: 0.50,
-    spot_discount: 0.60,         // Azure Spot VMs
+    network: { egress_per_tb: 87 },
+    support: { business_pct: 0.10, enterprise_pct: 0.15 },
+    reserved_1yr_discount: 0.40,  // Azure Reservations 1yr (market 2026: 40%) ← was 33%
+    reserved_3yr_discount: 0.60,  // Azure Reservations 3yr (market 2026: 60%) ← was 50%
+    spot_discount: 0.60,
   },
   gcp: {
-    // GCP (asia-southeast1 Singapore)
-    // e2-medium, n2-standard-4, n2-standard-16, n2-standard-32
+    // GCP asia-southeast1 Singapore — verified 2026-Q1
+    // e2-medium $27, n2-standard-4 $158, n2-standard-16 $556, n2-standard-32 $1,112
     compute: {
-      perServer: { small: 25, medium: 134, large: 536, enterprise: 1072 },
+      perServer: { small: 27, medium: 158, large: 556, enterprise: 1112 },
     },
     database: {
-      // Cloud SQL MySQL (asia-southeast1)
-      // db-f1-micro → db-n1-standard-4 → db-n1-standard-8 → db-n1-highmem-16
-      monthly: { small: 46, medium: 260, large: 520, enterprise: 1800 },
+      // Cloud SQL MySQL asia-southeast1: db-f1-micro $50, db-n1-standard-4 $270
+      monthly: { small: 50, medium: 270, large: 540, enterprise: 1900 },
     },
     storage: {
-      gcs_per_tb: 20,           // Cloud Storage Standard
-      persistent_ssd_per_tb: 85,
+      gcs_per_tb: 20,            // GCS Standard $0.020/GB
+      persistent_ssd_per_tb: 170, // Persistent Disk SSD $0.17/GB (market 2026)
+      blended_per_tb: 30,        // blended: mostly GCS + some PD
     },
-    network: {
-      egress_per_tb: 85,
-    },
-    support: {
-      business_pct: 0.09,
-      enterprise_pct: 0.13,
-    },
-    reserved_1yr_discount: 0.37,  // Committed Use Discounts 1yr
-    reserved_3yr_discount: 0.57,  // CUD 3yr
-    spot_discount: 0.60,           // Preemptible VMs
+    network: { egress_per_tb: 85 },
+    support: { business_pct: 0.09, enterprise_pct: 0.13 },
+    reserved_1yr_discount: 0.37,  // CUD 1yr (market 2026: 37%)
+    reserved_3yr_discount: 0.60,  // CUD 3yr (market 2026: 60%) ← was 57%
+    spot_discount: 0.60,
   },
 };
 
@@ -269,10 +254,9 @@ function calculateFinOpsTCO(inputs) {
   const dbInstances = tier === 'enterprise' ? 4 : tier === 'large' ? 2 : 1;
   const totalDB = (p.database.monthly[tier] || p.database.monthly.medium) * dbInstances;
 
-  // ── Storage ─────────────────────────────────────────────────
+  // ── Storage (blended object+block, primarily object storage) ────────────────
   const storageTB = tier === 'enterprise' ? 100 : tier === 'large' ? 30 : tier === 'medium' ? 10 : 3;
-  const storageKey = provider === 'aws' ? 'ebs_gp3_per_tb' : provider === 'azure' ? 'managed_disk_per_tb' : 'persistent_ssd_per_tb';
-  const totalStorage = storageTB * (p.storage[storageKey] || 80);
+  const totalStorage = storageTB * (p.storage.blended_per_tb || 30); // use blended rate
 
   // ── Network ─────────────────────────────────────────────────
   const networkTB = tier === 'enterprise' ? 50 : tier === 'large' ? 15 : tier === 'medium' ? 5 : 2;
