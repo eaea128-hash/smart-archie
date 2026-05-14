@@ -10,7 +10,7 @@
   <meta property="og:description" content="輸入系統條件，立即生成專業雲端遷移評估報告與 6R 策略建議。">
   <meta property="og:site_name" content="CloudFrame">
   <meta name="twitter:card" content="summary">
-  <link rel="canonical" href="https://unique-jelly-da79b4.netlify.app/analyze.html">
+  <link rel="canonical" href="https://cloudframe.pages.dev/analyze.html">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/main.css">
@@ -1198,10 +1198,11 @@ async function runAnalysis() {
       SA.Toast.warning('API 金鑰未設定', '使用本地分析引擎（功能完整，不需 API 金鑰）');
       // Fallback to local engine directly
       try {
-        const localResult = await AnalyzeEngine.analyze(inputs);
+        const localResult = await APIClient.analyze(apiInputs, { forceLocal: true });
         currentResult = localResult;
         renderResult(localResult, reportStyle);
         saveToHistory(localResult);
+        saveToDatabase(localResult);
         SA.Toast.success('本地分析完成！', '報告已生成');
       } catch (localErr) {
         SA.Toast.error('分析失敗', `錯誤：${localErr.message}`);
