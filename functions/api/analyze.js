@@ -67,6 +67,7 @@ const ONPREM_INTENSITY = 509; // gCO2eq/kWh (Taiwan grid average)
 const ANNUAL_SERVER_KWH = 8760; // kWh per server per year
 
 // ── MCP Tool Definitions ──────────────────────────────────────
+/*
 const MCP_TOOLS = [
   {
     name: 'lookup_carbon_intensity',
@@ -143,6 +144,7 @@ function executeMCPTool(name, input) {
 
   return { error: `Unknown tool: ${name}` };
 }
+*/
 
 // ── FinOps TCO Calculator (IBM FinOps Framework + Cloud Provider Pricing 2026-Q1) ─────
 // Prices sourced from: AWS Pricing Calculator, Azure Retail Prices API, GCP Cloud Pricing
@@ -244,8 +246,6 @@ function calculateFinOpsTCO(inputs) {
   const serverCount = inputs.systemCount || 20;
   const hasFinancial = inputs.dataClassification === 'highly-confidential';
   const needsDR = inputs.drRequirements === 'rto4h';
-  const budgetUSD = inputs.budgetUSD || 500000;
-
   // ── Compute ─────────────────────────────────────────────────
   const computePerServer = p.compute.perServer[tier] || p.compute.perServer.medium;
   const totalCompute = computePerServer * serverCount;
@@ -802,7 +802,7 @@ export async function onRequest(context) {
   }
 
   // Rate limit
-  const CF_AI_MODEL    = env.CF_AI_MODEL || '@cf/meta/llama-3.3-70b-instruct';
+  const CF_AI_MODEL    = env.CF_AI_MODEL || '@cf/meta/llama-3.1-8b-instruct';  // llama-3.3-70b-instruct-fp8-fast also available
   const MAX_TOKENS     = parseInt(env.CLAUDE_MAX_TOKENS || '3072', 10);
   const RATE_LIMIT_RPH = parseInt(env.RATE_LIMIT_RPH   || '20',   10);
 
@@ -904,7 +904,7 @@ export async function onRequest(context) {
           esg_guidance: esgGuidance[esgFramework] || esgGuidance.none,
           provider_commitment: provData.commitment,
           monitoring_tool:     provData.tool,
-          all_regions_ranked:  sorted.slice(0, 5).map(([c, d]) => `${d.name}: ${d.intensity} gCO₂/kWh (${d.renewable}% RE)`),
+          all_regions_ranked:  sorted.slice(0, 5).map(([, d]) => `${d.name}: ${d.intensity} gCO₂/kWh (${d.renewable}% RE)`),
         };
 
         // Merge: server numbers take priority; Claude's rationale/esg can enrich if present
@@ -924,8 +924,6 @@ export async function onRequest(context) {
         const tco = calculateFinOpsTCO(inputs);
         const cs  = jsonResult.cost?.scenarios || {};
         const recM = cs.recommended?.monthly_usd;
-        const conM = cs.conservative?.monthly_usd;
-        const aggM = cs.aggressive?.monthly_usd;
         // Only override if Claude returned 0 or missing
         if (!recM || recM === 0) {
           jsonResult.cost = jsonResult.cost || {};
