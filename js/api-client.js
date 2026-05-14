@@ -114,13 +114,14 @@
 
     onProgress({ stage: 'done', message: '✅ 分析完成' });
 
-    // If API returned a structured result, use it
+    // API always returns a structured result (server-side fallback builder guarantees it)
     if (data.result) {
       return _normaliseAPIResult(data.result, inputs);
     }
 
-    // Raw text fallback — shouldn't happen but handle gracefully
-    throw new Error('Unexpected response format from API');
+    // Should never reach here — API always returns result now.
+    // If it somehow does, fall through to local engine (throw → caller catches → _analyzeLocal).
+    throw new Error('API returned no result — switching to local engine');
   }
 
   async function _analyzeLocal(inputs, onProgress) {

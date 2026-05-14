@@ -609,6 +609,262 @@ Always respond with a valid JSON object matching this schema:
   }
 }`;
 
+// ── Server-side Fallback Result Builder ──────────────────────────────────────
+// Called when Workers AI fails to produce valid JSON.
+// Generates a complete analysis result from FinOps TCO + carbon data + rule-based scoring.
+function buildServerFallbackResult(inputs) {
+  const industry             = inputs.industry             || 'General';
+  const companySize          = inputs.companySize          || 'medium';
+  const targetCloud          = inputs.targetCloud          || 'AWS';
+  const systemCount          = parseInt(inputs.systemCount) || 20;
+  const migrationDriver      = inputs.migrationDriver      || 'cost';
+  const timelineMonths       = parseInt(inputs.timelineMonths) || 18;
+  const dataClassification   = inputs.dataClassification   || 'confidential';
+  const regulatoryRequirements = Array.isArray(inputs.regulatoryRequirements) ? inputs.regulatoryRequirements : [];
+  const complianceFrameworks   = Array.isArray(inputs.complianceFrameworks)   ? inputs.complianceFrameworks   : [];
+  const teamSize             = inputs.teamSize             || 'medium';
+  const esgFramework         = inputs.esgFramework         || 'none';
+
+  // ── 6R Strategy Scoring (rule-based) ─────────────────────────────────────
+  const isOnPrem       = inputs.currentInfra === 'on-premises' || inputs.currentInfra === 'on_premises';
+  const isHighCompl    = regulatoryRequirements.length > 0 || complianceFrameworks.length > 0;
+  const isLargeOrg     = companySize === 'large' || companySize === 'enterprise';
+  const isCostDriven   = migrationDriver === 'cost';
+  const isAgilityDriven= migrationDriver === 'agility' || migrationDriver === 'innovation';
+  const hasFinancial   = dataClassification === 'highly-confidential';
+
+  const scores = {
+    rehost:     isOnPrem ? 65 : 40,
+    replatform: isCostDriven ? 72 : 68,
+    refactor:   isAgilityDriven ? 62 : isLargeOrg ? 50 : 35,
+    repurchase: isCostDriven ? 45 : 30,
+    retire:     20,
+    retain:     isHighCompl ? 50 : 25,
+  };
+  const sorted    = Object.entries(scores).sort((a, b) => b[1] - a[1]);
+  const primary   = sorted[0][0];
+  const secondary = sorted[1][0];
+  const stratNames = {
+    rehost: 'Rehost (Lift & Shift)', replatform: 'Replatform (Lift & Reshape)',
+    refactor: 'Refactor / Re-architect', repurchase: 'Repurchase (Replace with SaaS)',
+    retire: 'Retire', retain: 'Retain',
+  };
+
+  // ── Landing Zone ─────────────────────────────────────────────────────────
+  const lzTier = hasFinancial || isHighCompl ? 'financial' : isLargeOrg ? 'standard' : 'basic';
+  const lzAccounts = [
+    { name: 'Management Account',      type: 'management',  purpose: '根帳號，僅供治理與計費管理', scps: ['deny-region-except-approved', 'require-mfa-root'] },
+    { name: 'Security Tooling Account',type: 'security',    purpose: '集中安全掃描、GuardDuty、Security Hub', scps: ['restrict-security-modification'] },
+    { name: 'Log Archive Account',     type: 'log',         purpose: 'CloudTrail、Config 不可篡改日誌保存（建議7年）', scps: ['deny-log-deletion'] },
+    { name: 'Network Hub Account',     type: 'network',     purpose: 'Transit Gateway、共用VPC、WAF', scps: [] },
+    { name: 'Production Account',      type: 'workload',    purpose: '正式環境，最小授權原則', scps: ['require-encryption', 'deny-public-s3'] },
+    { name: 'Development Account',     type: 'workload',    purpose: '開發測試環境，獨立隔離', scps: [] },
+    ...(lzTier === 'financial' ? [
+      { name: 'DR Account',            type: 'dr',          purpose: '異地備援、跨區域複寫，符合RTO/RPO要求', scps: ['require-encryption'] },
+      { name: 'Compliance Account',    type: 'compliance',  purpose: '稽核存取、合規報告、外部審計師存取', scps: [] },
+    ] : []),
+  ];
+
+  // ── Cost (FinOps TCO) ─────────────────────────────────────────────────────
+  const tco = calculateFinOpsTCO(inputs);
+
+  // ── Risk Scores (rule-based) ──────────────────────────────────────────────
+  const complianceRisk = isHighCompl ? 65 : hasFinancial ? 55 : 40;
+  const techRisk       = isLargeOrg  ? 60 : 45;
+  const opRisk         = teamSize === 'small' ? 70 : teamSize === 'large' ? 35 : 50;
+  const timelineRisk   = timelineMonths < 12 ? 70 : timelineMonths < 24 ? 45 : 30;
+  const dataRisk       = hasFinancial ? 70 : dataClassification === 'confidential' ? 50 : 30;
+  const bizRisk        = companySize === 'enterprise' ? 55 : 40;
+  const overallRisk    = Math.round((complianceRisk + techRisk + opRisk + timelineRisk + dataRisk + bizRisk) / 6);
+  const readinessScore = Math.min(90, Math.max(40, 100 - overallRisk));
+
+  // ── Sustainability ─────────────────────────────────────────────────────────
+  const providerKey   = targetCloud.toLowerCase();
+  const provData      = CARBON_DATA[providerKey] || CARBON_DATA.aws;
+  const sortedRegions = Object.entries(provData.regions).sort((a, b) => a[1].intensity - b[1].intensity);
+  const [, lowestR]   = sortedRegions[0];
+  const kwhPerYear    = systemCount * ANNUAL_SERVER_KWH;
+  const onpremCO2     = kwhPerYear * ONPREM_INTENSITY / 1e6;
+  const cloudCO2      = kwhPerYear * lowestR.intensity / 1e6;
+  const reductionPct  = Math.max(0, Math.round((onpremCO2 - cloudCO2) / onpremCO2 * 100));
+  const reductionTon  = Math.max(0, Math.round((onpremCO2 - cloudCO2) * 10) / 10);
+  const esgGuidanceMap = {
+    tcfd: ['揭露氣候相關財務風險（TCFD框架）','建立情境分析（2°C / 4°C）','量化碳排基準數據（Scope 1/2/3）'],
+    gri:  ['依 GRI 305-1/2/3 揭露溫室氣體排放','設定科學基礎目標（SBTi）','建立碳排監控 Dashboard'],
+    sbti: ['提交 SBTi 承諾書','設定 1.5°C 對齊目標','建立年度減排路徑'],
+    twse: ['依台灣 TWSE 永續報告書 GRI/SASB 規範揭露','建立董事會永續治理機制','量化 Scope 2 排放（市場基礎法）'],
+    none: ['建議選擇 GRI Standards 作為揭露框架','優先建立碳排基準數據（Scope 1/2）','評估加入 RE100 或 SBTi'],
+  };
+  const quarters = Math.ceil(timelineMonths / 3);
+
+  return {
+    strategy: {
+      primary, secondary, scores,
+      rationale: `基於 ${industry} 產業、${companySize} 規模組織評估，建議採行 ${stratNames[primary]}。${isCostDriven ? '以成本優化為主要驅動因素，' : ''}${isHighCompl ? '需兼顧合規要求，' : ''}${isLargeOrg ? '大型組織建議分階段遷移。' : '建議優先遷移非核心系統以建立遷移信心。'}`,
+      frameworks_applied: [
+        `${targetCloud} Well-Architected Framework`,
+        targetCloud === 'AWS' ? 'AWS Cloud Adoption Framework (CAF)' : targetCloud === 'Azure' ? 'Microsoft Cloud Adoption Framework' : 'GCP Architecture Framework',
+        ...(isHighCompl ? ['ISO 27001', 'SOC 2 Type II'] : []),
+        ...(regulatoryRequirements.includes('MAS') ? ['MAS TRM Guidelines 2021', 'MAS Outsourcing Guidelines'] : []),
+      ],
+    },
+    landing_zone: {
+      tier: lzTier,
+      accounts: lzAccounts,
+      guardrails: [
+        'Root MFA 強制啟用（SCPs 防護）',
+        'CloudTrail 多區域不可篡改日誌',
+        'S3 Block Public Access 全面啟用',
+        'GuardDuty 威脅偵測（所有帳號）',
+        'AWS Config 合規持續評估',
+        ...(isHighCompl ? ['AWS Security Hub（FSBP 基線）', 'IAM Access Analyzer 跨帳號存取審查'] : []),
+      ],
+      identity: 'IAM Identity Center (SSO) + 最小權限原則 + 角色型存取控制（RBAC）',
+      network: 'Transit Gateway 中心輻射型網路架構，VPC Flow Logs 啟用，Network Firewall 保護',
+      compliance_controls: [
+        ...complianceFrameworks,
+        ...(isHighCompl ? ['ISO 27001', 'SOC 2 Type II'] : []),
+      ],
+    },
+    cost: {
+      scenarios: {
+        conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: 'On-Demand 定價，20% 容量緩衝，最小化管理服務配置' },
+        recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: '60% Reserved Instances（1年期）+ 右側配置，IBM FinOps 建議情境' },
+        aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: '80% Reserved Instances（3年期）+ Spot/Serverless + PaaS 整合' },
+      },
+      migration_cost_usd: tco.migration_cost_usd,
+      roi_3yr:        tco.roi_3yr,
+      payback_months: tco.payback_months,
+      cost_drivers: [
+        `${targetCloud} 運算資源（${systemCount} servers）: $${tco.breakdown.compute_monthly}/月`,
+        `資料庫託管服務: $${tco.breakdown.database_monthly}/月`,
+        `儲存空間: $${tco.breakdown.storage_monthly}/月`,
+        `網路流量: $${tco.breakdown.network_monthly}/月`,
+        `安全監控服務: $${tco.breakdown.managed_services_monthly}/月`,
+        ...(tco.breakdown.dr_monthly > 0 ? [`異地 DR 備援: $${tco.breakdown.dr_monthly}/月`] : []),
+      ],
+    },
+    risk: {
+      dimensions: {
+        compliance:  { score: complianceRisk, target: Math.max(20, complianceRisk - 25), mitigations: ['建立合規監控 Dashboard','聘請合規顧問進行 GAP 分析','ISO 27001 認證計畫'] },
+        technology:  { score: techRisk,       target: Math.max(20, techRisk - 20),       mitigations: ['制定詳細應用程式盤點清單','建立技術債還清計畫','PoC 驗證核心技術風險'] },
+        operational: { score: opRisk,         target: Math.max(20, opRisk - 20),         mitigations: ['制定雲端技能訓練計畫','建立 Cloud CoE（卓越中心）','導入 SRE 文化'] },
+        timeline:    { score: timelineRisk,   target: Math.max(20, timelineRisk - 20),   mitigations: ['採用敏捷式遷移方法','優先遷移低風險系統','建立明確里程碑與 KPI'] },
+        data:        { score: dataRisk,       target: Math.max(20, dataRisk - 25),       mitigations: ['建立資料分類與標記機制','實施端對端加密','確認資料主權與存放地點'] },
+        business:    { score: bizRisk,        target: Math.max(20, bizRisk - 20),        mitigations: ['建立業務連續性計畫（BCP）','制定回滾策略','利害關係人溝通計畫'] },
+      },
+      overall_score: overallRisk,
+      key_risks: [
+        isHighCompl ? '法規合規要求複雜，需提前進行差距分析與主管機關溝通' : '應用程式技術遷移複雜度需仔細評估',
+        `${timelineMonths} 個月時程${timelineRisk >= 60 ? '較為緊迫，建議考慮延長或縮小範圍' : '合理，可按計畫推進'}`,
+        '人員雲端技能轉型需要提前規劃培訓計畫',
+      ],
+    },
+    executive_summary: {
+      readiness_score: readinessScore,
+      headline: `${industry} 產業雲端遷移評估：建議採行 ${stratNames[primary]}，雲端就緒分數 ${readinessScore}%`,
+      business_outcomes: [
+        { outcome: '營運成本優化', benefit: `預估月雲端支出 USD $${tco.recommended.toLocaleString()}，${tco.roi_3yr}`, timeframe: '12–18 個月' },
+        { outcome: '系統可用性提升', benefit: '達成 99.9%+ SLA，自動縮放應對流量峰值', timeframe: '6–12 個月' },
+        { outcome: '安全合規強化', benefit: '建立全面監控體系，符合監管要求', timeframe: '3–6 個月' },
+      ],
+      investment_summary: `遷移投資 USD $${tco.migration_cost_usd.toLocaleString()}，預計 ${tco.payback_months} 個月回本`,
+      roi_statement: tco.roi_3yr,
+      recommended_timeline_quarters: quarters,
+      board_risks: [
+        { risk: '資料安全與合規風險',   mitigation: '建立 Data Governance 框架，實施端對端加密' },
+        { risk: '業務連續性風險',       mitigation: '分階段遷移，確保每個階段均可回滾' },
+        { risk: '人員與文化轉型風險',   mitigation: '建立 Cloud CoE，系統化培訓計畫' },
+      ],
+    },
+    technical_roadmap: {
+      phases: [
+        { name: 'Phase 1：評估與基礎建設', duration_weeks: 8,
+          objectives: ['完成應用程式盤點與依賴關係分析', 'Landing Zone 建置與安全基線', '建立 CI/CD Pipeline'],
+          milestones: ['Landing Zone 驗收完成', '第一個非核心系統遷移完成'],
+          owners: ['Cloud Architect', 'Security Lead'] },
+        { name: 'Phase 2：遷移執行', duration_weeks: Math.max(8, Math.round(timelineMonths * 1.8)),
+          objectives: ['批次遷移應用程式系統', '資料庫遷移與驗證', '效能基線建立'],
+          milestones: ['50% 系統完成遷移', '效能驗收測試通過'],
+          owners: ['Cloud Engineer', 'DevOps Lead', 'DBA'] },
+        { name: 'Phase 3：最佳化與創新', duration_weeks: 8,
+          objectives: ['成本最佳化（Reserved Instances、右側配置）', '導入 AI/ML 雲端原生服務', '建立 FinOps 治理機制'],
+          milestones: ['成本目標達成驗收', 'FinOps Dashboard 上線'],
+          owners: ['FinOps Lead', 'Cloud Architect'] },
+      ],
+      poc: {
+        scope: '選取 1–2 個低風險、高代表性系統進行雲端 PoC 驗證',
+        success_criteria: [
+          '功能完整性：100% 業務功能正常運行',
+          '效能：回應時間 ≤ 現有系統 110%',
+          `成本：月成本在 USD $${Math.round(tco.recommended * 0.1).toLocaleString()} 預算範圍內`,
+          '安全：通過滲透測試，0 個 Critical 漏洞',
+        ],
+        duration_weeks: 4,
+        workloads: ['選取非核心業務系統', '無狀態 Web 服務優先'],
+      },
+      kpis: [
+        { metric: '遷移完成率',    baseline: '0%',         target: '100%',                             cadence: 'monthly' },
+        { metric: '雲端月支出',    baseline: `USD $${tco.conservative.toLocaleString()}`, target: `USD $${tco.recommended.toLocaleString()}`, cadence: 'monthly' },
+        { metric: '系統可用性',    baseline: '99.5%',      target: '99.9%',                            cadence: 'weekly'  },
+        { metric: '安全事件數',    baseline: 'N/A',        target: '0 Critical',                       cadence: 'weekly'  },
+      ],
+      critical_dependencies: [
+        `${targetCloud} 帳號開通與 IAM 權限設定`,
+        '網路連線方案評估（Direct Connect / ExpressRoute / Cloud Interconnect）',
+        '應用程式盤點與依賴關係確認（Application Portfolio Assessment）',
+        isHighCompl ? '合規主管機關確認（監管批准取得）' : '內部 IT 治理委員會批准',
+      ],
+    },
+    regulatory_guidance: {
+      applicable_frameworks: [
+        ...complianceFrameworks,
+        ...(regulatoryRequirements.includes('MAS') ? ['MAS TRM Guidelines 2021', 'MAS Outsourcing Guidelines'] : []),
+        'ISO 27017（雲端安全控制）',
+        'SOC 2 Type II',
+      ],
+      key_requirements: [
+        '資料主權：確認資料存放於允許的地理區域',
+        '存取控制：MFA 強制啟用、最小權限原則',
+        '稽核日誌：不可篡改日誌保存（建議 7 年）',
+        ...(isHighCompl ? ['第三方風險管理：雲端供應商盡職調查', '業務連續性計畫（BCP）年度演練'] : []),
+      ],
+      gap_analysis: `主要合規差距：雲端環境稽核日誌機制、資料加密標準、第三方風險管理框架。建議優先建立 ${targetCloud} Security Hub 集中監控。`,
+      recommended_certifications: ['ISO 27001', 'CSA STAR', ...(isHighCompl ? ['PCI DSS（如適用）', 'SOC 2 Type II'] : [])],
+    },
+    next_steps: [
+      { priority: 1, action: '成立雲端遷移專案小組，指定 Cloud Owner 與決策機制', owner: 'CIO / IT Director', timeline: '第 1 週', effort: 'low' },
+      { priority: 2, action: '完成應用程式盤點（Application Portfolio Assessment）與 6R 分類', owner: 'Cloud Architect', timeline: '第 2–4 週', effort: 'high' },
+      { priority: 3, action: `建立 ${targetCloud} Landing Zone，完成安全基線設定（Guardrails）`, owner: 'Cloud Architect + Security Lead', timeline: '第 3–6 週', effort: 'high' },
+      { priority: 4, action: '選定 PoC 系統，啟動 4 週概念驗證（含效能與安全測試）', owner: 'Cloud Engineer', timeline: '第 5–8 週', effort: 'medium' },
+      { priority: 5, action: '簽訂 Reserved Instances / Committed Use Discounts，鎖定長期成本優勢', owner: 'FinOps Lead', timeline: '遷移完成後 1 個月', effort: 'low' },
+    ],
+    sustainability: {
+      carbon_reduction_pct:         reductionPct,
+      annual_co2_reduction_tonnes:  reductionTon,
+      recommended_region:           lowestR.name,
+      recommended_region_intensity: lowestR.intensity,
+      renewable_pct:                lowestR.renewable,
+      onprem_baseline_intensity:    ONPREM_INTENSITY,
+      rationale: `依台灣電網碳強度（${ONPREM_INTENSITY} gCO₂eq/kWh）為基準，遷移 ${systemCount} 台伺服器至 ${lowestR.name}（${lowestR.intensity} gCO₂eq/kWh，${lowestR.renewable}% 再生能源），預估每年減少 ${reductionTon} 噸 CO₂，碳排強度降低 ${reductionPct}%。計算依據：${systemCount} 台 × ${ANNUAL_SERVER_KWH.toLocaleString()} kWh/年 = ${Math.round(kwhPerYear / 1000)} MWh/年。`,
+      esg_guidance:      esgGuidanceMap[esgFramework] || esgGuidanceMap.none,
+      provider_commitment: provData.commitment,
+      monitoring_tool:     provData.tool,
+    },
+    meta: {
+      analysis_version:  '2.0',
+      frameworks_version: '2026-Q1',
+      confidence: 'medium',
+      assumptions: [
+        `IBM FinOps TCO 方法論（${targetCloud} ${companySize} tier，${systemCount} servers）`,
+        `碳排計算基準：台灣電網 ${ONPREM_INTENSITY} gCO₂eq/kWh`,
+        '專業服務費率：USD $165/小時（APAC 市場 2026 Q1）',
+        '此為規則型備援分析（Workers AI 回應格式解析失敗後的伺服器端備援）',
+      ],
+    },
+  };
+}
+
 // ── RAG Context Retrieval ─────────────────────────────────────────────────────
 async function getRagContext(inputs, supabase, openaiKey) {
   if (!openaiKey) return ''; // RAG 未設定，靜默跳過
@@ -855,19 +1111,38 @@ export async function onRequest(context) {
       if (block.type === 'text') rawText += block.text;
     }
 
-    const jsonMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/) ||
-                      rawText.match(/(\{[\s\S]*\})/);
-    if (jsonMatch) {
-      try {
-        jsonResult = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-      } catch {
-        try { jsonResult = JSON.parse(rawText); } catch { /* will return raw */ }
+    // Try multiple extraction strategies (Llama 3.1 8B may not always use code fences)
+    if (rawText.trim()) {
+      // Strategy 1: JSON inside ```json ... ``` code fence
+      const fenceMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
+      if (fenceMatch) {
+        try { jsonResult = JSON.parse(fenceMatch[1]); } catch { /* try next */ }
+      }
+
+      // Strategy 2: First { ... } block (greedy match)
+      if (!jsonResult) {
+        const objMatch = rawText.match(/(\{[\s\S]*\})/);
+        if (objMatch) {
+          try { jsonResult = JSON.parse(objMatch[1]); } catch { /* try next */ }
+        }
+      }
+
+      // Strategy 3: Raw text as-is
+      if (!jsonResult) {
+        try { jsonResult = JSON.parse(rawText.trim()); } catch { /* fall through */ }
       }
     }
 
+    // ── Fallback: if AI failed to produce valid JSON, build from server-side data ─
+    if (!jsonResult) {
+      console.warn('[analyze] Workers AI response could not be parsed as JSON; using server-side rule-based fallback.');
+      jsonResult = buildServerFallbackResult(inputs);
+    }
+
     // ── Server-side sustainability: always compute from CARBON_DATA ───────────
-    // Do NOT rely on Claude to generate carbon numbers — compute directly and merge.
-    if (jsonResult) {
+    // Do NOT rely on AI to generate carbon numbers — compute directly and merge.
+    // jsonResult is always non-null at this point (fallback builder ensures it).
+    {
       const providerKey = (inputs.targetCloud || 'AWS').toLowerCase();
       const provData    = CARBON_DATA[providerKey];
       if (provData) {
@@ -951,10 +1226,9 @@ export async function onRequest(context) {
 
     return new Response(
       JSON.stringify({
-        success:       true,
-        result:        jsonResult,
-        raw:           jsonResult ? undefined : rawText,
-        model:         CF_AI_MODEL,
+        success:        true,
+        result:         jsonResult,
+        model:          CF_AI_MODEL,
         prompt_version: PROMPT_VERSION,
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
