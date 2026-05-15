@@ -201,48 +201,164 @@
   const ONPREM_INTENSITY_CLIENT = 509; // gCO2eq/kWh — Taiwan grid average
   const ANNUAL_KWH_PER_SERVER   = 8760;
 
-  // ── FinOps pricing (client-side, 2026-Q1 — Singapore / Asia-Pacific region)
-  // Sources: AWS EC2 On-Demand ap-southeast-1, Azure Southeast Asia, GCP asia-southeast1
-  // Compute = per-server/month on-demand; DB = managed DB instance/month
-  // storage_per_tb = blended object+block (primarily object: S3/Blob/GCS)
-  // Reserved discounts from: conzit.com 2026 cloud pricing comparison
-  const FINOPS_CLIENT = {
+  // ════════════════════════════════════════════════════════════════════════════
+  // FinOps Engine v3 — Real Instance Pricing + DR Matrix + Storage Tiers (2026-Q1)
+  // Mirrors server-side engine in functions/api/analyze.js
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // ── VM Instance Catalog (On-Demand, Linux, Asia-Pacific, USD/month) ─────────
+  const VM_CAT = {
     aws: {
-      // EC2: t3.medium $34, m6i.large $79, m6i.xlarge $158, m6i.2xlarge $316 (ap-southeast-1)
-      compute:      { small: 34,  medium: 158, large: 632,  enterprise: 1264 },
-      // RDS MySQL Multi-AZ (ap-southeast-1): db.t3.medium $115, db.m6g.large $490
-      db:           { small: 115, medium: 490, large: 980,  enterprise: 2940 },
-      // Object storage: S3 $23/TB; block (EBS gp3) $80/TB → blended $32/TB
-      storage_per_tb: 32,
-      egress_per_tb:  90,  // Internet egress first 10TB/month
-      reserved1yr: 0.37,   // Savings Plans 1yr (market 2026: 37%)
-      reserved3yr: 0.57,   // Savings Plans 3yr (market 2026: 57%)
-      spot:        0.70,   // Spot Instances average saving
+      general: [
+        { type: 't3.medium',   vcpu: 2,  ram: 4,   monthly: 34   },
+        { type: 'm6i.large',   vcpu: 2,  ram: 8,   monthly: 79   },
+        { type: 'm6i.xlarge',  vcpu: 4,  ram: 16,  monthly: 159  },
+        { type: 'm6i.2xlarge', vcpu: 8,  ram: 32,  monthly: 318  },
+        { type: 'm6i.4xlarge', vcpu: 16, ram: 64,  monthly: 636  },
+        { type: 'm6i.8xlarge', vcpu: 32, ram: 128, monthly: 1271 },
+      ],
+      compute: [
+        { type: 'c6i.xlarge',  vcpu: 4,  ram: 8,   monthly: 139  },
+        { type: 'c6i.2xlarge', vcpu: 8,  ram: 16,  monthly: 278  },
+        { type: 'c6i.4xlarge', vcpu: 16, ram: 32,  monthly: 556  },
+      ],
+      memory: [
+        { type: 'r6i.large',   vcpu: 2,  ram: 16,  monthly: 110  },
+        { type: 'r6i.xlarge',  vcpu: 4,  ram: 32,  monthly: 221  },
+        { type: 'r6i.2xlarge', vcpu: 8,  ram: 64,  monthly: 441  },
+      ],
+      rds: [
+        { type: 'db.t3.medium',    vcpu: 2,  ram: 4,   monthly: 115  },
+        { type: 'db.m6g.large',    vcpu: 2,  ram: 8,   monthly: 245  },
+        { type: 'db.m6g.xlarge',   vcpu: 4,  ram: 16,  monthly: 490  },
+        { type: 'db.m6g.2xlarge',  vcpu: 8,  ram: 32,  monthly: 980  },
+        { type: 'db.r6g.xlarge',   vcpu: 4,  ram: 32,  monthly: 588  },
+      ],
     },
     azure: {
-      // VM: B2ms $65, D4s_v5 $162, D16s_v5 $648 (Southeast Asia on-demand)
-      compute:      { small: 65,  medium: 162, large: 648,  enterprise: 1296 },
-      // Azure SQL Database GP (Southeast Asia): 2-vCore $190, 8-vCore $760
-      db:           { small: 190, medium: 760, large: 1520, enterprise: 4560 },
-      // Object storage: Blob $18/TB; Premium SSD v2 $113/TB → blended $28/TB
-      storage_per_tb: 28,
-      egress_per_tb:  87,
-      reserved1yr: 0.40,   // Azure Reservations 1yr (market 2026: 40%) ← was 33%
-      reserved3yr: 0.60,   // Azure Reservations 3yr (market 2026: 60%) ← was 50%
-      spot:        0.60,   // Azure Spot VMs
+      general: [
+        { type: 'B2ms',      vcpu: 2,  ram: 8,   monthly: 61   },
+        { type: 'D2s_v5',   vcpu: 2,  ram: 8,   monthly: 70   },
+        { type: 'D4s_v5',   vcpu: 4,  ram: 16,  monthly: 139  },
+        { type: 'D8s_v5',   vcpu: 8,  ram: 32,  monthly: 278  },
+        { type: 'D16s_v5',  vcpu: 16, ram: 64,  monthly: 555  },
+        { type: 'D32s_v5',  vcpu: 32, ram: 128, monthly: 1109 },
+      ],
+      compute: [
+        { type: 'F4s_v2',   vcpu: 4,  ram: 8,   monthly: 139  },
+        { type: 'F8s_v2',   vcpu: 8,  ram: 16,  monthly: 278  },
+        { type: 'F16s_v2',  vcpu: 16, ram: 32,  monthly: 555  },
+      ],
+      memory: [
+        { type: 'E4s_v5',   vcpu: 4,  ram: 32,  monthly: 184  },
+        { type: 'E8s_v5',   vcpu: 8,  ram: 64,  monthly: 369  },
+        { type: 'E16s_v5',  vcpu: 16, ram: 128, monthly: 737  },
+      ],
+      rds: [
+        { type: 'SQL GP 2vCore',   vcpu: 2,  ram: 10, monthly: 190  },
+        { type: 'SQL GP 4vCore',   vcpu: 4,  ram: 21, monthly: 380  },
+        { type: 'SQL GP 8vCore',   vcpu: 8,  ram: 41, monthly: 760  },
+        { type: 'SQL GP 16vCore',  vcpu: 16, ram: 83, monthly: 1520 },
+        { type: 'SQL BC 4vCore',   vcpu: 4,  ram: 21, monthly: 760  },
+      ],
     },
     gcp: {
-      // VM: e2-medium $27, n2-standard-4 $158, n2-standard-16 $556 (asia-southeast1)
-      compute:      { small: 27,  medium: 158, large: 556,  enterprise: 1112 },
-      // Cloud SQL MySQL (asia-southeast1): db-f1-micro $50, db-n1-standard-4 $270
-      db:           { small: 50,  medium: 270, large: 540,  enterprise: 1900 },
-      // Object storage: GCS $20/TB; Persistent Disk SSD $170/TB → blended $30/TB
-      storage_per_tb: 30,
-      egress_per_tb:  85,
-      reserved1yr: 0.37,   // Committed Use Discounts 1yr (market 2026: 37%)
-      reserved3yr: 0.60,   // CUD 3yr (market 2026: 60%) ← was 57%
-      spot:        0.60,   // Preemptible VMs
+      general: [
+        { type: 'e2-medium',       vcpu: 2,  ram: 4,   monthly: 28   },
+        { type: 'n2-standard-2',   vcpu: 2,  ram: 8,   monthly: 80   },
+        { type: 'n2-standard-4',   vcpu: 4,  ram: 16,  monthly: 161  },
+        { type: 'n2-standard-8',   vcpu: 8,  ram: 32,  monthly: 322  },
+        { type: 'n2-standard-16',  vcpu: 16, ram: 64,  monthly: 643  },
+        { type: 'n2-standard-32',  vcpu: 32, ram: 128, monthly: 1286 },
+      ],
+      compute: [
+        { type: 'c2-standard-4',   vcpu: 4,  ram: 16,  monthly: 165  },
+        { type: 'c2-standard-8',   vcpu: 8,  ram: 32,  monthly: 330  },
+        { type: 'c2-standard-16',  vcpu: 16, ram: 64,  monthly: 661  },
+      ],
+      memory: [
+        { type: 'n2-highmem-4',    vcpu: 4,  ram: 32,  monthly: 206  },
+        { type: 'n2-highmem-8',    vcpu: 8,  ram: 64,  monthly: 412  },
+        { type: 'n2-highmem-16',   vcpu: 16, ram: 128, monthly: 824  },
+      ],
+      rds: [
+        { type: 'db-n1-standard-1', vcpu: 1, ram: 3.75, monthly: 50  },
+        { type: 'db-n1-standard-2', vcpu: 2, ram: 7.5,  monthly: 135 },
+        { type: 'db-n1-standard-4', vcpu: 4, ram: 15,   monthly: 270 },
+        { type: 'db-n1-standard-8', vcpu: 8, ram: 30,   monthly: 540 },
+        { type: 'db-n1-highmem-4',  vcpu: 4, ram: 26,   monthly: 340 },
+      ],
     },
+  };
+
+  const VM_RAM_TARGET = { small: 4, medium: 16, large: 32, enterprise: 64 };
+  function _pickInstance(list, ramTarget) {
+    return list.find(v => v.ram >= ramTarget) || list[list.length - 1];
+  }
+
+  // ── DR Tier Matrix (RTO/RPO → cost multiplier on compute+db) ─────────────
+  const DR_MATRIX = {
+    'none':   { label: 'No DR',           rto: 'N/A',   cost_pct: 0.00 },
+    'rto24h': { label: 'Backup & Restore', rto: '24h',   cost_pct: 0.08 },
+    'rto8h':  { label: 'Pilot Light',      rto: '8h',    cost_pct: 0.20 },
+    'rto4h':  { label: 'Warm Standby',     rto: '4h',    cost_pct: 0.35 },
+    'rto1h':  { label: 'Hot Standby',      rto: '1h',    cost_pct: 0.60 },
+    'rto15m': { label: 'Active-Active',    rto: '15min', cost_pct: 1.00 },
+  };
+
+  // ── Storage Class ($/TB/month, tiered by access pattern) ─────────────────
+  const STOR_CLASS = {
+    aws:   { hot: 52, warm: 13, cool: 5,  archive: 1 },
+    azure: { hot: 66, warm: 15, cool: 15, archive: 2 },
+    gcp:   { hot: 55, warm: 10, cool: 4,  archive: 1 },
+  };
+  // Distribution by data classification (hot/warm/cool/archive)
+  const STOR_DIST = {
+    'public':             [0.20, 0.30, 0.30, 0.20],
+    'internal':           [0.30, 0.35, 0.25, 0.10],
+    'confidential':       [0.35, 0.35, 0.20, 0.10],
+    'highly-confidential':[0.50, 0.30, 0.15, 0.05],
+  };
+  function _calcStorage(provider, classification, dataSize) {
+    const tb   = { small: 2, medium: 10, large: 60, very_large: 250 }[dataSize] || 10;
+    const c    = STOR_CLASS[provider] || STOR_CLASS.aws;
+    const d    = STOR_DIST[classification] || STOR_DIST.confidential;
+    return { tb, cost: Math.round(tb * (d[0]*c.hot + d[1]*c.warm + d[2]*c.cool + d[3]*c.archive)) };
+  }
+
+  // ── Tiered Egress Pricing ─────────────────────────────────────────────────
+  const EGRESS_T = {
+    aws:   [{ u: 10, r: 90 }, { u: 50,  r: 85 }, { u: 150, r: 70 }, { u: Infinity, r: 50 }],
+    azure: [{ u: 10, r: 87 }, { u: 50,  r: 83 }, { u: 150, r: 67 }, { u: Infinity, r: 48 }],
+    gcp:   [{ u: 10, r: 85 }, { u: 50,  r: 81 }, { u: 150, r: 60 }, { u: Infinity, r: 45 }],
+  };
+  function _calcEgress(tb, provider) {
+    const tiers = EGRESS_T[provider] || EGRESS_T.aws;
+    let cost = 0, rem = tb, prev = 0;
+    for (const t of tiers) {
+      if (rem <= 0) break;
+      const slice = Math.min(rem, t.u - prev);
+      cost += slice * t.r; rem -= slice; prev = t.u;
+    }
+    return Math.round(cost);
+  }
+  function _egressTB(inputs) {
+    const gb = parseFloat(inputs.monthlyTrafficGB) || 0;
+    if (gb > 0) return gb / 1000 * 0.45;
+    const base = {
+      small:      { low: 0.5, medium: 2,  high: 8,   very_high: 25  },
+      medium:     { low: 2,   medium: 8,  high: 30,  very_high: 100 },
+      large:      { low: 5,   medium: 20, high: 80,  very_high: 300 },
+      enterprise: { low: 10,  medium: 50, high: 200, very_high: 800 },
+    };
+    return (base[inputs.companySize] || base.medium)[inputs.txVolume || 'medium'] || 8;
+  }
+
+  // ── Reserved / Committed-Use Discounts ───────────────────────────────────
+  const DISC = {
+    aws:   { one_yr: 0.37, three_yr: 0.57, spot: 0.70 },
+    azure: { one_yr: 0.40, three_yr: 0.60, spot: 0.60 },
+    gcp:   { one_yr: 0.37, three_yr: 0.60, spot: 0.60 },
   };
 
   /**
@@ -294,100 +410,121 @@
   }
 
   /**
-   * FinOps TCO — uses ALL form inputs for realistic variation.
-   * Factors: provider, server count, traffic, data size, DR, compliance, personal/financial data, env count.
+   * _computeFinOpsCost — Real FinOps TCO Engine v3
+   * Uses: VM catalog lookup, DR tier matrix, storage class tiers, tiered egress pricing
+   * All inputs from the form are wired through — no flat buckets.
    */
   function _computeFinOpsCost(inputs, serverCost) {
-    const cs = serverCost?.scenarios;
-    const recM = cs?.recommended?.monthly_usd;
-    if (recM && recM > 0) return serverCost; // server returned real numbers
+    // If server already sent verified numbers, pass them through
+    const recM = serverCost?.scenarios?.recommended?.monthly_usd;
+    if (recM && recM > 0) return serverCost;
 
-    const providerKey = (inputs.targetCloud || 'AWS').toLowerCase().split('-')[0];
-    const p    = FINOPS_CLIENT[providerKey] || FINOPS_CLIENT.aws;
-    const tier = inputs.companySize || inputs.systemSize || 'medium';
-    // Use actual server count if available; else derive from size tier
-    const sizeServerMap = { small: 10, medium: 50, large: 200, enterprise: 500 };
-    const n = Math.max(1, parseInt(inputs.systemCount) || sizeServerMap[tier] || 50);
+    const provider = (inputs.targetCloud || 'AWS').toLowerCase().split('-')[0];
+    const cat  = VM_CAT[provider] || VM_CAT.aws;
+    const disc = DISC[provider]   || DISC.aws;
+    const tier = inputs.companySize || 'medium';
+    const n    = Math.max(1, parseInt(inputs.systemCount) || 20);
 
-    // ── Traffic multiplier (txVolume drives compute scaling) ──────────────────
-    const txMult = { low: 0.55, medium: 1.0, high: 1.9, very_high: 3.2 }[inputs.txVolume] || 1.0;
+    // ── Workload profile → instance series ───────────────────────────────
+    let profile = 'general';
+    if (/media|gaming|batch|hpc/i.test(inputs.industry || '') ||
+        inputs.migrationDriver === 'performance') profile = 'compute';
+    if (inputs.dataClassification === 'highly-confidential' ||
+        /financ|banking/i.test(inputs.industry || ''))       profile = 'memory';
 
-    // ── Data size → storage TB ────────────────────────────────────────────────
-    const storageTB = { small: 2, medium: 10, large: 60, very_large: 250 }[inputs.dataSize] || 10;
-    const networkTB = { low: 1, medium: 5,  high: 25,  very_high: 100  }[inputs.txVolume]  || 5;
+    // ── VM instance: smallest that meets RAM target ───────────────────────
+    const vmSpec = _pickInstance(cat[profile] || cat.general, VM_RAM_TARGET[tier] || 16);
+    // txVolume drives how many VMs are actually busy (scale-out factor)
+    const txMult = { low: 0.6, medium: 1.0, high: 1.7, very_high: 2.8 }[inputs.txVolume] || 1.0;
+    const totalCompute = Math.round(vmSpec.monthly * n * txMult);
 
-    // ── Core cost components (provider-specific rates) ────────────────────────
-    const compute  = Math.round((p.compute[tier] || p.compute.medium) * n * txMult);
-    const dbInst   = { small: 1, medium: 1, large: 2, enterprise: 4 }[tier] || 1;
-    const db       = Math.round((p.db[tier] || p.db.medium) * dbInst);
-    const storage  = Math.round(storageTB * (p.storage_per_tb || 30));  // provider-specific blended rate
-    const network  = Math.round(networkTB * (p.egress_per_tb  || 90));  // provider-specific egress
+    // ── Database: per-instance price × count ─────────────────────────────
+    const dbCount = { small: 1, medium: 2, large: 4, enterprise: 8 }[tier] || 2;
+    const dbSpec  = _pickInstance(cat.rds, VM_RAM_TARGET[tier] || 16);
+    const totalDB = Math.round(dbSpec.monthly * dbCount);
 
-    // ── Compliance & security add-ons ─────────────────────────────────────────
-    const complianceMult = { low: 1.0, medium: 1.18, high: 1.55 }[inputs.complianceLevel] || 1.18;
-    const secBase  = { small: 120, medium: 380, large: 1100, enterprise: 2800 }[tier] || 380;
-    const secTotal = Math.round(secBase * complianceMult
-      + (inputs.hasPersonalData  === 'yes' ? 220 : 0)
-      + (inputs.hasFinancialData === 'yes' ? 550 : 0));
+    // ── Storage: tiered by access pattern + classification ────────────────
+    const stor = _calcStorage(provider, inputs.dataClassification || 'confidential', inputs.dataSize || 'medium');
+    const totalStorage = stor.cost;
 
-    // ── DR cost (multi-region replication ≈ 45% of compute) ──────────────────
-    const drCost = inputs.needDR === 'yes' ? Math.round(compute * 0.45) : 0;
+    // ── Network: tiered egress pricing (not flat $/TB) ────────────────────
+    const egressTB   = _egressTB(inputs);
+    const totalNetwork = _calcEgress(egressTB, provider);
 
-    // ── Multi-environment multiplier ──────────────────────────────────────────
-    const envCount   = Math.max(1, parseInt(inputs.envCount) || 2);
-    const envMult    = envCount >= 4 ? 1.30 : envCount >= 3 ? 1.15 : 1.0;
+    // ── DR: matrix lookup, not binary ─────────────────────────────────────
+    const drTier = DR_MATRIX[inputs.drRequirements] || DR_MATRIX['rto4h'];
+    const drCost = Math.round((totalCompute + totalDB) * drTier.cost_pct);
 
-    // ── Managed / monitoring services ─────────────────────────────────────────
-    const managed = { small: 180, medium: 560, large: 1400, enterprise: 3200 }[tier] || 560;
+    // ── Compliance & security ─────────────────────────────────────────────
+    const compMult = { low: 1.00, medium: 1.18, high: 1.55 }[inputs.complianceLevel] || 1.18;
+    const secBase  = { small: 150, medium: 420, large: 1200, enterprise: 3000 }[tier] || 420;
+    const hasFin   = inputs.hasFinancialData === 'yes' || inputs.dataClassification === 'highly-confidential';
+    const totalSec = Math.round(secBase * compMult + (inputs.hasPersonalData === 'yes' ? 220 : 0) + (hasFin ? 550 : 0));
 
-    // ── Aggregate ─────────────────────────────────────────────────────────────
-    const subtotal  = (compute + db + storage + network + secTotal + drCost + managed) * envMult;
-    const support   = Math.round(subtotal * (tier === 'enterprise' ? 0.15 : 0.10));
-    const onDemand  = Math.round(subtotal + support);
+    // ── Managed services ─────────────────────────────────────────────────
+    const managed = { small: 180, medium: 580, large: 1500, enterprise: 3400 }[tier] || 580;
 
-    // ── IBM FinOps 3 scenarios ────────────────────────────────────────────────
-    const recommended_m = Math.round(
-      (compute*0.6*(1-p.reserved1yr) + compute*0.4
-       + db*0.7*(1-p.reserved1yr)    + db*0.3
-       + storage + network + secTotal + drCost*0.8 + managed + support) * envMult
-    );
-    const aggressive_m = Math.round(
-      (compute*0.8*(1-p.reserved3yr) + compute*0.2*(1-p.spot)
-       + db*0.8*(1-p.reserved3yr)
-       + storage*0.70 + network*0.80 + secTotal + drCost*0.60 + managed*0.90 + support*0.80) * envMult
-    );
+    // ── Multi-environment ─────────────────────────────────────────────────
+    const envCount = Math.max(1, parseInt(inputs.envCount) || 2);
+    const envMult  = envCount >= 4 ? 1.30 : envCount >= 3 ? 1.15 : 1.00;
+
+    // ── On-demand total ───────────────────────────────────────────────────
+    const suppPct  = tier === 'enterprise' ? 0.15 : 0.10;
+    const base     = (totalCompute + totalDB + totalStorage + totalNetwork + totalSec + drCost + managed) * envMult;
+    const support  = Math.round(base * suppPct);
+    const onDemand = Math.round(base + support);
+
+    // ── IBM FinOps 3 scenarios ────────────────────────────────────────────
     const conservative_m = Math.round(onDemand * 1.20);
 
-    // ── Migration cost (hours × rate × complexity) ────────────────────────────
-    const complexFactor  = complianceMult * (inputs.needDR === 'yes' ? 1.35 : 1.0)
-                           * (inputs.hasFinancialData === 'yes' ? 1.25 : 1.0);
-    const baseHours      = { small: 320, medium: 1000, large: 3200, enterprise: 7500 }[tier] || 1000;
-    const migCost        = Math.round(baseHours * 165 * complexFactor / 100) * 100;
+    const recommended_m  = Math.round((
+      totalCompute * 0.6 * (1 - disc.one_yr)   + totalCompute * 0.4 +
+      totalDB      * 0.7 * (1 - disc.one_yr)   + totalDB      * 0.3 +
+      totalStorage + totalNetwork + totalSec + drCost + managed + support
+    ) * envMult);
 
-    const saving3yr = (onDemand * 1.8 - recommended_m) * 36 - migCost;
-    const payback   = Math.round(migCost / Math.max(1, onDemand * 1.8 - recommended_m));
+    const aggressive_m   = Math.round((
+      totalCompute * 0.8 * (1 - disc.three_yr) + totalCompute * 0.2 * (1 - disc.spot) +
+      totalDB      * 0.8 * (1 - disc.three_yr) +
+      totalStorage * 0.70 + totalNetwork * 0.80 +
+      totalSec + drCost * 0.60 + managed * 0.90 + support * 0.80
+    ) * envMult);
 
-    const cloud = inputs.targetCloud || 'AWS';
+    // ── Migration cost (team × hours × APAC rates) ────────────────────────
+    const compFactor = compMult * (drTier.cost_pct > 0.3 ? 1.35 : 1.0) * (hasFin ? 1.25 : 1.0);
+    const baseHours  = { small: 320, medium: 1000, large: 3200, enterprise: 7500 }[tier] || 1000;
+    const migCost    = Math.round(baseHours * 175 * compFactor / 100) * 100;
+
+    const saving3yr  = (onDemand * 1.8 - recommended_m) * 36 - migCost;
+    const payback    = Math.max(1, Math.round(migCost / Math.max(1, onDemand * 1.8 - recommended_m)));
+    const cloud      = inputs.targetCloud || 'AWS';
+
     return {
       scenarios: {
-        conservative: { monthly_usd: conservative_m, annual_usd: conservative_m * 12,
-          description: `On-Demand 定價 + 20% 容量緩衝（${cloud}, ${n} servers, ${inputs.txVolume||'medium'} 流量, ${inputs.complianceLevel||'medium'} 合規）` },
-        recommended:  { monthly_usd: recommended_m,  annual_usd: recommended_m  * 12,
-          description: `60% Reserved 1年期 + 右側配置（IBM FinOps 建議）` },
-        aggressive:   { monthly_usd: aggressive_m,   annual_usd: aggressive_m   * 12,
-          description: `80% Reserved 3年期 + Spot/Preemptible + PaaS 整合` },
+        conservative: {
+          monthly_usd: conservative_m, annual_usd: conservative_m * 12,
+          description: `On-Demand 定價 + 20% 容量緩衝（${cloud} ${vmSpec.type}, ${n} servers）`,
+        },
+        recommended: {
+          monthly_usd: recommended_m,  annual_usd: recommended_m  * 12,
+          description: `60% Reserved 1年期 + 右側配置（IBM FinOps 建議）`,
+        },
+        aggressive: {
+          monthly_usd: aggressive_m,   annual_usd: aggressive_m   * 12,
+          description: `80% Reserved 3年期 + Spot/Preemptible + PaaS 整合`,
+        },
       },
       migration_cost_usd: migCost,
       roi_3yr:       saving3yr > 0 ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}` : '3年達損益平衡',
       payback_months: payback,
       cost_drivers: [
-        `${cloud} 運算 (${n} servers × $${Math.round((p.compute[tier]||140) * txMult)}/月 × ${txMult}x 流量倍率): $${compute}/月`,
-        `資料庫 (${dbInst} instance): $${db}/月`,
-        `儲存空間 (${storageTB} TB EBS/Blob): $${storage}/月`,
-        `網路出口 (${networkTB} TB/月): $${network}/月`,
-        `安全合規 (${inputs.complianceLevel||'medium'} 等級${inputs.hasFinancialData==='yes'?', 金融資料':''}: $${secTotal}/月`,
-        ...(drCost > 0 ? [`異地 DR 備援: $${drCost}/月`] : []),
-        ...(envCount >= 3 ? [`多環境 ${envCount} 套 (×${envMult}): +${Math.round((envMult-1)*100)}%`] : []),
+        `${cloud} ${vmSpec.type} (${vmSpec.vcpu}vCPU/${vmSpec.ram}GB) × ${n} servers × ${txMult}x: $${totalCompute}/月`,
+        `資料庫 ${dbSpec.type} × ${dbCount}: $${totalDB}/月`,
+        `儲存 ${stor.tb}TB（分層：hot/warm/cool/archive）: $${totalStorage}/月`,
+        `網路出口 ${Math.round(egressTB * 10) / 10}TB（分級計價）: $${totalNetwork}/月`,
+        `安全合規（${inputs.complianceLevel || 'medium'} 等級${hasFin ? '，金融資料' : ''}）: $${totalSec}/月`,
+        `DR 備援: ${drTier.label} (RTO ${drTier.rto}, +${Math.round(drTier.cost_pct * 100)}%): $${drCost}/月`,
+        ...(envCount >= 3 ? [`多環境 ${envCount} 套 × ${envMult}: +${Math.round((envMult - 1) * 100)}%`] : []),
       ],
     };
   }
