@@ -1278,19 +1278,23 @@ export async function onRequest(context) {
     });
   }
 
-  // Auth check — Workers AI binding must be available
-  if (!env.AI) {
-    console.error('[analyze] Cloudflare AI binding not configured. Add [ai] binding = "AI" in wrangler.toml and enable in Cloudflare Dashboard.');
+  // Auth check — need at least one AI engine
+  if (!env.OPENAI_API_KEY && !env.AI) {
     return new Response(
-      JSON.stringify({ error: 'AI binding not configured. Please enable Workers AI in Cloudflare Dashboard → Settings → Functions → AI bindings.' }),
+      JSON.stringify({
+        error: 'AI engine not configured. Set OPENAI_API_KEY (recommended: gpt-4o-mini) or enable Cloudflare Workers AI binding.',
+        code:  'NO_AI_ENGINE',
+      }),
       { status: 503, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   }
 
-  // Rate limit
-  const CF_AI_MODEL    = env.CF_AI_MODEL || '@cf/meta/llama-3.1-8b-instruct';  // llama-3.3-70b-instruct-fp8-fast also available
-  const MAX_TOKENS     = parseInt(env.CLAUDE_MAX_TOKENS || '3072', 10);
-  const RATE_LIMIT_RPH = parseInt(env.RATE_LIMIT_RPH   || '20',   10);
+  // Engine config
+  const USE_OPENAI     = !!env.OPENAI_API_KEY;
+  const OPENAI_MODEL   = env.OPENAI_MODEL   || 'gpt-4o-mini';   // gpt-4o for higher quality
+  const CF_AI_MODEL    = env.CF_AI_MODEL    || '@cf/meta/llama-3.1-8b-instruct';
+  const MAX_TOKENS     = parseInt(env.AI_MAX_TOKENS || env.CLAUDE_MAX_TOKENS || '4096', 10);
+  const RATE_LIMIT_RPH = parseInt(env.RATE_LIMIT_RPH || '20', 10);
 
   const sessionId = request.headers.get('x-session-id') || request.headers.get('x-forwarded-for') || 'default';
   if (!checkRateLimit(sessionId, RATE_LIMIT_RPH)) {
@@ -1315,57 +1319,89 @@ export async function onRequest(context) {
   const supabase  = createClient('https://oxownfzafrveihxhuxay.supabase.co', env.SUPABASE_SERVICE_ROLE_KEY);
   const openaiKey = env.OPENAI_API_KEY;
 
-  // Call Cloudflare Workers AI → full analysis → return result
+  // ── AI Call (OpenAI preferred → Cloudflare Workers AI fallback) ─────────────
   try {
     // ── RAG：取得相關知識庫文件 ──────────────────────────────
     const ragContext  = await getRagContext(inputs, supabase, openaiKey);
     const userMessage = buildUserMessage(inputs) + ragContext;
+    const messages    = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user',   content: userMessage   },
+    ];
 
-    // ── Workers AI: single-pass analysis ─────────────────────
-    // (MCP tool phase removed — carbon data computed server-side after response)
-    const aiResponse = await env.AI.run(CF_AI_MODEL, {
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user',   content: userMessage },
-      ],
-      max_tokens: MAX_TOKENS,
-    });
+    let aiText = '', aiModelUsed = '', aiProvider = '';
 
-    // Workers AI returns { response: "..." }
-    const message = { content: [{ type: 'text', text: aiResponse.response || '' }], model: CF_AI_MODEL };
+    if (USE_OPENAI) {
+      // ── OpenAI GPT-4o / gpt-4o-mini ───────────────────────────────────────
+      // response_format: json_object → API GUARANTEES valid JSON output
+      const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:  'POST',
+        headers: {
+          'Authorization': `Bearer ${env.OPENAI_API_KEY}`,
+          'Content-Type':  'application/json',
+        },
+        body: JSON.stringify({
+          model:           OPENAI_MODEL,
+          messages,
+          max_tokens:      MAX_TOKENS,
+          temperature:     0.2,             // low temp = consistent structured output
+          response_format: { type: 'json_object' },  // guaranteed valid JSON
+        }),
+      });
 
-    // Extract JSON from response
-    let jsonResult = null;
-    let rawText    = '';
-    for (const block of message.content) {
-      if (block.type === 'text') rawText += block.text;
-    }
-
-    // Try multiple extraction strategies (Llama 3.1 8B may not always use code fences)
-    if (rawText.trim()) {
-      // Strategy 1: JSON inside ```json ... ``` code fence
-      const fenceMatch = rawText.match(/```json\s*([\s\S]*?)\s*```/);
-      if (fenceMatch) {
-        try { jsonResult = JSON.parse(fenceMatch[1]); } catch { /* try next */ }
+      if (!oaiRes.ok) {
+        const err = await oaiRes.json().catch(() => ({}));
+        const e   = new Error(err.error?.message || `OpenAI HTTP ${oaiRes.status}`);
+        e.status  = oaiRes.status;
+        e.code    = err.error?.code;
+        throw e;
       }
 
-      // Strategy 2: First { ... } block (greedy match)
-      if (!jsonResult) {
-        const objMatch = rawText.match(/(\{[\s\S]*\})/);
-        if (objMatch) {
-          try { jsonResult = JSON.parse(objMatch[1]); } catch { /* try next */ }
+      const oaiData  = await oaiRes.json();
+      aiText         = oaiData.choices?.[0]?.message?.content || '';
+      aiModelUsed    = oaiData.model || OPENAI_MODEL;
+      aiProvider     = 'openai';
+      console.log(`[analyze] OpenAI ${aiModelUsed} | ${oaiData.usage?.total_tokens ?? '?'} tokens | prompt_tokens=${oaiData.usage?.prompt_tokens}`);
+
+    } else {
+      // ── Cloudflare Workers AI (fallback) ──────────────────────────────────
+      const cfRes = await env.AI.run(CF_AI_MODEL, { messages, max_tokens: MAX_TOKENS });
+      aiText      = cfRes.response || '';
+      aiModelUsed = CF_AI_MODEL;
+      aiProvider  = 'cloudflare';
+      console.log(`[analyze] Workers AI ${CF_AI_MODEL}`);
+    }
+
+    // ── JSON Extraction ───────────────────────────────────────────────────────
+    let jsonResult = null;
+
+    if (aiProvider === 'openai') {
+      // OpenAI with response_format:json_object guarantees parseable JSON
+      try { jsonResult = JSON.parse(aiText); } catch (e) {
+        console.warn('[analyze] OpenAI JSON parse failed (extremely rare):', e.message);
+      }
+    } else {
+      // Workers AI: multi-strategy extraction (model may add prose around JSON)
+      if (aiText.trim()) {
+        const fenceMatch = aiText.match(/```json\s*([\s\S]*?)\s*```/);
+        if (fenceMatch) {
+          try { jsonResult = JSON.parse(fenceMatch[1]); } catch { /* try next */ }
+        }
+        if (!jsonResult) {
+          const objMatch = aiText.match(/(\{[\s\S]*\})/);
+          if (objMatch) {
+            try { jsonResult = JSON.parse(objMatch[1]); } catch { /* try next */ }
+          }
+        }
+        if (!jsonResult) {
+          try { jsonResult = JSON.parse(aiText.trim()); } catch { /* fall through */ }
         }
       }
-
-      // Strategy 3: Raw text as-is
-      if (!jsonResult) {
-        try { jsonResult = JSON.parse(rawText.trim()); } catch { /* fall through */ }
-      }
     }
 
-    // ── Fallback: if AI failed to produce valid JSON, build from server-side data ─
+    // ── Server-side fallback (if AI failed to produce valid JSON) ─────────────
     if (!jsonResult) {
-      console.warn('[analyze] Workers AI response could not be parsed as JSON; using server-side rule-based fallback.');
+      console.warn(`[analyze] ${aiProvider} response JSON parse failed; using server-side rule-based fallback.`);
       jsonResult = buildServerFallbackResult(inputs);
     }
 
@@ -1458,7 +1494,8 @@ export async function onRequest(context) {
       JSON.stringify({
         success:        true,
         result:         jsonResult,
-        model:          CF_AI_MODEL,
+        model:          aiModelUsed,
+        provider:       aiProvider,
         prompt_version: PROMPT_VERSION,
       }),
       { status: 200, headers: { ...cors, 'Content-Type': 'application/json' } }
