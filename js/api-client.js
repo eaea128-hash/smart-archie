@@ -719,28 +719,64 @@
           { slide: 5, title: '執行藍圖', points: (next.slice(0,5) || []).map(n => n.action || '') },
         ];
 
-    // Tech PM
+    // Tech PM — map API schema → local engine format expected by renderResult()
+    // API has: phases[]{name,duration_weeks,objectives[],milestones[],owners[]}
+    //          poc{scope,success_criteria[],duration_weeks,workloads[]}
+    //          kpis[], critical_dependencies[]
+    // UI needs: phases[]{phase,name,items[]}, pocScope(string),
+    //           collaborators(string[]), dataNeeded(string[]), techValidation(string[])
+    const allOwners = [...new Set(phases.flatMap(ph => ph.owners || []))].filter(Boolean);
     const techPM = {
-      phases: phases.map(ph => ({
-        name:       ph.name,
-        duration:   ph.duration_weeks ? `${ph.duration_weeks} 週` : '4 週',
-        objectives: ph.objectives || [],
-        milestones: ph.milestones || [],
-        owners:     ph.owners || [],
-      })),
-      poc: tech.poc ? {
-        scope:            tech.poc.scope || '',
-        successCriteria:  tech.poc.success_criteria || [],
-        duration:         `${tech.poc.duration_weeks || 4} 週`,
-        workloads:        tech.poc.workloads || [],
-      } : null,
-      kpis: (tech.kpis || []).map(k => ({
-        name:     k.metric,
-        baseline: k.baseline,
-        target:   k.target,
-        cadence:  k.cadence,
-      })),
-      collaborators: (phases[0]?.owners || ['Cloud Architect', 'DevOps Lead', 'Security Lead', 'Compliance Officer']).map(o => ({ role: o })),
+      // Map phases to {phase, name, items[]} — merge objectives + milestones as task list
+      phases: phases.length > 0
+        ? phases.map((ph, i) => ({
+            phase: `Phase ${i} (${ph.duration_weeks ? ph.duration_weeks + 'W' : '4–8W'})`,
+            name:  ph.name || `階段 ${i + 1}`,
+            items: [
+              ...(ph.objectives || []).slice(0, 3),
+              ...(ph.milestones || []).slice(0, 2),
+            ].filter(Boolean),
+          }))
+        : [
+            { phase: 'Phase 0 (0–4W)', name: '評估與基礎建設', items: ['完成現況盤點與 Gap Analysis', 'Landing Zone 建置', '安全基線部署'] },
+            { phase: 'Phase 1 (4–16W)', name: '遷移執行',       items: ['PoC 驗證', '分波遷移', '效能驗收'] },
+            { phase: 'Phase 2 (16W+)',  name: '最佳化',          items: ['成本治理', 'Well-Architected Review', 'FinOps Dashboard'] },
+          ],
+
+      // pocScope as string (selection criteria + success gates, not task list)
+      pocScope: tech.poc?.scope
+        ? `${tech.poc.scope}${tech.poc.success_criteria?.length
+            ? '\n【成功標準】' + tech.poc.success_criteria.slice(0, 3).join('、')
+            : ''}`
+        : '建議選擇 1–2 個低風險、高代表性系統進行 PoC，驗證技術可行性後再決定全面推行規模。',
+
+      // collaborators as string array (merged from all phase owners, deduplicated)
+      collaborators: allOwners.length > 0
+        ? allOwners.concat(['業務單位 PM / 需求窗口']).slice(0, 6)
+        : ['Cloud Architect', 'DevOps / Platform Engineer', '資安工程師', '業務單位 PM / 需求窗口'],
+
+      // dataNeeded from critical_dependencies + standard checklist
+      dataNeeded: [
+        ...(tech.critical_dependencies || []).slice(0, 3),
+        '系統相依關係圖（Application Dependency Map）—含所有外部 API、DB、訊息佇列',
+        '現有主機 / VM 規格清單（CPU、記憶體、磁碟 IO 基線、網路吞吐量）',
+        '軟體授權清單（OS、DB、Middleware）及雲端 License Mobility 資格確認',
+      ].filter(Boolean).slice(0, 7),
+
+      // techValidation from PoC success criteria + standard gates
+      techValidation: [
+        ...(tech.poc?.success_criteria || []).slice(0, 3),
+        '【網路】Cloud Region 往返延遲實測 < 30ms（DirectConnect / VPN 建置後）',
+        '【授權】商業軟體 License Mobility 確認，避免遷移後授權費突增',
+        '【安全】Well-Architected Review 安全 Pillar 基線評分取得',
+        '【合規】GuardDuty + Security Hub + Config Rules 啟用，0 個 Critical 問題',
+      ].filter(Boolean).slice(0, 7),
+
+      // procurementRisks: populated by local engine for legacy systems; empty for API path
+      procurementRisks: [],
+
+      // Extra data retained for potential future use
+      kpis: (tech.kpis || []).map(k => ({ name: k.metric, baseline: k.baseline, target: k.target, cadence: k.cadence })),
       dependencies: tech.critical_dependencies || [],
     };
 

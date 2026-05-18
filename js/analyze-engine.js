@@ -314,7 +314,6 @@ const AnalyzeEngine = (() => {
     const hasExtInteg   = inputs.hasExternalIntegration === 'yes';
     const isCoreSystem  = inputs.isCoreSystem === 'yes';
     const timeline      = inputs.timeline || 'medium';
-    const needDR        = inputs.needDR === 'yes';
     const sla           = inputs.slaRequirement || 'medium';
     const hasDR         = inputs.needDR === 'yes';
     const downtime      = inputs.downtimeTolerance || 'medium';
@@ -400,7 +399,7 @@ const AnalyzeEngine = (() => {
   }
 
   // ── KPI Scores ────────────────────────────────────────────
-  function calcKPIs(inputs, strategy, risk) {
+  function calcKPIs(inputs, strategy) {
     const compliance    = inputs.complianceLevel || 'medium';
     const cloudMaturity = inputs.cloudMaturity || 'low';
     const hasLZ         = inputs.hasLandingZone === 'yes';
@@ -569,10 +568,13 @@ const AnalyzeEngine = (() => {
   }
 
   // ── Tech PM Recommendations ──────────────────────────────
-  function buildTechPM(inputs, strategy6R, lz, risk) {
+  function buildTechPM(inputs, strategy6R) {
     const strat = strategy6R.primary;
-    const techDebt = inputs.techDebt || 'medium';
-    const cloudMaturity = inputs.cloudMaturity || 'low';
+    const systemAge  = parseInt(inputs.systemAge) || 0;
+    const isLegacy   = systemAge >= 10 || inputs.archType === 'monolith';
+    const isFinancial = ['financial', 'finance', 'banking', 'insurance', 'banking_finance',
+      'financial services']
+      .includes((inputs.industry || '').toLowerCase());
 
     const phases = {
       rehost: [
@@ -602,12 +604,29 @@ const AnalyzeEngine = (() => {
       ],
     };
 
+    // pocScope = CANDIDATE SELECTION CRITERIA + ENTRY CONDITIONS + SUCCESS GATES
+    // (NOT what to do — that belongs in phases)
     const pocScope = {
-      rehost:    '建議選擇批次作業系統或報表查詢模組作為首個 PoC，技術風險低且驗證效益明顯',
-      replatform:'建議以資料庫遷移（RDS 化）+ 容器化作為 PoC 核心，驗證效能不降反升',
-      refactor:  '建議從 1 個 Bounded Context（如通知服務 / 報表服務）開始重構，驗證 API Contract',
-      retain:    '建議以 Landing Zone 建置為 PoC，驗證帳號結構與安全合規可行性',
-      retire:    '建議先 PoC 驗證 SaaS 功能是否能覆蓋 80% 核心使用案例',
+      rehost:
+        '【候選系統條件】批次作業或報表服務：無即時交易壓力、外部依賴少、授權明確可移轉。' +
+        '\n【進入門檻】Landing Zone 建置驗收完成；DirectConnect / VPN 端對端連線延遲 < 30ms 實測通過。' +
+        '\n【成功標準（Go/No-Go）】功能驗收 100%、效能回應時間 ≤ 原系統 110%、切換視窗 < 4 小時、回滾完成時間 < 30 分鐘、0 個 Sev-1 未解決問題。',
+      replatform:
+        '【候選系統條件】無重度 Stored Procedure 依賴的中介服務；可脫離 Oracle/SQL Server 授權的資料庫；容器化相依不超過 3 層。' +
+        '\n【進入門檻】DB Schema 差異分析報告產出；應用程式相依套件版本清單確認；CI/CD 基礎 Pipeline 建置就緒。' +
+        '\n【成功標準（Go/No-Go）】RDS 效能 ≥ 原本 95%、容器冷啟動 < 60 秒、CI/CD 部署成功率 > 95%、Auto Scaling 觸發驗證通過。',
+      refactor:
+        '【候選系統條件】業務邊界清晰的輔助功能（通知服務、報表服務、查詢 API），與核心交易系統無強依賴、資料模型獨立。' +
+        '\n【進入門檻】Domain 邊界圖（Bounded Context Map）確認；API 版本策略與 Contract Testing 框架建置完成。' +
+        '\n【成功標準（Go/No-Go）】API Contract Testing 通過率 100%、Blue/Green 零停機切換驗證通過、負載測試達到現有系統 TPS × 1.2、服務間延遲 < 50ms P95。',
+      retain:
+        '【候選範圍】Landing Zone 三核心帳號（Management / Security Tooling / Log Archive），不含工作負載遷移。' +
+        '\n【進入門檻】IT 治理架構圖確認；帳號申請與審批流程 SOP 建立；IAM Identity Center 管理員設定完成。' +
+        '\n【成功標準（Go/No-Go）】SCPs 策略 100% 套用且無例外；GuardDuty 啟用、0 個已知誤報未處理；CloudTrail 記錄完整驗收（含 S3 Event Logging）；Well-Architected 安全 Pillar 評分 ≥ 70。',
+      retire:
+        '【候選系統條件】SaaS 功能覆蓋率 > 80%（業務需求對照評估）；現有資料可依法規完整匯出並保存。' +
+        '\n【進入門檻】法規允許使用 SaaS 確認（書面）；主要採購合約 / DPA 草案完成法務審查；資料分類報告確認可遷移欄位。' +
+        '\n【成功標準（Go/No-Go）】SaaS 功能覆蓋率 ≥ 80%；資料遷移完整性驗證 100%；關鍵使用者 UAT 通過率 ≥ 95%；使用者培訓完成率 ≥ 90%。',
     };
 
     const collaborators = [
@@ -619,21 +638,54 @@ const AnalyzeEngine = (() => {
     if (inputs.isMajorOutsource === 'yes') collaborators.push('稽核窗口 / 委外廠商代表');
     collaborators.push('業務單位 PM / 需求窗口');
 
+    // dataNeeded = INPUT ARTIFACTS to collect BEFORE project kick-off
+    // (documents, reports, data the team needs to hand over — NOT execution steps)
     const dataNeeded = [];
-    if (!inputs.systemAge) dataNeeded.push('系統上線日期 / 版本記錄');
-    if (!inputs.txVolume)  dataNeeded.push('實際 TPS / 日活用戶數（運監數據）');
-    dataNeeded.push('完整的系統相依關係圖（Application Dependency Map）');
-    dataNeeded.push('現有 IP / DNS / VLAN 網路架構');
-    if (inputs.hasPersonalData === 'yes') dataNeeded.push('個資存儲位置與欄位清單');
-    if (inputs.hasExternalIntegration === 'yes') dataNeeded.push('外部系統 API 規格與 SLA 合約');
+    dataNeeded.push('系統相依關係圖（Application Dependency Map）—含所有外部 API、DB、訊息佇列、檔案共享');
+    dataNeeded.push('現有主機 / VM 規格清單（CPU、記憶體、磁碟 IO 基線、網路吞吐量實測值）');
+    if (!inputs.txVolume) dataNeeded.push('過去 12 個月 TPS 高峰值、日活用戶數、批次執行時間視窗');
+    dataNeeded.push('軟體授權清單（OS、DB、Middleware）及雲端 License Mobility 資格確認');
+    dataNeeded.push('現有 IP / VLAN 網路架構圖（含防火牆規則、NAT、DNS 設定）');
+    if (inputs.hasPersonalData === 'yes') dataNeeded.push('個資盤點報告（存儲位置、欄位清單、保存期限、境外傳輸規定）');
+    if (inputs.hasExternalIntegration === 'yes') dataNeeded.push('外部系統整合 SLA 合約與 API 規格文件（包含錯誤處理與重試機制）');
+    if (isLegacy) dataNeeded.push('技術債量化報告（程式碼年齡分布、已知缺陷 / 未修補漏洞清單、相依套件版本）');
+    dataNeeded.push('現行 DR / BCP 計畫文件、RTO / RPO 需求及最近一次演練結果');
 
+    // techValidation = PRE-MIGRATION TECHNICAL GATES (proof points before go-live commitment)
+    // (validation tests / confirmations — NOT execution steps which belong in phases)
     const techValidation = [
-      '網路延遲基線測試（現地 vs AWS Region）',
-      '授權確認（License Mobility for SQL Server / Oracle 等）',
-      'Well-Architected Review Pillar 評分',
+      '【網路】Cloud Region 往返延遲實測（DirectConnect / VPN 建置後）< 30ms，符合應用 SLA',
+      '【授權】商業軟體 License Mobility 確認（SQL Server / Oracle / SAP），避免遷移後授權費突增',
+      '【安全】Well-Architected Review — 安全 Pillar 基線評分取得，作為遷移後改善對比基準',
+      '【合規】GuardDuty + Security Hub + Config Rules 啟用，0 個 Critical 問題未處理',
     ];
-    if (inputs.needDR === 'yes') techValidation.push('DR 演練驗證（RPO / RTO 實測）');
-    if (inputs.archType === 'monolith') techValidation.push('Container 化可行性 Spike');
+    if (inputs.needDR === 'yes')
+      techValidation.push('【可用性】DR Failover 實測：跨 Region 切換 RTO < 4 小時、RPO < 1 小時，含回切演練');
+    if (inputs.archType === 'monolith')
+      techValidation.push('【容器化】目標模組容器化 Spike：啟動時間 < 90 秒，相依性無衝突，記憶體用量在規格內');
+    if (inputs.hasFinancialData === 'yes' || inputs.complianceLevel === 'high')
+      techValidation.push('【法遵】PCI-DSS / ISO 27001 基線掃描通過，無 High / Critical 缺口未處理');
+
+    // procurementRisks = advisory warnings for legacy system migration
+    // Triggered when system is old, financial sector, or involves large-scale conversion
+    const procurementRisks = [];
+    if (isLegacy || isFinancial || strat === 'refactor') {
+      procurementRisks.push({
+        icon: '⚠️',
+        title: '通用性限制：自動化遷移工具的技術覆蓋邊界',
+        desc: '自動化轉換工具（含 COBOL / PL/I / Assembler 類型）通常高度聚焦特定技術棧，對混合語言或非主流 DB（VSAM、IMS）的支援有限。建議在 PoC 前確認工具技術覆蓋矩陣（Coverage Matrix），避免 PoC 後才發現關鍵模組不在支援範圍內。',
+      });
+      procurementRisks.push({
+        icon: '⚠️',
+        title: '黑盒子轉換風險：技術債轉移而非消除',
+        desc: '自動轉換產出的程式碼往往保留原有邏輯結構，形成「新平台上的舊程式」，程式碼可讀性低、單元測試覆蓋率通常 < 30%、後期維護成本不低於原系統。建議合約中要求廠商提供：轉換後靜態分析報告、測試覆蓋率指標，並設定驗收門檻（建議可讀性評分 ≥ 60 / 測試覆蓋率 ≥ 50%）。',
+      });
+      procurementRisks.push({
+        icon: '⚠️',
+        title: 'DevOps 工具鏈衝突：現有流程整合成本',
+        desc: '引入雲端遷移平台可能與現有 CI/CD（Jenkins / GitLab）、監控（Datadog / Splunk）、ITSM（ServiceNow）產生整合落差。應在採購前盤點工具鏈相容性，要求廠商提供標準 Webhook / Open API 整合文件，並在 PoC 中驗證端對端 Pipeline 是否能無縫接入，避免形成隱性供應商鎖定。',
+      });
+    }
 
     return {
       phases: phases[strat] || phases.rehost,
@@ -641,6 +693,7 @@ const AnalyzeEngine = (() => {
       collaborators,
       dataNeeded,
       techValidation,
+      procurementRisks,
     };
   }
 
