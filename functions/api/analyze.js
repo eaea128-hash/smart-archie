@@ -628,6 +628,16 @@ async function checkRateLimit(env, identifier, rph) {
       body: JSON.stringify({ identifier: id, endpoint: 'analyze' }),
     });
 
+    // Lazy cleanup: 1-in-20 chance, delete records older than 2h to keep table small
+    // Replaces pg_cron (not available on Supabase Free plan)
+    if (Math.random() < 0.05) {
+      const cutoff = new Date(now - 7_200_000).toISOString(); // 2 hours ago
+      fetch(`${base}/rest/v1/api_rate_log?created_at=lt.${encodeURIComponent(cutoff)}`, {
+        method: 'DELETE',
+        headers: hdrs,
+      }).catch(() => {}); // fire-and-forget, don't await
+    }
+
     // Update in-memory mirror
     const hourEnd = now - (now % 3_600_000) + 3_600_000;
     const cur = _memStore.get(id);
