@@ -588,8 +588,62 @@ function calculateFinOpsTCO(inputs) {
   };
 }
 
-// Simple in-memory rate limiter (resets on cold start; good enough for serverless)
-const rateLimitStore = new Map(); // sessionId -> { count, resetAt }
+// ── Persistent Rate Limiter (Supabase-backed, survives cold starts) ───────────
+// Falls back to in-memory if Supabase unavailable.
+const _memStore = new Map(); // in-memory fallback: identifier -> { count, resetAt }
+
+async function checkRateLimit(env, identifier, rph) {
+  const id = String(identifier || 'anon').slice(0, 128);
+
+  // ── Fast in-memory pre-check ──────────────────────────────────────────────
+  // If clearly under half the limit in memory, skip DB round-trip
+  const now = Date.now();
+  const mem  = _memStore.get(id);
+  if (mem && now < mem.resetAt && mem.count < Math.floor(rph / 2)) {
+    mem.count++;
+    return true; // definitely under limit
+  }
+
+  // ── Supabase persistent check ─────────────────────────────────────────────
+  try {
+    const since = new Date(now - 3_600_000).toISOString(); // 1 hour ago
+    const base  = env.SUPABASE_URL;
+    const key   = env.SUPABASE_SERVICE_ROLE_KEY;
+    const hdrs  = { 'apikey': key, 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' };
+
+    // Count existing requests in last hour
+    const cntRes = await fetch(
+      `${base}/rest/v1/api_rate_log?select=id&identifier=eq.${encodeURIComponent(id)}&created_at=gt.${encodeURIComponent(since)}&limit=${rph + 1}`,
+      { headers: { 'apikey': key, 'Authorization': `Bearer ${key}` } }
+    );
+    if (cntRes.ok) {
+      const rows = await cntRes.json();
+      if (Array.isArray(rows) && rows.length >= rph) return false; // rate limited
+    }
+
+    // Log this request
+    await fetch(`${base}/rest/v1/api_rate_log`, {
+      method: 'POST',
+      headers: hdrs,
+      body: JSON.stringify({ identifier: id, endpoint: 'analyze' }),
+    });
+
+    // Update in-memory mirror
+    const hourEnd = now - (now % 3_600_000) + 3_600_000;
+    const cur = _memStore.get(id);
+    _memStore.set(id, { count: (cur && now < cur.resetAt ? cur.count + 1 : 1), resetAt: hourEnd });
+
+    return true;
+  } catch {
+    // Supabase unavailable — fall back to in-memory only
+    const hourEnd = now - (now % 3_600_000) + 3_600_000;
+    const cur = _memStore.get(id) || { count: 0, resetAt: hourEnd };
+    if (now >= cur.resetAt) { cur.count = 0; cur.resetAt = hourEnd; }
+    cur.count++;
+    _memStore.set(id, cur);
+    return cur.count <= rph;
+  }
+}
 
 // ── Prompt Version (increment when system prompt changes) ────────────────────
 const PROMPT_VERSION = '3.0.0'; // FinOps Engine v3: real VM catalog, DR matrix, tiered egress, multi-factor 6R
@@ -1153,19 +1207,7 @@ async function getRagContext(inputs, supabase, openaiKey) {
   }
 }
 
-// ── Rate Limiter ─────────────────────────────────────────────────────────────
-function checkRateLimit(sessionId, rateLimitRph) {
-  if (!rateLimitRph) return true;
-  const now   = Date.now();
-  const entry = rateLimitStore.get(sessionId);
-  if (!entry || now > entry.resetAt) {
-    rateLimitStore.set(sessionId, { count: 1, resetAt: now + 3_600_000 });
-    return true;
-  }
-  if (entry.count >= rateLimitRph) return false;
-  entry.count++;
-  return true;
-}
+// (checkRateLimit moved to top of file — Supabase-backed persistent version)
 
 // ── Input Sanitiser ──────────────────────────────────────────────────────────
 function buildUserMessage(inputs) {
@@ -1301,10 +1343,15 @@ export async function onRequest(context) {
   const MAX_TOKENS     = parseInt(env.AI_MAX_TOKENS || env.CLAUDE_MAX_TOKENS || '4096', 10);
   const RATE_LIMIT_RPH = parseInt(env.RATE_LIMIT_RPH || '20', 10);
 
-  const sessionId = request.headers.get('x-session-id') || request.headers.get('x-forwarded-for') || 'default';
-  if (!checkRateLimit(sessionId, RATE_LIMIT_RPH)) {
+  const sessionId = request.headers.get('x-session-id')
+    || request.headers.get('cf-connecting-ip')
+    || request.headers.get('x-forwarded-for')
+    || 'anon';
+
+  const allowed = await checkRateLimit(env, sessionId, RATE_LIMIT_RPH);
+  if (!allowed) {
     return new Response(
-      JSON.stringify({ error: 'Rate limit exceeded. Please wait before making another request.' }),
+      JSON.stringify({ error: '請求過於頻繁，請稍後再試。Rate limit: ' + RATE_LIMIT_RPH + ' 次/小時。' }),
       { status: 429, headers: { ...cors, 'Content-Type': 'application/json' } }
     );
   }

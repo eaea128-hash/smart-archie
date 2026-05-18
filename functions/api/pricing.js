@@ -111,17 +111,14 @@ export async function onRequest(context) {
     (provider === 'all' || provider === 'aws')   ? fetchAWS()   : Promise.resolve(null),
   ]);
 
+  // Fetch GCP pricing in parallel with Azure/AWS
+  const gcpResult = await fetchGCP().catch(e => ({ error: e.message }));
+
   const result = {
     fetched_at: new Date().toISOString(),
     azure: azureResult.value ?? (azureResult.reason ? { error: azureResult.reason?.message, instances: AWS_STATIC } : null),
     aws:   awsResult.value   ?? (awsResult.reason   ? { error: awsResult.reason?.message,   instances: AWS_STATIC } : null),
-    gcp: {
-      source:        'static-verified',
-      last_verified: '2026-01-15',
-      region:        'asia-southeast1',
-      note:          'GCP Cloud Billing Catalog API requires service account credentials. Rates verified Jan 2026 from GCP Pricing Calculator.',
-      instances:     GCP_STATIC,
-    },
+    gcp:   gcpResult,
   };
 
   _cache   = result;
@@ -286,4 +283,84 @@ async function fetchEC2Shop(instanceType) {
     hourly:  inst.Price,
     source:  'ec2.shop',
   };
+}
+
+// ── GCP Pricing ───────────────────────────────────────────────────────────────
+// Attempts to fetch live prices from GCP's public pricing calculator data file.
+// Falls back to static 2026-Q1 verified rates if unavailable or too slow.
+// Note: GCP Cloud Billing Catalog API requires service account credentials.
+async function fetchGCP() {
+  try {
+    // GCP pricing calculator static data — public, no auth required
+    // Updated by Google when prices change; typically a large JSON file.
+    const controller = new AbortController();
+    const timeout    = setTimeout(() => controller.abort(), 8000); // 8s timeout
+
+    const res = await fetch(
+      'https://cloudpricingcalculator.appspot.com/static/data/pricelist.json',
+      { signal: controller.signal, headers: { 'User-Agent': 'CloudFrame/3.0' } }
+    );
+    clearTimeout(timeout);
+
+    if (!res.ok) throw new Error(`GCP calculator HTTP ${res.status}`);
+
+    const raw  = await res.json();
+    const list = raw?.gcp_price_list || raw;
+
+    // Target instance families in asia-southeast1 (Singapore)
+    const TARGETS = {
+      'CP-COMPUTEENGINE-VMIMAGE-E2-MEDIUM':        { type: 'e2-medium',      vcpu: 2,  ram: 4   },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-STANDARD-2':    { type: 'n2-standard-2',  vcpu: 2,  ram: 8   },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-STANDARD-4':    { type: 'n2-standard-4',  vcpu: 4,  ram: 16  },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-STANDARD-8':    { type: 'n2-standard-8',  vcpu: 8,  ram: 32  },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-STANDARD-16':   { type: 'n2-standard-16', vcpu: 16, ram: 64  },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-STANDARD-32':   { type: 'n2-standard-32', vcpu: 32, ram: 128 },
+      'CP-COMPUTEENGINE-VMIMAGE-C2-STANDARD-4':    { type: 'c2-standard-4',  vcpu: 4,  ram: 16  },
+      'CP-COMPUTEENGINE-VMIMAGE-C2-STANDARD-8':    { type: 'c2-standard-8',  vcpu: 8,  ram: 32  },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-HIGHMEM-4':     { type: 'n2-highmem-4',   vcpu: 4,  ram: 32  },
+      'CP-COMPUTEENGINE-VMIMAGE-N2-HIGHMEM-8':     { type: 'n2-highmem-8',   vcpu: 8,  ram: 64  },
+    };
+
+    const instances = [];
+    for (const [sku, spec] of Object.entries(TARGETS)) {
+      const entry = list[sku];
+      if (!entry) continue;
+      // Prefer asia-southeast1 pricing; fall back to us-central1 then any region
+      const hourly = entry['asia-southeast1'] ?? entry['us-central1'] ?? Object.values(entry).find(v => typeof v === 'number');
+      if (!hourly) continue;
+      instances.push({
+        type:    spec.type,
+        vcpu:    spec.vcpu,
+        ram:     spec.ram,
+        hourly:  Math.round(hourly * 10000) / 10000,
+        monthly: Math.round(hourly * 730 * 100) / 100,
+        source:  'cloudpricingcalculator.appspot.com',
+        category: 'compute',
+      });
+    }
+
+    if (instances.length < 3) throw new Error('GCP calculator returned insufficient data');
+
+    return {
+      source:        'cloudpricingcalculator.appspot.com (Google public data)',
+      region:        'asia-southeast1',
+      currency:      'USD',
+      count:         instances.length,
+      fetched_at:    new Date().toISOString(),
+      calculator_url: 'https://cloud.google.com/products/calculator',
+      instances:     [...instances, ...GCP_STATIC.filter(s => s.category === 'rds')],
+    };
+  } catch (e) {
+    // Static fallback with clear labelling
+    console.warn('[pricing] GCP live fetch failed:', e.message);
+    return {
+      source:        'static-verified',
+      last_verified: '2026-01-15',
+      region:        'asia-southeast1',
+      note:          `GCP live pricing unavailable (${e.message}). Showing 2026-Q1 reference rates. For current pricing, visit the GCP calculator.`,
+      calculator_url: 'https://cloud.google.com/products/calculator',
+      warning:       'STATIC_DATA — verify with official GCP Pricing Calculator before budgeting',
+      instances:     GCP_STATIC,
+    };
+  }
 }

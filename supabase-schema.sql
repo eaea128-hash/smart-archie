@@ -230,3 +230,14 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON public.audit_log(created_
 ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "service_insert_audit_log"   ON public.audit_log FOR INSERT WITH CHECK (TRUE);
 CREATE POLICY "users_view_own_audit_log"   ON public.audit_log FOR SELECT USING (auth.uid() = user_id);
+
+-- ── API Rate Log (persistent rate limiting, survives cold starts) ─────────────
+CREATE TABLE IF NOT EXISTS public.api_rate_log (
+  id          BIGSERIAL PRIMARY KEY,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  identifier  TEXT        NOT NULL,
+  endpoint    TEXT        NOT NULL DEFAULT 'analyze'
+);
+CREATE INDEX IF NOT EXISTS idx_api_rate_log_ident ON public.api_rate_log(identifier, created_at DESC);
+ALTER TABLE public.api_rate_log ENABLE ROW LEVEL SECURITY;
+-- Service role only (no user policies — internal table)

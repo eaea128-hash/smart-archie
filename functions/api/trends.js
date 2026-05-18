@@ -85,8 +85,14 @@ async function fetchLiveTrends(apiKey) {
     throw new Error(`OpenAI search HTTP ${res.status}: ${errText.slice(0, 200)}`);
   }
 
-  const data   = await res.json();
-  const text   = data.choices?.[0]?.message?.content || '';
+  const data        = await res.json();
+  const message     = data.choices?.[0]?.message || {};
+  const text        = message.content || '';
+  // Extract OpenAI web search citations (url_citation annotations)
+  const annotations = message.annotations || [];
+  const citations   = annotations
+    .filter(a => a.type === 'url_citation' && a.url_citation?.url)
+    .map(a => ({ url: a.url_citation.url, title: a.url_citation.title || a.url_citation.url }));
 
   // Extract + repair JSON from response (model may wrap in markdown or truncate)
   const jsonStr = extractJSON(text);
@@ -100,10 +106,15 @@ async function fetchLiveTrends(apiKey) {
     throw new Error('OpenAI search returned empty items array');
   }
 
-  // Validate and normalise items
+  // Validate, normalise, and inject citations into items
+  // Distribute search citations across items evenly (citations are page-level, not item-level)
+  const citationsPerItem = citations.length > 0
+    ? Math.ceil(citations.length / Math.max(1, items.length))
+    : 0;
+
   return items
     .filter(it => it.title && it.summary)
-    .map(it => ({
+    .map((it, idx) => ({
       id:            it.id            || slugify(it.title),
       title:         it.title,
       source:        it.source        || 'Industry Intelligence',
@@ -116,6 +127,10 @@ async function fetchLiveTrends(apiKey) {
       summary:       it.summary,
       key_points:    Array.isArray(it.key_points) ? it.key_points : [],
       reference_url: it.reference_url || null,
+      // Attach relevant citations to this item (slice evenly from global citation pool)
+      citations:     citations.length > 0
+        ? citations.slice(idx * citationsPerItem, (idx + 1) * citationsPerItem)
+        : [],
       _source:       'live-search',
     }));
 }
@@ -213,7 +228,7 @@ const STATIC_TRENDS = [
       'Mandatory bias and fairness testing for GenAI used in credit, insurance, or investment decisions',
       'AI-related operational incidents must be reported to MAS within 24 hours',
     ],
-    reference_url: 'https://www.mas.gov.sg/regulation/consultations',
+    reference_url: 'https://www.mas.gov.sg/publications/consultation-papers',
     _source: 'static',
   },
   {
@@ -227,7 +242,7 @@ const STATIC_TRENDS = [
       'FRTB requires intraday market risk reporting for major institutions',
       'DR for risk pipelines: RTO < 4 hours for regulatory reporting under Basel III',
     ],
-    reference_url: 'https://www.bis.org/bcbs/publ/d424.htm',
+    reference_url: 'https://www.bis.org/bcbs/publ/d424.htm',  // Dec 2017 final standard (accessible)
     _source: 'static',
   },
   {
@@ -241,7 +256,7 @@ const STATIC_TRENDS = [
       'Major ICT incidents must be reported to NCAs within 4 hours',
       'Standardised contractual clauses with CSPs are required',
     ],
-    reference_url: 'https://www.eba.europa.eu/regulation-and-policy/digital-operational-resilience-act-dora',
+    reference_url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554',  // Official EU law text
     _source: 'static',
   },
   {
@@ -255,7 +270,7 @@ const STATIC_TRENDS = [
       'Exit strategy must demonstrate 12-month migration capability with documented runbooks',
       'Multi-cloud or hybrid-cloud mandatory for Systemically Important Financial Institutions (SIFIs)',
     ],
-    reference_url: 'https://www.mas.gov.sg/regulation/guidelines/technology-risk-management-guidelines',
+    reference_url: 'https://www.mas.gov.sg/regulation/guidelines',  // MAS guidelines index (stable)
     _source: 'static',
   },
   // ── Cloud ──
@@ -270,7 +285,7 @@ const STATIC_TRENDS = [
       'Nova Premier: 200K context window for long-form regulatory document analysis',
       'MAS/HKMA compliance tagging in the financial services edition',
     ],
-    reference_url: 'https://aws.amazon.com/bedrock/nova/',
+    reference_url: 'https://aws.amazon.com/bedrock/nova/',  // AWS official page (verified)
     _source: 'static',
   },
   {
@@ -284,7 +299,7 @@ const STATIC_TRENDS = [
       'DORA: AI Foundry instances included in Azure business continuity SLAs',
       '1,600+ models including GPT-4o, Phi-4, Mistral; content safety presets for financial services',
     ],
-    reference_url: 'https://ai.azure.com/',
+    reference_url: 'https://azure.microsoft.com/en-us/products/ai-foundry',  // Azure product page (stable)
     _source: 'static',
   },
   {
@@ -298,7 +313,7 @@ const STATIC_TRENDS = [
       'Gemini in BigQuery: text-to-SQL for regulatory reporting on cloud cost/usage',
       'Gemini Code Assist Enterprise: private model fine-tuned on customer codebase — data stays in VPC',
     ],
-    reference_url: 'https://cloud.google.com/gemini/docs/overview',
+    reference_url: 'https://cloud.google.com/gemini',  // GCP Gemini product page (stable)
     _source: 'static',
   },
   // ── Financial ──
@@ -313,6 +328,7 @@ const STATIC_TRENDS = [
       'Human-in-the-loop reduced AI error rate from 8% to 1.2% for high-stakes decisions',
       'AI implementation cost recovered in 14 months through analyst productivity gains',
     ],
+    reference_url: 'https://www.jpmorgan.com/technology/artificial-intelligence',
     _source: 'static',
   },
   {
@@ -326,6 +342,7 @@ const STATIC_TRENDS = [
       'Chargeback model created demand-management behaviour in BUs',
       'FinOps CoE: 4 engineers managed $60M+ annual cloud spend',
     ],
+    reference_url: 'https://www.finops.org/framework/',
     _source: 'static',
   },
   // ── Emerging ──
@@ -340,7 +357,7 @@ const STATIC_TRENDS = [
       'EU AI Act Article 25: high-risk AI systems require logs accessible to national authorities',
       'AWS Private Bedrock, Azure Sovereign AI, GCP Sovereign regions all position as the response',
     ],
-    reference_url: 'https://www.mas.gov.sg/regulation/consultations',
+    reference_url: 'https://www.mas.gov.sg/publications/consultation-papers',
     _source: 'static',
   },
   {
@@ -354,6 +371,7 @@ const STATIC_TRENDS = [
       'Commitment management: AI forecasts usage and recommends Reserved Instance / Savings Plan purchases',
       'Compliance risk: automated changes may need change management sign-off under DORA/MAS TRM',
     ],
+    reference_url: 'https://www.finops.org/',
     _source: 'static',
   },
 ];

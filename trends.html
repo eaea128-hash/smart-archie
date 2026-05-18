@@ -564,8 +564,25 @@ function buildTrendCard(item) {
   const archieNote = item.action_for_archie
     ? `<div class="trend-archie-note">🤖 CloudFrame：${item.action_for_archie}</div>` : '';
 
+  // Primary reference link
   const refLink = item.reference_url
-    ? `<a href="${item.reference_url}" target="_blank" rel="noopener" class="trend-ref-link">📄 官方參考文件 →</a>` : '<span></span>';
+    ? `<a href="${item.reference_url}" target="_blank" rel="noopener" class="trend-ref-link">📄 官方參考文件 →</a>`
+    : '';
+
+  // AI search citations (live-search items only)
+  const citationsHTML = (item.citations && item.citations.length > 0)
+    ? `<div style="margin-top:var(--sp-2);display:flex;flex-wrap:wrap;gap:6px;">
+        <span style="font-size:10px;color:var(--c-text-muted);align-self:center;">🔍 搜尋來源：</span>
+        ${item.citations.slice(0, 3).map(c =>
+          `<a href="${c.url}" target="_blank" rel="noopener"
+              title="${c.title || c.url}"
+              style="font-size:10px;color:var(--c-accent-teal);text-decoration:none;background:rgba(0,180,180,0.07);border-radius:4px;padding:2px 6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;"
+              onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+            ${new URL(c.url).hostname}
+          </a>`
+        ).join('')}
+      </div>`
+    : '';
 
   const dateStr = item.date ? new Date(item.date).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }) : '';
 
@@ -597,6 +614,7 @@ function buildTrendCard(item) {
     </div>
     <div class="trend-footer">
       ${refLink}
+      ${citationsHTML}
       ${archieNote}
     </div>
   </div>`;
@@ -630,7 +648,7 @@ function renderStaticFallback() {
       '與 CSPs 須簽訂標準化合約條款'
     ],
     action_for_archie: '歐盟管轄區分析必須包含完整 DORA 合規路線圖與 CTPP 風險登記冊。',
-    reference_url: 'https://www.eba.europa.eu/regulation-and-policy/digital-operational-resilience-act-dora'
+    reference_url: 'https://eur-lex.europa.eu/legal-content/EN/TXT/?uri=CELEX:32022R2554'
   }) + buildTrendCard({
     title:       'AWS Control Tower — AFT（Account Factory for Terraform）正式版',
     source:      'Amazon Web Services',
