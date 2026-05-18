@@ -7,15 +7,58 @@
  */
 
 // ── Static Curated Trends Database ──────────────────────────────────────────
-// Updated quarterly — version 2026-Q1
+// Updated quarterly — version 2026-Q2
 const TRENDS_DB = {
-  version: '2026-Q1',
-  last_updated: '2026-04-01',
+  version: '2026-Q2',
+  last_updated: '2026-05-15',
 
   categories: {
 
     // ── Regulatory & Compliance ──────────────────────────────────────────────
     regulatory: [
+      {
+        id: 'mas-genai-framework-2026',
+        title: 'MAS GenAI Framework — Consultation Paper on Responsible AI in Financial Services',
+        source: 'Monetary Authority of Singapore',
+        source_logo: '🇸🇬',
+        category: 'regulatory',
+        region: 'Singapore / APAC',
+        date: '2026-04-10',
+        impact: 'critical',
+        tags: ['MAS', 'GenAI', 'AI Governance', 'Singapore', 'Financial Services'],
+        summary: 'MAS released a consultation paper on responsible use of GenAI in financial services, proposing mandatory AI governance frameworks, model risk management requirements for LLM-based applications, and customer disclosure obligations for AI-generated advice.',
+        key_requirements: [
+          'AI Governance Framework: board-level accountability for GenAI deployment risks',
+          'Model Risk Management: LLMs used in customer-facing services classified as High-Risk models',
+          'Customer disclosure: clear labelling when advice or content is AI-generated',
+          'Bias and fairness testing: mandatory for GenAI used in credit, insurance, or investment decisions',
+          'Incident reporting: AI-related operational incidents must be reported to MAS within 24 hours',
+          'Third-party AI vendors: subject to same Technology Risk Management requirements as cloud providers'
+        ],
+        action_for_cloudframe: 'All Singapore analyses involving AI/ML workloads must include MAS GenAI compliance layer. Public comment period ends 2026-06-30.',
+        reference_url: 'https://www.mas.gov.sg/regulation/consultations'
+      },
+      {
+        id: 'basel3-final-rule-2026',
+        title: 'Basel III Final Rule — Cloud Infrastructure Impact on Capital Calculations',
+        source: 'Bank for International Settlements / Regional Banking Regulators',
+        source_logo: '🏦',
+        category: 'regulatory',
+        region: 'Global',
+        date: '2026-01-01',
+        impact: 'critical',
+        tags: ['Basel III', 'Capital Requirements', 'Risk Calculation', 'Cloud Infrastructure'],
+        summary: 'Basel III Endgame is now effective globally. Banks must run standardised approach capital calculations with daily frequency — significantly increasing cloud compute demand for risk engines. Institutions without scalable cloud risk infrastructure face non-compliance risk.',
+        key_requirements: [
+          'Daily SA-CCR (Standardised Approach for Counterparty Credit Risk) calculations mandatory',
+          'FRTB (Fundamental Review of Trading Book) requires intraday market risk reporting for major institutions',
+          'Cloud risk engines must demonstrate auditability: reproducible calculation results with full data lineage',
+          'Disaster recovery for risk calculation infrastructure: RTO < 4 hours for regulatory reporting pipelines',
+          'Data residency: risk data must remain in jurisdiction of the booking entity'
+        ],
+        action_for_cloudframe: 'Analyses for institutions with trading books must include FRTB-capable cloud risk infrastructure sizing.',
+        reference_url: 'https://www.bis.org/bcbs/publ/d424.htm'
+      },
       {
         id: 'mas-trm-2025-update',
         title: 'MAS TRM Guidelines — 2025 Revision',
@@ -106,6 +149,72 @@ const TRENDS_DB = {
     // ── Cloud Platform Updates ───────────────────────────────────────────────
     cloud: [
       {
+        id: 'aws-nova-enterprise-2026',
+        title: 'Amazon Nova — Enterprise-Grade Foundation Models on Bedrock GA',
+        source: 'Amazon Web Services',
+        source_logo: '🟠',
+        category: 'cloud',
+        region: 'Global',
+        date: '2026-03-18',
+        impact: 'high',
+        tags: ['AWS', 'Bedrock', 'Nova', 'GenAI', 'Foundation Models', 'Financial Services'],
+        summary: 'Amazon Nova Pro and Nova Premier are now Generally Available on Bedrock with enterprise controls: private model deployment (no data leaves customer VPC), model distillation, and built-in PII detection. Financial services editions include MAS/HKMA compliance tagging.',
+        key_features: [
+          'Nova Premier: 200K context window, optimised for long-form regulatory document analysis',
+          'Private Bedrock: model inference runs within customer VPC — no data sent to AWS model infrastructure',
+          'Model distillation: fine-tune Nova on proprietary data with full data sovereignty',
+          'PII detection: automatic redaction before logging for compliance',
+          'Bedrock Guardrails: enhanced hallucination detection for financial fact-checking',
+          'APAC availability: Singapore (ap-southeast-1) and Tokyo (ap-northeast-1)'
+        ],
+        recommendation: 'For financial institutions requiring data sovereignty, Private Bedrock eliminates the GenAI data residency concern. Evaluate as primary LLM platform before external API providers.',
+        reference_url: 'https://aws.amazon.com/bedrock/nova/'
+      },
+      {
+        id: 'azure-ai-foundry-2026',
+        title: 'Azure AI Foundry — Enterprise GenAI Platform with Built-in Compliance',
+        source: 'Microsoft Azure',
+        source_logo: '🔷',
+        category: 'cloud',
+        region: 'Global',
+        date: '2026-02-20',
+        impact: 'high',
+        tags: ['Azure', 'AI Foundry', 'GenAI', 'Compliance', 'Financial Services', 'DORA'],
+        summary: 'Azure AI Foundry (formerly Azure AI Studio) is now GA with enterprise-grade compliance controls: private network deployment, DORA-aligned incident response, and Microsoft-managed compliance posture for EU-regulated workloads.',
+        key_features: [
+          'Private AI deployment: all model inference within Azure Private Link — no public internet exposure',
+          'DORA-aligned: AI Foundry instances included in Azure business continuity SLAs',
+          'Azure Policy: built-in policies for AI Foundry preventing public model endpoints in regulated tenants',
+          'Managed identity integration: service-to-service auth with zero credential management',
+          'Model catalogue: 1,600+ models including GPT-4o, Phi-4, Mistral, and open-source models',
+          'Content safety: financial services presets blocking prohibited financial advice patterns'
+        ],
+        recommendation: 'Institutions already on Azure Landing Zone should standardise on AI Foundry for all GenAI workloads — avoids shadow AI proliferation.',
+        reference_url: 'https://ai.azure.com/'
+      },
+      {
+        id: 'gcp-gemini-cloud-2026',
+        title: 'Google Gemini 2.0 — Native Cloud Operations Integration',
+        source: 'Google Cloud Platform',
+        source_logo: '🔵',
+        category: 'cloud',
+        region: 'Global',
+        date: '2026-01-28',
+        impact: 'high',
+        tags: ['GCP', 'Gemini', 'Cloud Operations', 'AIOps', 'FinOps', 'Security'],
+        summary: 'Gemini 2.0 is now integrated natively into Google Cloud Console, Cloud Logging, Security Command Center, and BigQuery. Financial institutions can use Gemini for natural-language cloud operations — querying logs, investigating security findings, and generating FinOps reports.',
+        key_features: [
+          'Gemini in Cloud Logging: natural language log queries replacing complex filter syntax',
+          'Gemini in SCC: AI-driven security finding triage with remediation runbooks',
+          'Gemini in BigQuery: text-to-SQL for regulatory reporting on cloud cost/usage data',
+          'Gemini Code Assist Enterprise: private model fine-tuned on customer codebase — data stays in VPC',
+          'Cloud FinOps AI: automated rightsizing recommendations with commitment purchase suggestions',
+          'asia-southeast1 availability: Singapore region with Gemini 2.0 Flash and Pro'
+        ],
+        recommendation: 'For GCP-primary institutions, Gemini integration reduces operational overhead significantly. Evaluate Gemini in SCC for automated compliance remediation.',
+        reference_url: 'https://cloud.google.com/gemini/docs/overview'
+      },
+      {
         id: 'aws-control-tower-af-2025',
         title: 'AWS Control Tower — Account Factory for Terraform (AFT) GA',
         source: 'Amazon Web Services',
@@ -190,6 +299,71 @@ const TRENDS_DB = {
 
     // ── Financial Institution Patterns ───────────────────────────────────────
     financial: [
+      {
+        id: 'jp-morgan-ai-cloud-2026',
+        title: 'JPMorgan Chase — LLM-Powered Risk Intelligence Platform',
+        source: 'JPMorgan Chase / Industry Intelligence',
+        source_logo: '🏛️',
+        category: 'financial',
+        region: 'Global',
+        date: '2026-04-01',
+        impact: 'high',
+        tags: ['JPMorgan', 'LLM', 'Risk Intelligence', 'AWS', 'Financial Services', 'AI'],
+        summary: 'JPMorgan\'s deployment of LLM-based risk intelligence on AWS demonstrates the production pattern for GenAI in tier-1 banking: sovereign data pipelines, human-in-the-loop for high-risk decisions, and continuous model monitoring for regulatory drift.',
+        architecture_patterns: [
+          {
+            pattern: 'Sovereign AI Pipeline',
+            description: 'All LLM inference runs in customer-controlled AWS accounts via Private Bedrock. No proprietary data transmitted to model providers. Encryption keys held in customer-managed KMS.',
+            applicability: 'Any institution handling material non-public information or client data'
+          },
+          {
+            pattern: 'Human-in-the-Loop Gates',
+            description: 'LLM-generated risk summaries and trade recommendations flagged with confidence scores. Scores below 85% require human review before action. All AI-assisted decisions logged with reviewer identity for audit trail.',
+            applicability: 'Credit decisions, trade approvals, compliance sign-offs'
+          },
+          {
+            pattern: 'Model Drift Monitoring',
+            description: 'Continuous comparison of LLM outputs against ground truth labels. Automated alerts when output distribution shifts > 2σ from baseline. Monthly retraining cycles for production models.',
+            applicability: 'All production GenAI applications in regulated environments'
+          }
+        ],
+        key_lessons: [
+          'Private model deployment added 30% infrastructure cost but eliminated data sovereignty regulatory risk entirely',
+          'Human-in-the-loop reduced AI error rate from 8% to 1.2% for high-stakes decisions',
+          'Model drift monitoring caught two significant output degradations before regulatory impact',
+          'Total AI implementation cost recovered in 14 months through analyst productivity gains'
+        ]
+      },
+      {
+        id: 'ocbc-aws-finops-2026',
+        title: 'OCBC Bank — FinOps Transformation: $18M Annual Cloud Cost Reduction',
+        source: 'OCBC Bank / Industry Intelligence',
+        source_logo: '🏦',
+        category: 'financial',
+        region: 'Singapore / APAC',
+        date: '2026-02-15',
+        impact: 'high',
+        tags: ['OCBC', 'FinOps', 'AWS', 'Cost Optimisation', 'Reserved Instances', 'Singapore'],
+        summary: 'OCBC\'s 3-year FinOps maturity journey on AWS achieved $18M annual savings through systematic commitment management, rightsizing, and chargeback implementation — achieving 78% reserved/savings plan coverage for predictable workloads.',
+        architecture_patterns: [
+          {
+            pattern: 'Chargeback-Driven FinOps',
+            description: 'Full cloud cost chargeback to business units with monthly reporting. BU owners given self-service dashboards and savings targets. Resulted in 40% reduction in idle resource waste within 6 months.',
+            applicability: 'Institutions with > $5M/year cloud spend across multiple business units'
+          },
+          {
+            pattern: 'Commitment Ladder Strategy',
+            description: 'Tiered commitment: 1-year Savings Plans for baseline (60%), 3-year Convertible RIs for long-lived workloads (20%), On-demand for variable (20%). Automated purchase recommendations from Cost Explorer.',
+            applicability: 'All institutions with mature FinOps practice'
+          }
+        ],
+        key_lessons: [
+          '78% commitment coverage achieved after 18 months — target 80%+ for mature FinOps',
+          'Rightsizing alone delivered $4.2M savings — most instances were over-provisioned at 35% average CPU utilisation',
+          'Chargeback model created internal demand-management behaviour: teams started requesting smaller instances by default',
+          'FinOps CoE headcount: 4 engineers managed $60M+ annual cloud spend'
+        ]
+      },
       {
         id: 'hsbc-cloud-2025-patterns',
         title: 'HSBC Cloud Engineering — 2025 Architecture Patterns',
@@ -280,6 +454,53 @@ const TRENDS_DB = {
 
     // ── Emerging Themes ──────────────────────────────────────────────────────
     emerging: [
+      {
+        id: 'agentic-finops-2026',
+        title: 'Agentic FinOps — AI Agents Autonomously Manage Cloud Cost Optimisation',
+        source: 'AWS / GCP / Gartner / Industry',
+        source_logo: '🤖',
+        category: 'emerging',
+        region: 'Global',
+        date: '2026-05-01',
+        impact: 'transformational',
+        tags: ['Agentic AI', 'FinOps', 'Cloud Cost', 'Autonomous Optimisation', 'CloudOps'],
+        summary: 'A new category of agentic AI systems is emerging that autonomously manages cloud cost optimisation: identifying waste, purchasing commitments, rightsizing instances, and scheduling workloads — with human approval gates for large actions. Early adopters report 25-40% additional savings beyond manual FinOps.',
+        use_cases: [
+          'Autonomous rightsizing: AI agent continuously monitors CPU/memory utilisation and submits rightsizing PRs for human approval',
+          'Commitment management: AI agent recommends and (with approval) purchases Reserved Instances/Savings Plans based on usage forecasting',
+          'Idle resource cleanup: AI agent identifies and terminates/hibernates idle resources after configurable inactivity period',
+          'Anomaly investigation: AI agent automatically investigates cost spikes, traces to root cause, and generates remediation plan',
+          'Scheduled optimisation: AI agent shifts non-time-sensitive workloads to off-peak/spot capacity automatically'
+        ],
+        maturity_level: 'Early adopter phase (2026) — production at hyperscalers\' own platforms; 15-20% of Fortune 500 financial institutions piloting',
+        risks: [
+          'Commitment purchase errors: AI miscalculating usage forecasts could result in over-commitment',
+          'Compliance exposure: automated changes may require change management sign-off under DORA/MAS TRM',
+          'Model hallucination: AI-generated cost analyses must be validated against actual billing data'
+        ]
+      },
+      {
+        id: 'sovereign-ai-cloud-2026',
+        title: 'Sovereign AI Cloud — Jurisdiction-Specific AI Infrastructure Emerges',
+        source: 'AWS / Azure / GCP / National Regulators',
+        source_logo: '🌐',
+        category: 'emerging',
+        region: 'APAC / EU / Global',
+        date: '2026-03-01',
+        impact: 'high',
+        tags: ['Sovereign AI', 'Data Sovereignty', 'Regulated AI', 'National Cloud', 'Financial Services'],
+        summary: 'Regulators in Singapore, EU, and Hong Kong are moving toward requiring AI model inference to occur within national or regional boundaries — creating the "Sovereign AI Cloud" category. Major cloud providers are responding with dedicated sovereign AI regions and private model deployment options.',
+        developments: [
+          'MAS consultation (April 2026): guidance indicates AI systems processing customer financial data must use models hosted in Singapore or approved jurisdictions',
+          'EU AI Act (Article 25): high-risk AI systems must maintain comprehensive logs accessible to national authorities — requiring EU-hosted model infrastructure',
+          'HKMA: informal guidance indicates LLMs used in credit decisions should use models where data does not leave Hong Kong jurisdiction',
+          'AWS Private Bedrock: positions as the sovereign AI solution — model inference stays in customer VPC',
+          'Azure Sovereign AI: dedicated sovereign cloud AI capabilities for EU, MAS-regulated markets',
+          'GCP Sovereign AI regions: committed to Singapore and Hong Kong AI-specific sovereign capabilities by Q4 2026'
+        ],
+        action_for_cloudframe: 'Cloud architecture recommendations must now include AI sovereignty layer — which models, which hosting model, which jurisdiction for LLM inference.',
+        reference_url: 'https://www.mas.gov.sg/regulation/consultations'
+      },
       {
         id: 'services-as-software-2025',
         title: 'Services as Software — AI Agents Replace Professional Services',
