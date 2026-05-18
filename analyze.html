@@ -836,9 +836,33 @@
           </div>
         </div>
 
+        <!-- Data Consent Notice -->
+        <div style="
+          background: rgba(15,43,61,0.06);
+          border: 1px solid rgba(15,43,61,0.15);
+          border-radius: var(--r-md);
+          padding: var(--sp-3) var(--sp-4);
+          margin-bottom: var(--sp-4);
+          font-size: var(--fs-xs);
+          color: var(--c-text-muted);
+          line-height: 1.6;
+        ">
+          <label style="display:flex;align-items:flex-start;gap:var(--sp-3);cursor:pointer;">
+            <input type="checkbox" id="consentCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--c-primary);">
+            <span>
+              我瞭解本次分析輸入（系統規模、預算、合規需求等）將透過
+              <strong>OpenAI API</strong> 進行 AI 處理，不包含個人識別資訊。
+              資料不會用於模型訓練。詳見
+              <a href="privacy.html" target="_blank" style="color:var(--c-primary);">隱私政策</a>
+              與
+              <a href="terms.html" target="_blank" style="color:var(--c-primary);">服務條款</a>。
+            </span>
+          </label>
+        </div>
+
         <!-- Generate Button -->
         <div style="padding: var(--sp-2) 0 var(--sp-6);">
-          <button class="btn-generate" id="btnGenerate" onclick="runAnalysis()">
+          <button class="btn-generate" id="btnGenerate" onclick="runAnalysis()" disabled style="opacity:0.5;cursor:not-allowed;">
             <span id="btnGenerateText">🚀 生成 AI 雲端分析報告</span>
             <span id="btnGenerateSpinner" class="spinner" style="display:none;"></span>
           </button>
@@ -931,6 +955,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   } catch {}
 
   Auth.injectNavUser();
+
+  // ── Consent checkbox → unlock generate button ──────────────────
+  const consentCheck = document.getElementById('consentCheck');
+  const btnGenerate  = document.getElementById('btnGenerate');
+  if (consentCheck && btnGenerate) {
+    consentCheck.addEventListener('change', () => {
+      btnGenerate.disabled = !consentCheck.checked;
+      btnGenerate.style.opacity  = consentCheck.checked ? '1'   : '0.5';
+      btnGenerate.style.cursor   = consentCheck.checked ? ''    : 'not-allowed';
+    });
+  }
+
   SA.initRangeSliders();
   // Init all toggle groups
   document.querySelectorAll('.toggle-group').forEach(g => {
@@ -1576,6 +1612,10 @@ function renderResult(r, style) {
           <div style="font-size:11px;color:var(--c-success);font-weight:600;margin-bottom:4px;">💡 成本優化建議</div>
           <div style="font-size:12px;color:var(--c-text-muted);">${cost.recommendation}</div>
         </div>
+        ${cost.pricingNote ? `
+        <div style="margin-top:var(--sp-3);padding:var(--sp-2) var(--sp-4);background:rgba(234,179,8,0.06);border-radius:var(--r-md);border:1px solid rgba(234,179,8,0.2);">
+          <div style="font-size:11px;color:var(--c-text-muted);">⚠️ 定價資料說明：${cost.pricingNote}。最終報價請以各雲端原廠官方報價為準。</div>
+        </div>` : ''}
       </div>
     </div>
   </div>`;

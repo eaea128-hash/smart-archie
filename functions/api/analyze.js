@@ -965,6 +965,11 @@ function buildServerFallbackResult(inputs) {
       migration_cost_usd: tco.migration_cost_usd,
       roi_3yr:        tco.roi_3yr,
       payback_months: tco.payback_months,
+      pricing_data_note: targetCloud === 'azure'
+        ? '定價來源：prices.azure.com 即時 API（今日報價）'
+        : targetCloud === 'aws'
+        ? '定價來源：ec2.shop 即時聚合 + AWS Pricing Calculator 2026-Q1 驗證'
+        : '定價來源：GCP Pricing Calculator 靜態資料 2026-Q1（實際報價請洽 GCP 業務）',
       cost_drivers: [
         `${targetCloud} 運算 ${tco.breakdown.vm_type || ''} (${tco.breakdown.vm_spec || ''}) × ${systemCount} 台: $${tco.breakdown.compute_monthly}/月`,
         `資料庫 ${tco.breakdown.db_type || ''} × ${tco.breakdown.db_count || 1} 實例: $${tco.breakdown.database_monthly}/月`,

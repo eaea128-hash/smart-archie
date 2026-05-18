@@ -206,3 +206,27 @@ LEFT JOIN public.quota_usage q ON q.user_id = p.id
   AND q.month_key = TO_CHAR(NOW(), 'YYYY-MM')
 GROUP BY p.id, p.name, p.company, p.role, p.plan, p.created_at,
          u.email, u.email_confirmed_at, u.last_sign_in_at, q.used;
+
+-- ── Audit Log ─────────────────────────────────────────────────────────────────
+-- Required for SOX / ISO 27001 / MAS TRM compliance.
+CREATE TABLE IF NOT EXISTS public.audit_log (
+  id            BIGSERIAL PRIMARY KEY,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  user_id       UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  session_id    TEXT,
+  ip_address    INET,
+  action        TEXT NOT NULL,
+  resource      TEXT,
+  result        TEXT NOT NULL DEFAULT 'ok',
+  provider      TEXT,
+  tokens_used   INTEGER,
+  latency_ms    INTEGER,
+  error_msg     TEXT,
+  metadata      JSONB DEFAULT '{}'::jsonb
+);
+CREATE INDEX IF NOT EXISTS idx_audit_log_user_id   ON public.audit_log(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_action    ON public.audit_log(action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_log_created_at ON public.audit_log(created_at DESC);
+ALTER TABLE public.audit_log ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_insert_audit_log"   ON public.audit_log FOR INSERT WITH CHECK (TRUE);
+CREATE POLICY "users_view_own_audit_log"   ON public.audit_log FOR SELECT USING (auth.uid() = user_id);

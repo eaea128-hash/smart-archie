@@ -246,6 +246,26 @@
   </div>
 </div>
 
+<!-- AI Disclaimer Banner -->
+<div style="
+  background: rgba(234,179,8,0.08);
+  border-bottom: 1px solid rgba(234,179,8,0.25);
+  padding: var(--sp-3) var(--sp-6);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+">
+  <span style="font-size:1.1em;flex-shrink:0;">⚠️</span>
+  <span>
+    趨勢資料由 <strong>OpenAI Web Search</strong> 即時搜尋整理，內容僅供參考。
+    法規要求請以各監管機構官方公告為準；雲端定價以各雲端原廠官網為準。
+    每 24 小時自動更新。
+    <span id="trends-live-indicator" style="margin-left:var(--sp-2);"></span>
+  </span>
+</div>
+
 <!-- Main Content -->
 <div class="trends-layout">
 
@@ -438,6 +458,14 @@ async function loadTrends(category) {
       const ts  = new Date(data.fetched_at);
       const ago = Math.round((Date.now() - ts) / 60000);
       badgeTime.textContent = ago < 2 ? '🕐 剛剛更新' : `🕐 ${ago} 分鐘前更新`;
+    }
+    // Update disclaimer indicator
+    const liveIndicator = document.getElementById('trends-live-indicator');
+    if (liveIndicator) {
+      const isLive = data.data_source === 'openai-web-search';
+      liveIndicator.innerHTML = isLive
+        ? `<span style="color:#10b981;font-weight:600;">● 本次為即時搜尋資料（${data.live_count} 筆）</span>`
+        : `<span style="color:#f59e0b;font-weight:600;">● 使用靜態資料庫（OpenAI 不可用）</span>`;
     }
   } catch (err) {
     grid.innerHTML = `

@@ -148,6 +148,7 @@
       paybackMths:  fc.payback_months || 18,
       scenarios:    sc,
       drivers:      fc.cost_drivers.map(d => ({ name: d, pct: 0 })),
+      pricingNote:  fc.pricing_data_note || null,
     };
 
     // Always inject sustainability
@@ -651,6 +652,7 @@
       roi3yr:      computedCost.roi_3yr || cost.roi_3yr || '',
       paybackMths: computedCost.payback_months || cost.payback_months || 18,
       scenarios:   computedScenarios,
+      pricingNote: computedCost.pricing_data_note || null,
     };
 
     // Risk Radar
