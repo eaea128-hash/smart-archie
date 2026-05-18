@@ -238,10 +238,10 @@
     <h1>國際雲端<span>趨勢雷達</span></h1>
     <p>即時追蹤全球主要金融機構、雲端原廠與監管機構的最新動向——HSBC、AWS、GCP、MAS、HKMA、FCA、DORA，轉化為您可直接行動的架構建議。</p>
     <div class="trends-meta">
-      <div class="trends-meta-badge">📅 資料版本：2026-Q2</div>
-      <div class="trends-meta-badge">🔄 每季更新</div>
+      <div class="trends-meta-badge" id="badge-datasource">⏳ 載入中...</div>
+      <div class="trends-meta-badge" id="badge-fetchtime">🔄 更新中</div>
       <div class="trends-meta-badge">🌏 涵蓋 SG · HK · UK · EU · Global</div>
-      <div class="trends-meta-badge">🤖 由 CloudFrame AI 分析整合</div>
+      <div class="trends-meta-badge">🤖 OpenAI Web Search 即時搜尋</div>
     </div>
   </div>
 </div>
@@ -421,6 +421,24 @@ async function loadTrends(category) {
     const data = await APIClient.getTrends(category);
     allItems = data.items || [];
     renderTrends(allItems);
+
+    // ── Update meta badges with real data source info ──────────────────────
+    const badgeSrc   = document.getElementById('badge-datasource');
+    const badgeTime  = document.getElementById('badge-fetchtime');
+    if (badgeSrc) {
+      const isLive = data.data_source === 'openai-web-search';
+      badgeSrc.textContent = isLive
+        ? `🔴 即時 AI 搜尋｜${data.live_count} 筆新資料`
+        : `📦 靜態資料庫｜${data.static_count || 0} 筆`;
+      badgeSrc.style.background = isLive
+        ? 'rgba(16,185,129,0.2)'
+        : 'rgba(255,255,255,0.1)';
+    }
+    if (badgeTime && data.fetched_at) {
+      const ts  = new Date(data.fetched_at);
+      const ago = Math.round((Date.now() - ts) / 60000);
+      badgeTime.textContent = ago < 2 ? '🕐 剛剛更新' : `🕐 ${ago} 分鐘前更新`;
+    }
   } catch (err) {
     grid.innerHTML = `
       <div class="trends-empty">
