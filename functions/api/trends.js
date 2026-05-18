@@ -88,11 +88,12 @@ async function fetchLiveTrends(apiKey) {
   const data   = await res.json();
   const text   = data.choices?.[0]?.message?.content || '';
 
-  // Extract JSON from response (model may wrap in markdown)
+  // Extract + repair JSON from response (model may wrap in markdown or truncate)
   const jsonStr = extractJSON(text);
   if (!jsonStr) throw new Error('No JSON found in OpenAI search response');
 
-  const parsed = JSON.parse(jsonStr);
+  const parsed = parseJSONSafe(jsonStr);
+  if (!parsed) throw new Error('JSON repair failed — response too malformed');
   const items  = parsed.items || parsed.results || parsed;
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -121,12 +122,65 @@ async function fetchLiveTrends(apiKey) {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function extractJSON(text) {
-  // Try code block first
+  // 1. Code block (```json ... ```)
   const codeMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
   if (codeMatch) return codeMatch[1].trim();
-  // Try raw JSON object
-  const objMatch = text.match(/(\{[\s\S]*\})/);
-  if (objMatch) return objMatch[1].trim();
+  // 2. Raw JSON object — greedy match from first { to last }
+  const start = text.indexOf('{');
+  const end   = text.lastIndexOf('}');
+  if (start !== -1 && end > start) return text.slice(start, end + 1);
+  return null;
+}
+
+// Attempt to parse JSON; if it fails, try progressively more aggressive repairs
+function parseJSONSafe(str) {
+  // Pass 1: try as-is
+  try { return JSON.parse(str); } catch (_) {}
+
+  // Pass 2: remove trailing commas before ] or }
+  try {
+    const fixed = str.replace(/,\s*([\]}])/g, '$1');
+    return JSON.parse(fixed);
+  } catch (_) {}
+
+  // Pass 3: truncation recovery — find the last complete item object and close the array
+  try {
+    // Locate "items": [ and try closing the array at the last complete object
+    const itemsStart = str.indexOf('"items"');
+    if (itemsStart !== -1) {
+      const arrStart = str.indexOf('[', itemsStart);
+      if (arrStart !== -1) {
+        // Walk back from end to find last complete }
+        let depth = 0, lastClose = -1;
+        for (let i = arrStart; i < str.length; i++) {
+          if (str[i] === '{') depth++;
+          if (str[i] === '}') { depth--; if (depth === 0) lastClose = i; }
+        }
+        if (lastClose !== -1) {
+          const repaired = str.slice(0, lastClose + 1) + ']}';
+          return JSON.parse(repaired);
+        }
+      }
+    }
+  } catch (_) {}
+
+  // Pass 4: extract only the "items" array content using regex
+  try {
+    const arrMatch = str.match(/"items"\s*:\s*(\[[\s\S]*)/);
+    if (arrMatch) {
+      // Find balanced bracket end
+      let depth = 0, end = -1;
+      const arr = arrMatch[1];
+      for (let i = 0; i < arr.length; i++) {
+        if (arr[i] === '[') depth++;
+        if (arr[i] === ']') { depth--; if (depth === 0) { end = i; break; } }
+      }
+      const slice = end !== -1 ? arr.slice(0, end + 1) : arr.slice(0, arr.lastIndexOf('}') + 1) + ']';
+      const cleaned = slice.replace(/,\s*([\]}])/g, '$1');
+      return { items: JSON.parse(cleaned) };
+    }
+  } catch (_) {}
+
   return null;
 }
 

@@ -135,41 +135,50 @@ export async function onRequest(context) {
 // https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices
 // Free, no authentication required.
 async function fetchAzure() {
-  // Fetch all VM prices for southeastasia region, Linux, on-demand
-  const filter = encodeURIComponent(
-    `serviceName eq 'Virtual Machines' and armRegionName eq 'southeastasia' and priceType eq 'Consumption'`
-  );
-  const endpoint = `https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=${filter}`;
-
-  const res = await fetch(endpoint, {
-    headers: { 'User-Agent': 'CloudFrame/3.0 (+https://cloudframe.pages.dev)' },
-  });
-  if (!res.ok) throw new Error(`Azure Retail Prices API: HTTP ${res.status}`);
-
-  const data  = await res.json();
-  const items = data.Items || [];
-
+  // Query each SKU individually to avoid pagination issues.
+  // Azure Retail Prices API: free, no auth, returns JSON.
   const instances = [];
   const seen      = new Set();
 
-  for (const item of items) {
-    const armSku = item.armSkuName || '';
-    if (!AZURE_ARM_SKUS.includes(armSku))               continue;
-    if (seen.has(armSku))                               continue;
-    if (/windows|spot|low priority/i.test(item.skuName)) continue;
-    if (item.unitOfMeasure !== '1 Hour')                continue;
+  // Fetch in parallel batches of 4
+  const BATCH = 4;
+  for (let i = 0; i < AZURE_ARM_SKUS.length; i += BATCH) {
+    const batch = AZURE_ARM_SKUS.slice(i, i + BATCH);
+    await Promise.allSettled(batch.map(async sku => {
+      const filter = encodeURIComponent(
+        `armSkuName eq '${sku}' and armRegionName eq 'southeastasia' and priceType eq 'Consumption' and serviceName eq 'Virtual Machines'`
+      );
+      const url = `https://prices.azure.com/api/retail/prices?currencyCode=USD&$filter=${filter}`;
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'CloudFrame/3.0 (+https://cloudframe.pages.dev)' },
+      });
+      if (!res.ok) return;
+      const data  = await res.json();
+      const items = data.Items || [];
 
-    seen.add(armSku);
-    instances.push({
-      type:     armSku.replace('Standard_', ''),
-      armSku,
-      vcpu:     null,  // Azure API doesn't return vCPU count directly
-      monthly:  Math.round(item.retailPrice * 730 * 100) / 100,
-      hourly:   item.retailPrice,
-      region:   item.armRegionName,
-      sku_name: item.skuName,
-      source:   'prices.azure.com',
-    });
+      for (const item of items) {
+        if (seen.has(sku))                                    continue;
+        if (/windows|spot|low priority/i.test(item.skuName)) continue;
+        if (item.unitOfMeasure !== '1 Hour')                  continue;
+        if (!item.retailPrice)                                continue;
+
+        seen.add(sku);
+        instances.push({
+          type:     sku.replace('Standard_', ''),
+          armSku:   sku,
+          vcpu:     null,
+          monthly:  Math.round(item.retailPrice * 730 * 100) / 100,
+          hourly:   item.retailPrice,
+          region:   item.armRegionName,
+          sku_name: item.skuName,
+          source:   'prices.azure.com',
+        });
+      }
+    }));
+  }
+
+  if (instances.length === 0) {
+    throw new Error('Azure API returned 0 instances — all SKU queries failed');
   }
 
   // Enrich with known vCPU/RAM specs
