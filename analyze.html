@@ -1985,8 +1985,49 @@ function renderResult(r, style) {
           { name: '資料風險', val: risk.dataRisk,      icon: '🗄️', key: 'dataRisk',     basis: '依個資/金融資料、資料量大小、資料保留期計算' },
           { name: '業務風險', val: risk.bizRisk,       icon: '💼', key: 'bizRisk',      basis: '依核心系統重要性、停機容忍、DR 備援、SLA 承諾計算' },
         ].map(item => {
-          const itemFactors = (risk.factors && risk.factors[item.key]) || [];
-          const highFactors = itemFactors.filter(f => f.pts >= 15);
+          // Use structured factors when available (local engine); otherwise synthesize from score + inputs
+          let highFactors = [];
+          if (risk.factors && risk.factors[item.key]) {
+            highFactors = risk.factors[item.key].filter(f => f.pts >= 15);
+          } else {
+            // Synthesize risk factor chips from inputs so score is never unexplained
+            const inp = r.inputs || {};
+            const syn = [];
+            if (item.key === 'compRisk') {
+              if (inp.complianceLevel === 'high')           syn.push('高合規等級');
+              if (inp.hasFinancialData === 'yes')           syn.push('含金融資料');
+              if (inp.hasPersonalData === 'yes')            syn.push('含個人資料');
+              if (inp.isMajorOutsource === 'yes')           syn.push('重大委外');
+              if (inp.hasIAM !== 'yes')                     syn.push('IAM 尚未建置');
+              if (inp.hasLandingZone !== 'yes')             syn.push('無 Landing Zone');
+            } else if (item.key === 'techRisk') {
+              if (inp.techDebt === 'high')                  syn.push('高技術債');
+              if (parseInt(inp.systemAge) >= 10)            syn.push(`系統年齡 ${inp.systemAge} 年`);
+              if (inp.hasExternalIntegration === 'yes')     syn.push('外部整合複雜');
+              if (inp.archType === 'monolith')              syn.push('單體式架構');
+            } else if (item.key === 'opRisk') {
+              if (inp.cloudMaturity === 'low')              syn.push('雲端成熟度低');
+              if (inp.isCoreSystem === 'yes')               syn.push('核心業務系統');
+              if (inp.needDR !== 'yes')                     syn.push('DR 計畫未建立');
+              if (inp.downtimeTolerance === 'none' || inp.downtimeTolerance === 'low') syn.push('停機容忍度低');
+            } else if (item.key === 'timelineRisk') {
+              if (inp.timeline === 'urgent')                syn.push('時程緊迫');
+              if (inp.cloudMaturity === 'low')              syn.push('雲端能力待建');
+              if (inp.techDebt === 'high')                  syn.push('高技術債');
+            } else if (item.key === 'dataRisk') {
+              if (inp.hasPersonalData === 'yes')            syn.push('個人資料');
+              if (inp.hasFinancialData === 'yes')           syn.push('金融交易資料');
+              if (inp.hasSensitiveData === 'yes')           syn.push('敏感資料');
+              if (inp.complianceLevel === 'high')           syn.push('高法規要求');
+            } else if (item.key === 'bizRisk') {
+              if (inp.isCoreSystem === 'yes')               syn.push('核心業務系統');
+              if (inp.downtimeTolerance === 'none')         syn.push('零停機要求');
+              if (inp.needDR !== 'yes')                     syn.push('未規劃 DR');
+              if (inp.hasTrafficSpike === 'yes')            syn.push('流量尖峰風險');
+            }
+            // Only show factors when score is actually elevated
+            if (item.val >= 50) highFactors = syn.map(label => ({ label, pts: 0 }));
+          }
           return `
         <div class="risk-item" style="margin-bottom:var(--sp-4);">
           <div class="risk-item-top">
@@ -2003,9 +2044,9 @@ function renderResult(r, style) {
           <div style="display:flex;flex-wrap:wrap;gap:4px;">
             ${highFactors.map(f => `
             <span style="font-size:10px;padding:2px 8px;border-radius:var(--r-full);background:${item.val>=70?'rgba(197,48,48,0.08)':item.val>=50?'rgba(217,119,6,0.08)':'rgba(45,157,120,0.08)'};color:${item.val>=70?'var(--c-danger)':item.val>=50?'var(--c-warning)':'var(--c-success)'};border:1px solid ${item.val>=70?'rgba(197,48,48,0.2)':item.val>=50?'rgba(217,119,6,0.2)':'rgba(45,157,120,0.2)'};">
-              +${f.pts} ${f.label}
+              ${f.pts > 0 ? '+'+f.pts+' ' : ''}${f.label}
             </span>`).join('')}
-          </div>` : `<div style="font-size:10px;color:var(--c-success);opacity:0.8;">✅ 無重大風險因子</div>`}
+          </div>` : `<div style="font-size:10px;color:var(--c-success);opacity:0.8;">✅ 低風險 — 無顯著風險因子</div>`}
         </div>`;
         }).join('')}
       </div>
