@@ -911,7 +911,23 @@ Always respond with a valid JSON object matching this schema:
     "confidence": "high|medium|low",
     "assumptions": ["string"]
   }
-}`;
+}
+
+## CRITICAL LANGUAGE REQUIREMENT
+ALL text content in your JSON response MUST be written in **Traditional Chinese (繁體中文)**. This applies to every string value including:
+- strategy.rationale, all descriptions
+- landing_zone.identity, landing_zone.network, all purposes, all guardrails (string values)
+- cost.roi_3yr, all cost_drivers strings, scenario descriptions
+- risk.key_risks, all mitigation strings
+- executive_summary.headline, investment_summary, roi_statement, all board_risks risk/mitigation strings, all business_outcomes strings
+- technical_roadmap: all phase names, objectives, milestones, poc.scope, all success_criteria, all kpis, all critical_dependencies
+- regulatory_guidance: all key_requirements, gap_analysis strings
+- next_steps: all action, owner, timeline, effort strings
+- sustainability: rationale, all esg_guidance strings, provider_commitment, monitoring_tool
+- meta.assumptions
+
+JSON keys remain in English. All VALUES must be in 繁體中文.
+Do NOT use Simplified Chinese. Do NOT write in English for any description or recommendation field.`;
 
 // ── Server-side Fallback Result Builder ──────────────────────────────────────
 // Called when Workers AI fails to produce valid JSON.

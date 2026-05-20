@@ -563,7 +563,28 @@
     const secondary = strat.secondary || sortedEntries[1]?.[0] || 'rehost';
     const confidence = Math.min(95, Math.max(40, scores[primary] ? 40 + scores[primary]*2 : 65));
 
-    // Strategy 6R
+    // Strategy 6R — build reasons[] for the "為什麼是 X？" explanation panel
+    const STRATEGY_LABELS_ZH = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
+    const stratReasons = [];
+    if (strat.rationale) {
+      // Split API rationale into 2-3 factor bullets (API now returns Traditional Chinese)
+      const sentences = strat.rationale.split(/[。；;]/).map(s => s.trim()).filter(s => s.length > 10);
+      sentences.slice(0, 3).forEach((s, i) => {
+        const icons = ['🏗️', '📊', '⚡'];
+        const factors = ['策略依據', '業務考量', '技術評估'];
+        stratReasons.push({ icon: icons[i] || '💡', factor: factors[i] || '評估因子', detail: s });
+      });
+    }
+    if (!stratReasons.length) {
+      stratReasons.push({ icon: '🏗️', factor: '策略依據', detail: `依輸入的系統特性評分，${STRATEGY_LABELS_ZH[primary] || primary}在風險與效益的綜合評估下得分最高（信心度 ${confidence}%）` });
+    }
+    // Build rejected list from sorted scores (strategies significantly lower than primary)
+    const primaryScore = scores[primary] || 0;
+    const stratRejected = sortedEntries
+      .filter(([k, v]) => k !== primary && primaryScore - v >= 5)
+      .slice(0, 3)
+      .map(([k, v]) => `${STRATEGY_LABELS_ZH[k] || k}：綜合評分低 ${Math.round(primaryScore - v)} 分`);
+
     const strategy6R = {
       primary, secondary,
       scores,
@@ -571,6 +592,8 @@
       sorted: sortedEntries,
       rationale: strat.rationale || '',
       frameworks: strat.frameworks_applied || [],
+      reasons:  stratReasons,
+      rejected: stratRejected,
     };
 
     // Landing Zone — map API accounts to local format
