@@ -802,13 +802,28 @@
       effort:   n.effort   || 'medium',
     }));
 
-    // Decisions
-    const decisions = (exec.board_risks || []).map((br, i) => ({
-      id: i + 1,
-      question: br.risk || '',
-      recommendation: br.mitigation || '',
-      impact: 'high',
-    }));
+    // Decisions — must match renderResult's expected shape: {notActingCost[], coreDecisions[], mvpMust[]}
+    const boardRisks = exec.board_risks || [];
+    const decisions = {
+      notActingCost: [
+        ...boardRisks.slice(0, 3).map(br => br.risk || br.mitigation || '').filter(Boolean),
+        '現有系統維護成本持續上升，資深工程師技術傳承風險',
+        '競爭對手雲原生化後，業務靈活性與交付速度差距擴大',
+      ].slice(0, 5),
+      coreDecisions: [
+        `採行 ${stratName[primary] || primary}，信心度 ${confidence}%`,
+        'Landing Zone 建置優先於工作負載遷移（治理先行）',
+        ...boardRisks.slice(3).map(br => br.mitigation || '').filter(Boolean).slice(0, 2),
+        `預算區間確認：月費 USD $${low.toLocaleString()} – $${high.toLocaleString()}，需取得 IT + 財務共識`,
+      ].slice(0, 5),
+      mvpMust: [
+        'AWS Landing Zone + Control Tower 部署',
+        'IAM Identity Center + 最小授權 RBAC 設計',
+        'CloudTrail + Config + GuardDuty 基礎安全啟用',
+        '1 個非核心系統完整遷移驗證',
+        '成本監控與預算告警機制建立',
+      ],
+    };
 
     return {
       id:        `api_${Date.now()}`,

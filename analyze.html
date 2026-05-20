@@ -2025,15 +2025,15 @@ function renderResult(r, style) {
     <div class="decision-grid">
       <div class="decision-card inaction">
         <div class="decision-card-type">⚠️ 不行動的代價</div>
-        ${decisions.notActingCost.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+        ${(decisions.notActingCost || []).map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
       </div>
       <div class="decision-card core">
         <div class="decision-card-type">🎯 核心決策點</div>
-        ${decisions.coreDecisions.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+        ${(decisions.coreDecisions || []).map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
       </div>
       <div class="decision-card mvp">
         <div class="decision-card-type">🚀 MVP 必做項目</div>
-        ${decisions.mvpMust.map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
+        ${(decisions.mvpMust || []).map(d => `<div class="decision-list-item"><div class="decision-dot"></div>${d}</div>`).join('')}
       </div>
     </div>
   </div>`;
