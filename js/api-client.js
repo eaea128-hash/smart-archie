@@ -647,12 +647,25 @@
       annual:       mid  * 12,
       migrationLow:  Math.round(migBase * 0.8),
       migrationHigh: Math.round(migBase * 1.3),
+      // breakdown: same proportions as analyze-engine.js so renderResult never crashes on undefined
+      breakdown: {
+        compute:   Math.round(mid * 0.38),
+        database:  Math.round(mid * 0.18),
+        storage:   Math.round(mid * 0.15),
+        network:   Math.round(mid * 0.12),
+        security:  Math.round(mid * 0.08),
+        mgmt:      Math.round(mid * 0.05),
+        dr_backup: Math.round(mid * 0.04),
+      },
       drivers: (computedCost.cost_drivers || cost.cost_drivers || ['Compute', 'Storage', 'Network']).map(d =>
         typeof d === 'string' ? { name: d, pct: 30 } : d),
       roi3yr:      computedCost.roi_3yr || cost.roi_3yr || '',
       paybackMths: computedCost.payback_months || cost.payback_months || 18,
       scenarios:   computedScenarios,
-      pricingNote: computedCost.pricing_data_note || null,
+      pricingNote:    computedCost.pricing_data_note || null,
+      recommendation: mid > 50000
+        ? '建議優先進行 PoC / MVP 試驗，透過 Savings Plans 或 Reserved Instances 降低長期成本。'
+        : '建議採用 On-Demand 起步，第一季後根據使用率採購 Compute Savings Plans。',
     };
 
     // Risk Radar
