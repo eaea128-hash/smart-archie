@@ -2306,7 +2306,8 @@ function renderDecisionBoard(result) {
 
   const { inputs, strategy6R } = result;
   const rb = RuleBase.evaluate(inputs, strategy6R);
-  const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, scores } = rb;
+  const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, mvpMust, scores } = rb;
+  const isFinancialBoard = (inputs.industry || '').toLowerCase().match(/financial|banking|insurance|finance|金融|銀行|保險/);
 
   // ── Go/NoGo Banner ──
   const gonogoBanner = `
@@ -2477,6 +2478,21 @@ function renderDecisionBoard(result) {
           <div style="height:1px;background:var(--c-border-light);margin:var(--sp-3) 0;"></div>
           <div class="bdb-card-title">⚠️ 遷移反模式偵測</div>
           ${apHtml}
+        </div>
+      </div>
+
+      <!-- MVP Milestones — industry-aware from Rule-Base -->
+      <div style="margin-top:var(--sp-4);background:${isFinancialBoard ? 'rgba(15,43,61,0.03)' : 'var(--c-surface)'};border:1px solid ${isFinancialBoard ? 'rgba(15,43,61,0.15)' : 'var(--c-border-light)'};border-radius:var(--r-xl);padding:var(--sp-4);">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:var(--sp-3);">
+          <span style="font-size:13px;font-weight:700;color:var(--c-primary);">🚀 MVP 執行路徑${isFinancialBoard ? '（金融行業標準）' : ''}</span>
+          ${isFinancialBoard ? `<span style="font-size:10px;background:#1a6baf22;color:#1a6baf;padding:2px 8px;border-radius:20px;font-weight:600;">MAS TRM / FSC 合規路徑</span>` : ''}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;">
+          ${(mvpMust || []).map((item, i) => `
+          <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 10px;background:white;border-radius:var(--r-md);border-left:3px solid ${isFinancialBoard ? '#1a6baf' : 'var(--c-accent-teal)'};">
+            <span style="min-width:20px;height:20px;background:${isFinancialBoard ? '#1a6baf' : 'var(--c-accent-teal)'};color:white;border-radius:50%;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">${i+1}</span>
+            <span style="font-size:12px;color:var(--c-text);line-height:1.5;">${item}</span>
+          </div>`).join('')}
         </div>
       </div>
 

@@ -803,11 +803,25 @@ For each dimension: current score → target score → specific mitigations.
 - Recommended timeline in quarters
 
 **Technical PM Execution Guide:**
-- Phased roadmap: Foundation → Migration → Optimisation → Innovation
+- Phased roadmap: Foundation → MVP Pilot → Wave 1 Migration → Optimisation
 - Sprint-level milestones with owners (Cloud Architect, DevOps Lead, Security Lead, Compliance Officer)
 - PoC scope: what to prove, success criteria, 4-week timeline
 - Dependencies and critical path
 - KPI dashboard: what to measure weekly/monthly
+
+### MVP-First Principle (especially for Financial Institutions)
+Always apply a **Pilot-First / MVP-First** approach:
+- **Phase 0 (4–8 weeks):** Non-critical, non-customer-facing system as MVP Pilot (e.g., internal analytics, reporting, HR)
+  - Objective: validate Landing Zone, network connectivity, compliance scanning, DR procedures
+  - Gate: parallel operation ≥ 4 weeks with zero SLA breaches before proceeding
+- **Phase 1 (Wave 1):** Low-complexity, non-core business systems after Pilot gates passed
+- **Phase 2 (Wave 2+):** Core / customer-facing systems after regulatory approval and Wave 1 learnings
+
+For **Financial Institutions** (MAS/FSC/HKMA regulated):
+- Regulatory pre-work MUST precede migration: outsourcing notification, CSP due diligence (VAPT, SOC 2, ISO 27001)
+- Data residency assessment mandatory before selecting cloud region for customer data
+- Core banking systems: require separate regulatory consultation and extended parallel operation (≥ 3 months)
+- Recommended phases: Day 0 Governance Setup (6–10W) → Pilot (4–8W) → Regulatory Sign-off → Wave 1 (12–16W) → Wave 2+ Core Systems
 
 ### Step 7: Sustainability & Carbon Assessment
 When MCP tools provide carbon intensity data, use it to:

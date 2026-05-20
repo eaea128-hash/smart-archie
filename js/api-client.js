@@ -848,13 +848,27 @@
         ...boardRisks.slice(3).map(br => br.mitigation || '').filter(Boolean).slice(0, 2),
         `預算區間確認：月費 USD $${low.toLocaleString()} – $${high.toLocaleString()}，需取得 IT + 財務共識`,
       ].slice(0, 5),
-      mvpMust: [
-        'AWS Landing Zone + Control Tower 部署',
-        'IAM Identity Center + 最小授權 RBAC 設計',
-        'CloudTrail + Config + GuardDuty 基礎安全啟用',
-        '1 個非核心系統完整遷移驗證',
-        '成本監控與預算告警機制建立',
-      ],
+      // MVP milestones — financial industry gets compliance-first path
+      mvpMust: (() => {
+        const ind = (inputs.industry || '').toLowerCase();
+        const isFin = ['financial','banking','insurance','financial services','finance'].some(k => ind.includes(k));
+        return isFin ? [
+          '【Pilot 選定】選定非核心、非客戶直接接觸系統作為 MVP Pilot（內部分析/報表/HR 系統）',
+          '【Day 0 治理】Landing Zone + Control Tower 金融帳號架構（Security/Log/Network/Workload 帳號）',
+          '【監管前提】向主管機關完成雲端服務外包通知（MAS/FSC 重大委外申請文件）',
+          '【安全基線】IAM + MFA 強制 + CloudTrail + GuardDuty + Config Rules + Security Hub',
+          '【資料合規】個資/金融資料 Region 落地確認、KMS 加密、S3 Object Lock',
+          '【Pilot 驗證】平行運行 ≥ 4 週，效能/合規/DR 達標後正式切換',
+          '【Wave 1 啟動】核心系統分波遷移計畫（Wave 1 從非關鍵核心系統開始）',
+        ] : [
+          'AWS Landing Zone + Control Tower 部署',
+          'IAM Identity Center + 最小授權 RBAC 設計',
+          'CloudTrail + Config + GuardDuty 基礎安全啟用',
+          '1 個非核心系統完整遷移驗證（MVP Pilot）',
+          'DR 演練通過（RTO/RPO 達標）',
+          '成本監控與預算告警機制建立',
+        ];
+      })(),
     };
 
     return {

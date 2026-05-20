@@ -249,6 +249,28 @@ const RuleBase = (() => {
       trigger: i => i.archType === 'monolith' || i.techDebt === 'high',
       recommendation: '使用 AWS SCT/DMS 或 Azure Database Migration Service 進行相容性評估；建議先行小規模 PoC',
     },
+    // ── 金融行業專屬反模式 ──────────────────────────────────────
+    {
+      id: 'AP-007', risk: 'critical',
+      name: '金融機構未完成主管機關外包通知',
+      desc: '受 MAS/FSC/HKMA 監管的金融機構，在雲端服務達到「重大委外」門檻時，須於上線前向主管機關完成書面通知/申請',
+      trigger: i => i.isMajorOutsource === 'yes' && i.complianceLevel === 'high',
+      recommendation: '依 MAS 外包準則第 5.3 條，重大委外需完成書面通知；建議提早 3–6 個月與法遵部門協作；準備 CSP 盡職調查報告（VAPT、SOC 2、ISO 27001）',
+    },
+    {
+      id: 'AP-008', risk: 'critical',
+      name: '客戶個資/金融資料境外儲存未評估',
+      desc: '含客戶個資或金融交易資料的系統，未確認資料主權/落地要求即選定雲端 Region',
+      trigger: i => (i.hasPersonalData === 'yes' || i.hasFinancialData === 'yes') && i.complianceLevel === 'high',
+      recommendation: '優先使用境內 Region（AWS 台灣/新加坡、Azure East Asia）；設定 AWS Config Rule「restricted-to-approved-regions」；完成 PDPA/FSC 資料落地評估文件',
+    },
+    {
+      id: 'AP-009', risk: 'high',
+      name: 'MVP Pilot 跳過，直接遷移核心業務',
+      desc: '未先以非核心系統完成 MVP Pilot 驗證技術可行性，即直接啟動核心系統遷移，導致問題發現時已影響業務',
+      trigger: i => i.isCoreSystem === 'yes' && i.cloudMaturity !== 'high',
+      recommendation: '金融業建議 MVP Pilot 優先：選定內部分析、報表或 HR 系統先行遷移（4–8 週）；驗證 Landing Zone、網路連線、合規掃描後，再啟動核心系統遷移波次',
+    },
   ];
 
   // ══════════════════════════════════════════════════════════
@@ -363,7 +385,7 @@ const RuleBase = (() => {
   // ── GO / NO-GO DETERMINATION ──────────────────────────────
   // ══════════════════════════════════════════════════════════
 
-  function determineGoNoGo(govResults, antiPatterns, skillGap) {
+  function determineGoNoGo(govResults, antiPatterns, skillGap, inputs) {
     const criticalGovFails = govResults.filter(r => !r.passed && r.severity === 'critical').length;
     const highGovFails     = govResults.filter(r => !r.passed && r.severity === 'high').length;
     const criticalAP       = antiPatterns.filter(ap => ap.risk === 'critical').length;
@@ -389,12 +411,27 @@ const RuleBase = (() => {
       };
     }
 
+    // ── 金融行業額外前提條件 ───────────────────────────────────────────────
+    const ind = (inputs?.industry || '').toLowerCase();
+    const isFinancial = ['financial','banking','insurance','financial services','finance','銀行','金融','保險'].some(k => ind.includes(k));
+    const financialPrereqs = [];
+    if (isFinancial) {
+      if (inputs?.isMajorOutsource === 'yes') financialPrereqs.push('MAS/FSC 重大委外通知文件（上線前 6 個月送件）');
+      if (inputs?.hasPersonalData === 'yes' || inputs?.hasFinancialData === 'yes') financialPrereqs.push('資料主權評估完成：確認個資/交易資料 Region 落地合規（PDPA/FSC）');
+      if (inputs?.complianceLevel === 'high') financialPrereqs.push('CSP 盡職調查報告取得（VAPT 報告、SOC 2 Type II、ISO 27001）');
+    }
+    const mvpPrereq = (isFinancial && inputs?.isCoreSystem === 'yes' && inputs?.cloudMaturity !== 'high')
+      ? 'MVP Pilot 先行：以非核心系統完成 4–8 週 Pilot，驗證 Landing Zone + 合規掃描後再啟動核心系統波次'
+      : null;
+
     // ── 附條件可行：有單一關鍵反模式、高度治理缺口或技能嚴重不足 ──────────
     const softBlock = criticalGovFails >= 1 || criticalAP >= 1
-      || highGovFails > 1 || highAP > 1 || criticalSkillGap > 0;
+      || highGovFails > 1 || highAP > 1 || criticalSkillGap > 0
+      || financialPrereqs.length > 0;
 
     if (softBlock) {
       const conditions = [];
+      if (mvpPrereq)         conditions.push(mvpPrereq);
       if (criticalAP >= 1) {
         const names = antiPatterns.filter(ap => ap.risk === 'critical').map(ap => ap.name).join('、');
         conditions.push(`優先處理關鍵反模式：${names}（遷移前必須制定對應緩解計畫）`);
@@ -403,19 +440,23 @@ const RuleBase = (() => {
       if (highGovFails > 0)      conditions.push(`補強 ${highGovFails} 個高風險治理項目`);
       if (criticalSkillGap > 0)  conditions.push(`引入 ${criticalSkillGap} 個關鍵技能資源（外部顧問或專職招募）`);
       if (highAP > 0)            conditions.push(`制定 ${highAP} 個高風險反模式的對應計畫`);
+      conditions.push(...financialPrereqs);
       return {
         decision: 'conditional',
         label:    '🟡 附條件可行 (Conditional Go)',
         color:    '#b45309',
         bgColor:  '#fef3c7',
-        message:  '整體方向可行，但需先完成以下前提條件後再正式啟動：',
+        message:  isFinancial
+          ? '金融行業遷移條件評估：整體方向可行，需先完成以下監管與技術前提條件：'
+          : '整體方向可行，但需先完成以下前提條件後再正式啟動：',
         conditions,
       };
     }
 
     // ── 建議推進 ─────────────────────────────────────────────────────────────
-    if (majorSkillGap > 0 || highAP > 0 || highGovFails > 0) {
+    if (majorSkillGap > 0 || highAP > 0 || highGovFails > 0 || mvpPrereq) {
       const conditions = [];
+      if (mvpPrereq)        conditions.push(mvpPrereq);
       if (highGovFails > 0) conditions.push(`建議完成 ${highGovFails} 個高風險治理項目`);
       if (highAP > 0)       conditions.push(`留意 ${highAP} 個中高風險反模式，執行中持續監控`);
       if (majorSkillGap > 0) conditions.push(`技能缺口建議透過培訓或外部顧問補強`);
@@ -433,7 +474,9 @@ const RuleBase = (() => {
       label:    '🟢 建議推進 (Go)',
       color:    '#15803d',
       bgColor:  '#f0fdf4',
-      message:  '治理基礎、技能配置、風險控制均在可接受範圍，建議按計劃推進遷移。',
+      message:  isFinancial
+        ? '金融行業治理基礎、監管前提、技能配置均符合上雲條件，建議依 MVP Pilot → 核心系統分波遷移路徑推進。'
+        : '治理基礎、技能配置、風險控制均在可接受範圍，建議按計劃推進遷移。',
       conditions: [],
     };
   }
@@ -452,7 +495,7 @@ const RuleBase = (() => {
     }));
 
     // 2. Industry compliance rules
-    const compKey = (['financial','banking','insurance','banking_finance','financial services'].includes(industry))
+    const compKey = (['financial','banking','insurance','banking_finance','financial services','finance'].some(k => industry.includes(k)))
       ? 'financial'
       : industry === 'healthcare' ? 'healthcare'
       : industry === 'government' ? 'government'
@@ -470,8 +513,8 @@ const RuleBase = (() => {
     // 5. Strategy distribution
     const stratDist = strategyDistribution(strategy6R);
 
-    // 6. Go/NoGo
-    const goNoGo = determineGoNoGo(govResults, triggeredAP, skillGap);
+    // 6. Go/NoGo (pass inputs for financial-industry awareness)
+    const goNoGo = determineGoNoGo(govResults, triggeredAP, skillGap, inputs);
 
     // 7. Governance score
     const passedGov  = govResults.filter(r => r.passed).length;
@@ -484,6 +527,25 @@ const RuleBase = (() => {
     const antiPatScore  = Math.max(20, 100 - triggeredAP.reduce((s, ap) => s + (ap.risk === 'critical' ? 30 : 15), 0));
     const bizReadiness  = Math.round((govScore * 0.35 + skillScore * 0.30 + compliScore * 0.20 + antiPatScore * 0.15));
 
+    // 9. MVP Milestones — industry-aware, shown in Decision Board
+    const isFinancialIndustry = compKey === 'financial';
+    const mvpMust = isFinancialIndustry ? [
+      '【Pilot 選定】選定非核心、非客戶直接接觸系統作為 MVP Pilot（內部分析/報表/HR 系統）',
+      '【Day 0 治理】Landing Zone + Control Tower 金融帳號架構部署（含 Security/Log/Network 帳號）',
+      '【監管前提】向主管機關完成雲端服務外包通知（MAS/FSC 重大委外申請）',
+      '【安全基線】IAM Identity Center + MFA 強制 + CloudTrail + GuardDuty + Config Rules',
+      '【資料合規】確認個資/金融資料 Region 落地、KMS 加密、S3 Object Lock 啟用',
+      '【Pilot 驗證】平行運行 ≥ 4 週，完成效能/合規/DR 驗收，RTO/RPO 達標測試',
+      '【Wave 1 啟動】Pilot 通過後，制定核心系統分波遷移計畫（Wave 1 非關鍵核心系統）',
+    ] : [
+      'AWS Landing Zone + Control Tower 部署',
+      'IAM Identity Center + 最小授權 RBAC 設計',
+      'CloudTrail + Config + GuardDuty 基礎安全啟用',
+      '1 個非核心系統完整遷移驗證（MVP Pilot）',
+      '成本監控與預算告警機制建立',
+      'DR 演練通過（RTO/RPO 達標）',
+    ];
+
     return {
       governance:   { rules: govResults, score: govScore, passedGov, totalGov: govResults.length },
       compliance:   { rules: compResults, jurisdiction: compKey },
@@ -491,6 +553,7 @@ const RuleBase = (() => {
       skillGap,
       strategyDistribution: stratDist,
       goNoGo,
+      mvpMust,
       scores: { governance: govScore, skill: skillScore, compliance: compliScore, antiPattern: antiPatScore, bizReadiness },
     };
   }
