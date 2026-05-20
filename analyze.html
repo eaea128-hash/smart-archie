@@ -553,6 +553,82 @@
       #ig-impact-panel { max-height: 300px; }
     }
 
+    /* ── Business Decision Board ─────────────────────────────── */
+    .bdb-wrap { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: var(--sp-4); }
+    .bdb-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); padding: var(--sp-4); display: flex; flex-direction: column;
+    }
+    .bdb-card-title { font-size: var(--fs-xs); font-weight: 700; color: var(--c-primary);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--sp-3); }
+    /* Go/NoGo banner */
+    .bdb-gonogo {
+      border-radius: var(--r-xl); padding: var(--sp-4) var(--sp-5);
+      margin-bottom: var(--sp-4); display: flex; align-items: flex-start; gap: var(--sp-4);
+    }
+    .bdb-gonogo-badge {
+      font-size: var(--fs-md); font-weight: 800; white-space: nowrap; padding: 6px 16px;
+      border-radius: var(--r-full); flex-shrink: 0;
+    }
+    .bdb-gonogo-body { flex: 1; }
+    .bdb-gonogo-msg { font-size: var(--fs-sm); font-weight: 600; margin-bottom: var(--sp-2); }
+    .bdb-gonogo-cond { font-size: 11px; line-height: 1.8; }
+    /* Strategy distribution */
+    .bdb-dist-row { display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2); }
+    .bdb-dist-label { font-size: 11px; font-weight: 600; width: 160px; flex-shrink: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bdb-dist-bar-wrap { flex: 1; height: 8px; background: var(--c-border-light); border-radius: 4px; overflow: hidden; }
+    .bdb-dist-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+    .bdb-dist-pct { font-size: 11px; font-weight: 700; width: 36px; text-align: right; flex-shrink: 0; }
+    /* Skill gap table */
+    .bdb-skill-row { display: flex; align-items: center; gap: var(--sp-2);
+      padding: 6px 0; border-bottom: 1px solid var(--c-border-light); }
+    .bdb-skill-row:last-child { border-bottom: none; }
+    .bdb-skill-icon { font-size: 14px; width: 20px; flex-shrink: 0; }
+    .bdb-skill-name { font-size: 11px; font-weight: 600; flex: 1; }
+    .bdb-skill-stars { display: flex; gap: 2px; flex-shrink: 0; }
+    .bdb-star { width: 8px; height: 8px; border-radius: 50%; }
+    .bdb-star.filled { background: var(--c-accent-teal); }
+    .bdb-star.required { background: #e2e8f0; border: 1px dashed #94a3b8; }
+    .bdb-star.gap { background: #fca5a5; }
+    .bdb-skill-status { font-size: 10px; font-weight: 600; flex-shrink: 0; }
+    /* Governance checklist */
+    .bdb-gov-row { display: flex; align-items: flex-start; gap: var(--sp-2);
+      padding: 5px 0; border-bottom: 1px solid var(--c-border-light); font-size: 11px; }
+    .bdb-gov-row:last-child { border-bottom: none; }
+    .bdb-gov-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+    .bdb-gov-text { flex: 1; line-height: 1.4; }
+    .bdb-gov-badge { font-size: 9px; font-weight: 700; padding: 1px 6px; border-radius: var(--r-full);
+      flex-shrink: 0; white-space: nowrap; }
+    /* Anti-patterns */
+    .bdb-ap-item { background: #fff7ed; border: 1px solid #fed7aa; border-radius: var(--r-md);
+      padding: var(--sp-3); margin-bottom: var(--sp-2); }
+    .bdb-ap-critical { background: #fef2f2; border-color: #fecaca; }
+    .bdb-ap-name { font-size: 12px; font-weight: 700; margin-bottom: 4px; }
+    .bdb-ap-rec { font-size: 11px; color: var(--c-text-muted); line-height: 1.6; }
+    /* Business readiness ring */
+    .bdb-readiness-ring { position: relative; width: 90px; height: 90px; flex-shrink: 0; }
+    .bdb-readiness-svg { width: 90px; height: 90px; transform: rotate(-90deg); }
+    .bdb-readiness-num {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      font-size: var(--fs-lg); font-weight: 800; color: var(--c-primary);
+    }
+    .bdb-scores-row { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-top: var(--sp-3); }
+    .bdb-score-chip {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      background: var(--c-surface-2); border-radius: var(--r-md); padding: 8px 12px; flex: 1;
+    }
+    .bdb-score-chip-val { font-size: var(--fs-md); font-weight: 800; color: var(--c-primary); }
+    .bdb-score-chip-label { font-size: 9px; color: var(--c-text-muted); text-align: center; }
+    /* Compliance rules */
+    .bdb-comp-item { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
+      margin-bottom: 4px; border: 1px solid; font-size: 11px; display: flex; gap: var(--sp-2); align-items: flex-start; }
+    .bdb-comp-pass { background: #f0fdf4; border-color: #86efac; }
+    .bdb-comp-fail { background: #fef2f2; border-color: #fca5a5; }
+    @media (max-width: 900px) {
+      .bdb-wrap { grid-template-columns: 1fr; }
+    }
+
     /* ── What-If Simulation Panel ──────────────────────────── */
     .whatif-panel {
       background: var(--c-surface); border: 2px solid var(--c-accent-teal);
@@ -1140,6 +1216,7 @@
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/analyze-engine.js"></script>
+<script src="js/rule-base.js"></script>
 <script src="js/impact-graph.js"></script>
 <script src="js/metadata-parser.js"></script>
 <script src="js/api-client.js"></script>
@@ -1235,6 +1312,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentResult = item.result;
           currentDbId   = item.id;
           renderResult(item.result, style);
+          renderDecisionBoard(item.result);
           renderWhatIf(item.result);
           renderImpactGraph(item.result);
           SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
@@ -1419,6 +1497,7 @@ async function runAnalysis() {
     clearInterval(msgTimer);
     SA.Loading.hide();
     renderResult(result, reportStyle);
+    renderDecisionBoard(result);    // ← Business Decision Board (Rule/Knowledge Base)
     renderWhatIf(result);           // ← What-If panel (always shown, instant)
     renderImpactGraph(result);      // ← Bounded Context Impact Analysis
     saveToHistory(result);
@@ -2195,6 +2274,212 @@ function renderResult(r, style) {
 
   // Scroll to top of results
   document.getElementById('resultPanel').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Business Decision Board ───────────────────────────────────
+// Renders the executive decision panel powered by rule-base.js
+function renderDecisionBoard(result) {
+  if (!result?.inputs || typeof RuleBase === 'undefined') return;
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  // Remove old board if exists (history replay)
+  document.getElementById('decisionBoardSection')?.remove();
+
+  const { inputs, strategy6R } = result;
+  const rb = RuleBase.evaluate(inputs, strategy6R);
+  const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, scores } = rb;
+
+  // ── Go/NoGo Banner ──
+  const gonogoBanner = `
+    <div class="bdb-gonogo" style="background:${goNoGo.bgColor};border:2px solid ${goNoGo.color};">
+      <div class="bdb-gonogo-badge" style="background:${goNoGo.color};color:white;">${goNoGo.label}</div>
+      <div class="bdb-gonogo-body">
+        <div class="bdb-gonogo-msg" style="color:${goNoGo.color};">${goNoGo.message}</div>
+        ${goNoGo.conditions.length ? `
+          <ul class="bdb-gonogo-cond" style="margin:0;padding-left:16px;">
+            ${goNoGo.conditions.map(c => `<li style="color:#92400e;">${c}</li>`).join('')}
+          </ul>` : ''}
+      </div>
+    </div>`;
+
+  // ── Business Readiness Ring ──
+  const r = 38, circ = 2 * Math.PI * r;
+  const fillFrac = scores.bizReadiness / 100;
+  const strokeColor = scores.bizReadiness >= 70 ? '#4ade80' : scores.bizReadiness >= 50 ? '#fbbf24' : '#f87171';
+  const readinessRing = `
+    <div style="display:flex;align-items:center;gap:var(--sp-5);">
+      <div class="bdb-readiness-ring">
+        <svg class="bdb-readiness-svg" viewBox="0 0 90 90">
+          <circle cx="45" cy="45" r="${r}" fill="none" stroke="#e2e8f0" stroke-width="9"/>
+          <circle cx="45" cy="45" r="${r}" fill="none" stroke="${strokeColor}" stroke-width="9"
+            stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - fillFrac)}"
+            stroke-linecap="round"/>
+        </svg>
+        <div class="bdb-readiness-num">${scores.bizReadiness}</div>
+      </div>
+      <div>
+        <div style="font-size:var(--fs-sm);font-weight:700;color:var(--c-primary);margin-bottom:4px;">商業就緒度</div>
+        <div style="font-size:11px;color:var(--c-text-muted);line-height:1.6;">
+          治理 ${scores.governance}% ・ 技能 ${scores.skill}% ・ 合規 ${scores.compliance}%
+        </div>
+      </div>
+    </div>`;
+
+  // ── Strategy Distribution ──
+  const stratDistHtml = strategyDistribution.map(d => `
+    <div class="bdb-dist-row">
+      <div class="bdb-dist-label" style="color:${d.key === strategy6R.primary ? 'var(--c-primary)' : 'var(--c-text-muted)'};">
+        ${d.key === strategy6R.primary ? '⭐ ' : ''}${d.label}
+      </div>
+      <div class="bdb-dist-bar-wrap">
+        <div class="bdb-dist-bar" style="width:${d.pct}%;background:${d.color};"></div>
+      </div>
+      <div class="bdb-dist-pct" style="color:${d.color};">${d.pct}%</div>
+    </div>`).join('');
+
+  // ── Skill Gap Table ──
+  const skillHtml = skillGap.map(s => {
+    const LEVEL_MAX = 4;
+    let stars = '';
+    for (let i = 1; i <= LEVEL_MAX; i++) {
+      if (i <= s.currentLevel) stars += `<div class="bdb-star filled"></div>`;
+      else if (i <= s.required && s.gap > 0) stars += `<div class="bdb-star gap"></div>`;
+      else if (i <= s.required) stars += `<div class="bdb-star filled"></div>`;
+      else stars += `<div class="bdb-star required"></div>`;
+    }
+    return `
+      <div class="bdb-skill-row">
+        <div class="bdb-skill-icon">${s.icon}</div>
+        <div class="bdb-skill-name">${s.skill}</div>
+        <div class="bdb-skill-stars">${stars}</div>
+        <div class="bdb-skill-status" style="color:${s.status==='ok'?'#15803d':s.status==='minor'?'#b45309':s.status==='major'?'#c2410c':'#991b1b'}">
+          ${s.gapLabel}
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Governance Checklist (top 5 most critical) ──
+  const govTop = [...gov.rules].sort((a, b) => {
+    const sevOrder = { critical: 0, high: 1, medium: 2 };
+    return (a.passed ? 1 : 0) - (b.passed ? 1 : 0) || sevOrder[a.severity] - sevOrder[b.severity];
+  }).slice(0, 5);
+  const govHtml = govTop.map(rule => {
+    const dotColor = rule.passed ? '#4ade80' : rule.severity === 'critical' ? '#ef4444' : '#f97316';
+    const badgeBg  = rule.severity === 'critical' ? '#fef2f2' : rule.severity === 'high' ? '#fff7ed' : '#fefce8';
+    const badgeCol = rule.severity === 'critical' ? '#b91c1c' : rule.severity === 'high' ? '#c2410c' : '#b45309';
+    return `
+      <div class="bdb-gov-row">
+        <div class="bdb-gov-dot" style="background:${dotColor};"></div>
+        <div class="bdb-gov-text" style="color:${rule.passed ? 'var(--c-text-muted)' : 'var(--c-text)'};">
+          ${rule.passed ? '<s>' : ''}${rule.title}${rule.passed ? '</s>' : ''}
+        </div>
+        <div class="bdb-gov-badge" style="background:${badgeBg};color:${badgeCol};">
+          ${rule.severity === 'critical' ? '關鍵' : rule.severity === 'high' ? '高' : '中'}
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Anti-Patterns ──
+  const apHtml = antiPatterns.length === 0
+    ? `<div style="color:#15803d;font-size:12px;">✅ 未偵測到明顯遷移反模式</div>`
+    : antiPatterns.map(ap => `
+      <div class="bdb-ap-item ${ap.risk === 'critical' ? 'bdb-ap-critical' : ''}">
+        <div class="bdb-ap-name">${ap.risk === 'critical' ? '🔴' : '🟠'} ${ap.name}</div>
+        <div class="bdb-ap-rec">建議：${ap.recommendation}</div>
+      </div>`).join('');
+
+  // ── Compliance Rules (if applicable) ──
+  const compHtml = compliance.rules.length === 0
+    ? `<div style="color:var(--c-text-muted);font-size:12px;">此行業類型無特定法遵要求對應</div>`
+    : compliance.rules.slice(0, 4).map(rule => `
+      <div class="bdb-comp-item ${rule.passed ? 'bdb-comp-pass' : 'bdb-comp-fail'}">
+        <span>${rule.passed ? '✅' : '⚠️'}</span>
+        <div>
+          <div style="font-weight:600;color:var(--c-text);">[${rule.id}] ${rule.title}</div>
+          <div style="color:var(--c-text-muted);margin-top:2px;">${rule.jurisdiction}</div>
+          ${!rule.passed ? `<div style="color:#b91c1c;margin-top:4px;">建議：${rule.remedy}</div>` : ''}
+        </div>
+      </div>`).join('');
+
+  const dbSection = document.createElement('div');
+  dbSection.id        = 'decisionBoardSection';
+  dbSection.className = 'result-section animate-up';
+  container.appendChild(dbSection);
+
+  dbSection.innerHTML = `
+    <div>
+      <div class="result-section-title">
+        <span class="rst-icon">🎯</span>主管決策儀表板 (Executive Decision Board)
+        <span style="font-size:10px;font-weight:400;color:var(--c-text-muted);margin-left:auto;">
+          由 Rule/Knowledge Base 驅動 — ${gov.totalGov} 條治理規則 ・ ${skillGap.length} 項技能評估
+        </span>
+      </div>
+
+      ${gonogoBanner}
+
+      ${readinessRing}
+
+      <div class="bdb-wrap" style="margin-top:var(--sp-4);">
+        <!-- Card 1: Strategy Distribution -->
+        <div class="bdb-card">
+          <div class="bdb-card-title">📊 策略建議比重分析</div>
+          <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:var(--sp-3);">
+            依 6R 評分換算各策略比重，供資源分配參考
+          </div>
+          ${stratDistHtml}
+          <div style="font-size:10px;color:var(--c-text-muted);margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--c-border-light);">
+            ⭐ 標示為主要建議策略；比重愈高代表該策略評估因子得分愈高
+          </div>
+        </div>
+
+        <!-- Card 2: Skill Gap -->
+        <div class="bdb-card">
+          <div class="bdb-card-title">🧠 人力技能缺口評估</div>
+          <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:var(--sp-3);">
+            依「${inputs.cloudMaturity === 'high' ? '高' : inputs.cloudMaturity === 'medium' ? '中' : '低'}」雲端成熟度估算現有技能水準
+          </div>
+          ${skillHtml}
+          ${skillGap.some(s => s.gap > 0) ? `
+          <div style="font-size:10px;background:#fff8e1;border-radius:var(--r-md);padding:6px 8px;margin-top:var(--sp-2);color:#b45309;">
+            💡 建議：缺口技能可透過外部顧問（短期）+ 內部培訓（長期）雙軌補強
+          </div>` : `
+          <div style="font-size:10px;background:#f0fdf4;border-radius:var(--r-md);padding:6px 8px;margin-top:var(--sp-2);color:#15803d;">
+            ✅ 現有技能水準足以支撐此遷移策略
+          </div>`}
+        </div>
+
+        <!-- Card 3: Governance Checklist + Anti-Patterns -->
+        <div class="bdb-card">
+          <div class="bdb-card-title">🛡️ 治理關鍵項目</div>
+          <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:var(--sp-3);">
+            通過 ${gov.passedGov}/${gov.totalGov} ・ 評分 ${scores.governance}%
+          </div>
+          ${govHtml}
+          <div style="height:1px;background:var(--c-border-light);margin:var(--sp-3) 0;"></div>
+          <div class="bdb-card-title">⚠️ 遷移反模式偵測</div>
+          ${apHtml}
+        </div>
+      </div>
+
+      <!-- Compliance Rules (if financial/healthcare/govt) -->
+      ${compliance.rules.length > 0 ? `
+      <div style="margin-top:var(--sp-4);background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);padding:var(--sp-4);">
+        <div class="bdb-card-title">⚖️ 法遵規範檢核（${
+          compliance.jurisdiction === 'financial' ? '金融行業' :
+          compliance.jurisdiction === 'healthcare' ? '醫療行業' :
+          compliance.jurisdiction === 'government' ? '政府機關' : '製造業'
+        }）</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+          ${compHtml}
+        </div>
+        <div style="font-size:10px;color:var(--c-text-muted);margin-top:var(--sp-2);">
+          * 以上為常見法遵要求摘要，具體適用性請諮詢法律顧問確認
+        </div>
+      </div>` : ''}
+    </div>
+  `;
 }
 
 // ── Impact Graph (Bounded Context Analysis) ──────────────────
