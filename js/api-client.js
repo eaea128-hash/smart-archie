@@ -637,9 +637,18 @@
     const consCost = computedScenarios.conservative || {};
     const aggCost  = computedScenarios.aggressive   || {};
     const mid  = recCost.monthly_usd  || 5000;
-    const low  = consCost.monthly_usd || Math.round(mid * 0.7);
-    const high = aggCost.monthly_usd  || Math.round(mid * 1.4);
-    const migBase = computedCost.migration_cost_usd || mid * 3;
+    // Bug fix: API may return scenarios in wrong order → always enforce low < mid < high
+    const rawLow  = consCost.monthly_usd || Math.round(mid * 0.7);
+    const rawHigh = aggCost.monthly_usd  || Math.round(mid * 1.4);
+    const low  = Math.min(rawLow, mid, rawHigh);
+    const high = Math.max(rawLow, mid, rawHigh);
+    // Bug fix: Claude API sometimes returns migration_cost_usd as total project cost (~40x monthly).
+    // Clamp to a realistic range: 3–10x monthly. Use FinOps formula as authoritative baseline.
+    const apiMigBase = computedCost.migration_cost_usd;
+    const formulaMigBase = mid * 4;   // 4× monthly = reasonable mid-point
+    const migBase = (apiMigBase && apiMigBase <= mid * 12)
+      ? apiMigBase       // accept if API value ≤ 12× monthly (plausible)
+      : formulaMigBase;  // reject unrealistic API values, use formula
     const costEstimate = {
       low, mid, high,
       annualLow:    low  * 12,
