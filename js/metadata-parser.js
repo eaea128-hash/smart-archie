@@ -226,32 +226,43 @@ const MetadataParser = (() => {
   }
 
   function _splitLargeComponents(components, adj, edges) {
-    // If all components small enough → nothing to split
-    const MAX_PER_COMP = 30;
+    // Split any component with > MAX_CLUSTER_SIZE members using multi-hub BFS.
+    // Target: produce 2–4 clusters per large component (realistic for PM decisions).
+    const MAX_CLUSTER_SIZE = 8;
     const result = [];
 
     components.forEach(comp => {
-      if (comp.length <= MAX_PER_COMP || result.length + 1 >= TARGET_MAX) {
+      // Keep small components or when global limit reached
+      if (comp.length <= MAX_CLUSTER_SIZE || result.length + 1 >= TARGET_MAX) {
         result.push(comp);
         return;
       }
 
-      // Hub-territory partition: find top-2 hubs by degree within component
-      const degrees = {};
-      comp.forEach(n => {
-        degrees[n] = [...(adj[n] || [])].filter(nb => comp.includes(nb)).length;
-      });
-      const hubs = [...comp].sort((a, b) => degrees[b] - degrees[a]).slice(0, 2);
+      // How many hubs? aim for ~4 nodes per cluster (ceil(n/4)), capped at remaining slots
+      const remainingSlots = TARGET_MAX - result.length;
+      const numHubs = Math.min(
+        remainingSlots,
+        Math.max(2, Math.ceil(comp.length / 4))
+      );
 
-      // BFS territory from each hub
-      const territory = { [hubs[0]]: 0, [hubs[1]]: 1 };
+      // Rank by degree within component, pick top-N as hubs
+      const degrees = {};
+      const compSet = new Set(comp);
+      comp.forEach(n => {
+        degrees[n] = [...(adj[n] || [])].filter(nb => compSet.has(nb)).length;
+      });
+      const hubs = [...comp].sort((a, b) => degrees[b] - degrees[a]).slice(0, numHubs);
+
+      // Multi-hub BFS territory assignment
+      const territory = {};
+      hubs.forEach((h, i) => { territory[h] = i; });
       const visited = new Set(hubs);
       const queue = hubs.map((h, i) => ({ node: h, hub: i }));
 
       while (queue.length) {
         const { node, hub } = queue.shift();
         (adj[node] || new Set()).forEach(nb => {
-          if (!visited.has(nb) && comp.includes(nb)) {
+          if (!visited.has(nb) && compSet.has(nb)) {
             visited.add(nb);
             territory[nb] = hub;
             queue.push({ node: nb, hub });
@@ -259,17 +270,24 @@ const MetadataParser = (() => {
         });
       }
 
-      // Unvisited → assign to nearest hub by edge count
+      // Unvisited nodes → assign to hub with most direct edges
       comp.filter(n => territory[n] === undefined).forEach(n => {
-        const c0 = edges.filter(e => (e.from === n && territory[e.to] === 0) || (e.to === n && territory[e.from] === 0)).length;
-        const c1 = edges.filter(e => (e.from === n && territory[e.to] === 1) || (e.to === n && territory[e.from] === 1)).length;
-        territory[n] = c0 >= c1 ? 0 : 1;
+        let best = 0, bestCount = -1;
+        hubs.forEach((_, i) => {
+          const count = edges.filter(e =>
+            (e.from === n && territory[e.to] === i) ||
+            (e.to   === n && territory[e.from] === i)
+          ).length;
+          if (count > bestCount) { bestCount = count; best = i; }
+        });
+        territory[n] = best;
       });
 
-      const g0 = comp.filter(n => territory[n] === 0);
-      const g1 = comp.filter(n => territory[n] !== 0);
-      if (g0.length > 0) result.push(g0);
-      if (g1.length > 0) result.push(g1);
+      // Build N groups and push non-empty ones
+      hubs.forEach((_, i) => {
+        const group = comp.filter(n => territory[n] === i);
+        if (group.length > 0) result.push(group);
+      });
     });
 
     return result;
@@ -290,12 +308,22 @@ const MetadataParser = (() => {
   }
 
   // ── Coupling Score ────────────────────────────────────────
-  // internal_edges / possible_internal_edges
-  function calcCouplingScore(members, edges) {
-    const memberSet = new Set(members);
-    const internal  = edges.filter(e => memberSet.has(e.from) && memberSet.has(e.to)).length;
-    const possible  = members.length > 1 ? members.length * (members.length - 1) : 1;
-    return Math.min(98, Math.round((internal / possible) * 100 * 3));  // ×3 amplifier for realism
+  // Composite: internal density + external inbound pressure per node.
+  // Avoids the "small cluster = inflated density" problem of pure n*(n-1) normalization.
+  function calcCouplingScore(members, allEdges) {
+    const memberSet  = new Set(members);
+    const n          = members.length;
+    if (n === 0) return 0;
+
+    const internal   = allEdges.filter(e => memberSet.has(e.from) && memberSet.has(e.to)).length;
+    const inbound    = allEdges.filter(e => !memberSet.has(e.from) && memberSet.has(e.to)).length;
+    const outbound   = allEdges.filter(e => memberSet.has(e.from) && !memberSet.has(e.to)).length;
+
+    // Coupling = how hard is this cluster to decouple from the rest?
+    // Inbound counts more (others depend on us = hard to change)
+    // Normalize per cluster member so large clusters aren't penalized
+    const raw = ((inbound * 18 + outbound * 6 + internal * 3) / (n * 1.5));
+    return Math.min(98, Math.max(5, Math.round(raw)));
   }
 
   // ── Edge Strength Classification ──────────────────────────
@@ -353,11 +381,23 @@ const MetadataParser = (() => {
   }
 
   // ── Risk Level from Coupling Score ────────────────────────
+  // Thresholds calibrated for the composite coupling formula above.
   function riskFromCoupling(coupling, hasExternalDep, isHub) {
-    if (coupling > 65 || isHub)            return 'critical';
-    if (coupling > 35 || hasExternalDep)   return 'high';
-    if (coupling > 15)                     return 'medium';
+    if (coupling > 40 || isHub)            return 'critical';
+    if (coupling > 20 || hasExternalDep)   return 'high';
+    if (coupling > 8)                      return 'medium';
     return 'low';
+  }
+
+  // ── Display Coupling Normalization ───────────────────────
+  // Maps raw coupling (typically 0–30) to a risk-consistent visual range.
+  // Keeps the bar visually aligned with the risk badge without changing risk logic.
+  const DISPLAY_RANGE = { critical: [70, 95], high: [45, 70], medium: [20, 45], low: [8, 22] };
+
+  function _normalizeDisplayCoupling(rawCoupling, risk) {
+    const [lo, hi] = DISPLAY_RANGE[risk] || [10, 60];
+    const t = Math.min(1, rawCoupling / 25);  // raw typically peaks around 25
+    return Math.round(lo + t * (hi - lo));
   }
 
   // ── Phase Assignment ──────────────────────────────────────
@@ -425,30 +465,40 @@ const MetadataParser = (() => {
     const communityGroups = detectCommunities(parsed.nodes, parsed.edges, parsed.explicitGroups);
 
     // 3. Build cluster objects
+    // First pass: compute totalEdges per cluster to identify hub
+    const clusterTotalEdges = communityGroups.map(members => {
+      const memberSet = new Set(members);
+      return parsed.edges.filter(e => memberSet.has(e.from) || memberSet.has(e.to)).length;
+    });
+    const maxTotalEdges = Math.max(...clusterTotalEdges);
+
     const clustersRaw = communityGroups.map((members, idx) => {
       const explicitName = parsed.explicitGroups[idx]?.name;
-      const coupling = calcCouplingScore(members, parsed.edges);
+      const rawCoupling  = calcCouplingScore(members, parsed.edges);
 
-      // Check external deps
-      const externalMembers = members.filter(m =>
-        parsed.edges.some(e => (e.from === m || e.to === m) && e.type === 'EXTERNAL')
-      );
-      const hasExternalDep = externalMembers.length > 0;
-
-      // Find hub node (highest degree within cluster)
+      // External deps (EXTERNAL type edges touching this cluster)
       const memberSet = new Set(members);
+      const hasExternalDep = parsed.edges.some(e =>
+        (memberSet.has(e.from) || memberSet.has(e.to)) && e.type === 'EXTERNAL'
+      );
+
+      // Hub = cluster with most total edge connections in the graph
+      const totalEdges = clusterTotalEdges[idx];
+      const isHub      = totalEdges === maxTotalEdges && communityGroups.length > 1;
+
+      const risk    = riskFromCoupling(rawCoupling, hasExternalDep, isHub);
+      const phase   = phaseFromRisk(risk, strategy);
+      // Normalize coupling score to a risk-consistent visual range
+      const couplingScore = _normalizeDisplayCoupling(rawCoupling, risk);
+
+      // Find hub node (highest internal degree) for naming
       const degrees = {};
       members.forEach(m => {
-        degrees[m] = parsed.edges.filter(e => (e.from === m || e.to === m) && memberSet.has(e.from) && memberSet.has(e.to)).length;
+        degrees[m] = parsed.edges.filter(e =>
+          (e.from === m || e.to === m) && memberSet.has(e.from) && memberSet.has(e.to)
+        ).length;
       });
-      const hubNode = members.sort((a, b) => (degrees[b] || 0) - (degrees[a] || 0))[0];
-
-      // Is this cluster a "hub" cluster (most total edges)?
-      const totalEdges = parsed.edges.filter(e => memberSet.has(e.from) || memberSet.has(e.to)).length;
-      const isHub = idx === 0;  // largest component is typically the hub
-
-      const risk = riskFromCoupling(coupling, hasExternalDep, isHub && communityGroups.length > 1);
-      const phase = phaseFromRisk(risk, strategy);
+      const hubNode = [...members].sort((a, b) => (degrees[b] || 0) - (degrees[a] || 0))[0];
 
       return {
         id:          `mc-${idx}`,
@@ -456,11 +506,11 @@ const MetadataParser = (() => {
         risk,
         phase,
         modules:     members,
-        couplingScore: coupling,
+        couplingScore,
         hasExternalDep,
         hubNode,
         totalEdges,
-        _members:    members,  // keep raw for dependency computation
+        _members:    members,  // kept for inter-cluster dep computation
       };
     }).sort((a, b) => b.couplingScore - a.couplingScore);
 
