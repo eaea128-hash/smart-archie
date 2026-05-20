@@ -630,13 +630,14 @@ const AnalyzeEngine = (() => {
     };
 
     const collaborators = [
-      '雲端架構師 (Cloud Architect)',
-      'DevOps / Platform Engineer',
-      isCoreSystemRole(inputs) ? '資安合規顧問 (Cloud Security Specialist)' : '資安工程師',
+      '雲端架構師',
+      'DevOps 工程師',
+      isCoreSystemRole(inputs) ? '資安工程師 / 雲端資安顧問' : '資安工程師',
+      '專案 PM',
     ];
     if (inputs.cloudMaturity === 'low') collaborators.push('雲端教練 / 培訓講師');
     if (inputs.isMajorOutsource === 'yes') collaborators.push('稽核窗口 / 委外廠商代表');
-    collaborators.push('業務單位 PM / 需求窗口');
+    collaborators.push('業務單位窗口');
 
     // dataNeeded = INPUT ARTIFACTS to collect BEFORE project kick-off
     // (documents, reports, data the team needs to hand over — NOT execution steps)

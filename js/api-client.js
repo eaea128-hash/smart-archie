@@ -770,7 +770,23 @@
     //          kpis[], critical_dependencies[]
     // UI needs: phases[]{phase,name,items[]}, pocScope(string),
     //           collaborators(string[]), dataNeeded(string[]), techValidation(string[])
-    const allOwners = [...new Set(phases.flatMap(ph => ph.owners || []))].filter(Boolean);
+    // Normalize role names to proper Taiwanese IT/cloud terminology
+    const ROLE_MAP = {
+      'Cloud Architect': '雲端架構師', 'cloud architect': '雲端架構師',
+      'Security Lead': '資安工程師', 'Security Engineer': '資安工程師',
+      'Security Officer': '資安工程師', '安全負責人': '資安工程師',
+      'DevOps Lead': 'DevOps 工程師', 'DevOps Engineer': 'DevOps 工程師',
+      'DevOps / Platform Engineer': 'DevOps 工程師', 'DevOps負責人': 'DevOps 工程師',
+      'DBA': '資料庫管理員 (DBA)', 'Database Administrator': '資料庫管理員 (DBA)',
+      'Project Manager': '專案 PM', 'PM': '專案 PM',
+      'Business Analyst': '業務分析師 / 需求窗口', '業務負責人': '業務窗口',
+      'Compliance Officer': '法遵 / 合規人員', 'Compliance': '法遵 / 合規人員',
+      'Network Engineer': '網路工程師', 'Cloud Engineer': '雲端工程師',
+      'Application Owner': '應用程式負責人',
+    };
+    const normalizeRole = r => ROLE_MAP[r] || r;
+    const rawOwners = [...new Set(phases.flatMap(ph => ph.owners || []))].filter(Boolean);
+    const allOwners = rawOwners.map(normalizeRole);
     const techPM = {
       // Map phases to {phase, name, items[]} — merge objectives + milestones as task list
       phases: phases.length > 0
@@ -797,8 +813,8 @@
 
       // collaborators as string array (merged from all phase owners, deduplicated)
       collaborators: allOwners.length > 0
-        ? allOwners.concat(['業務單位 PM / 需求窗口']).slice(0, 6)
-        : ['Cloud Architect', 'DevOps / Platform Engineer', '資安工程師', '業務單位 PM / 需求窗口'],
+        ? [...new Set(allOwners.concat(['專案 PM', '業務單位窗口']))].slice(0, 7)
+        : ['雲端架構師', 'DevOps 工程師', '資安工程師', '專案 PM', '業務單位窗口'],
 
       // dataNeeded from critical_dependencies + standard checklist
       dataNeeded: [
