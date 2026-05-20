@@ -343,6 +343,7 @@ const RuleBase = (() => {
   };
 
   function strategyDistribution(strategy6R) {
+    if (!strategy6R) return [];
     const scores = strategy6R.scores || {};
     const capped  = Object.fromEntries(Object.entries(scores).map(([k, v]) => [k, Math.max(0, v)]));
     const total   = Object.values(capped).reduce((s, v) => s + v, 0) || 1;

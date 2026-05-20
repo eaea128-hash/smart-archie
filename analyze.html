@@ -1312,9 +1312,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentResult = item.result;
           currentDbId   = item.id;
           renderResult(item.result, style);
-          renderDecisionBoard(item.result);
-          renderWhatIf(item.result);
-          renderImpactGraph(item.result);
+          try { renderDecisionBoard(item.result); } catch(e) { console.warn('[renderDecisionBoard history]', e); }
+          try { renderWhatIf(item.result);        } catch(e) { console.warn('[renderWhatIf history]', e); }
+          try { renderImpactGraph(item.result);   } catch(e) { console.warn('[renderImpactGraph history]', e); }
           SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
           // Show share button if this record has an ID
           if (item.id) document.getElementById('shareBtn')?.style?.setProperty('display','inline-flex');
@@ -1482,9 +1482,11 @@ async function runAnalysis() {
     }
   }, APIClient.isAPIAvailable() ? 8000 : 600); // API takes ~60s, local takes ~3s
 
+  // Declare apiInputs outside try so the catch fallback can reference it
+  let apiInputs;
   try {
     // Map form inputs to API-friendly format
-    const apiInputs = _buildAPIInputs(inputs);
+    apiInputs = _buildAPIInputs(inputs);
 
     const result = await APIClient.analyze(apiInputs, {
       onProgress: ({ stage, message }) => {
@@ -1497,9 +1499,12 @@ async function runAnalysis() {
     clearInterval(msgTimer);
     SA.Loading.hide();
     renderResult(result, reportStyle);
-    renderDecisionBoard(result);    // ← Business Decision Board (Rule/Knowledge Base)
-    renderWhatIf(result);           // ← What-If panel (always shown, instant)
-    renderImpactGraph(result);      // ← Bounded Context Impact Analysis
+
+    // Wrap secondary renders individually — errors here are non-fatal and must not hide the main result
+    try { renderDecisionBoard(result); } catch(e) { console.warn('[renderDecisionBoard]', e); }
+    try { renderWhatIf(result);        } catch(e) { console.warn('[renderWhatIf]', e); }
+    try { renderImpactGraph(result);   } catch(e) { console.warn('[renderImpactGraph]', e); }
+
     saveToHistory(result);
     saveToDatabase(result);   // async, fire-and-forget; shows Share btn when done
 
@@ -1520,6 +1525,9 @@ async function runAnalysis() {
         const localResult = await APIClient.analyze(apiInputs, { forceLocal: true });
         currentResult = localResult;
         renderResult(localResult, reportStyle);
+        try { renderDecisionBoard(localResult); } catch(e) { console.warn('[renderDecisionBoard]', e); }
+        try { renderWhatIf(localResult);        } catch(e) { console.warn('[renderWhatIf]', e); }
+        try { renderImpactGraph(localResult);   } catch(e) { console.warn('[renderImpactGraph]', e); }
         saveToHistory(localResult);
         saveToDatabase(localResult);
         SA.Toast.success('本地分析完成！', '報告已生成');
