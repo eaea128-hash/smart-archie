@@ -426,6 +426,59 @@
     .feedback-btn { background: var(--c-bg); border: 1px solid var(--c-border-light); border-radius: var(--r-full); padding: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); cursor: pointer; transition: all 0.2s; }
     .feedback-btn:hover { background: var(--c-primary); color: white; border-color: var(--c-primary); }
 
+    /* ── Impact Graph ───────────────────────────────────────── */
+    #ig-layout { display: grid; grid-template-columns: 1fr 280px; gap: var(--sp-4); position: relative; }
+    #ig-left { position: relative; }
+    #ig-phases { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--sp-3); }
+    .ig-phase-col { display: flex; flex-direction: column; gap: var(--sp-3); }
+    .ig-phase-header {
+      border-top: 3px solid; border-radius: var(--r-md);
+      padding: var(--sp-2) var(--sp-3); background: var(--c-surface-2);
+      display: flex; flex-direction: column; gap: 2px;
+    }
+    .ig-clusters { display: flex; flex-direction: column; gap: var(--sp-2); }
+    .ig-cluster {
+      border: 2px solid; border-radius: var(--r-lg); padding: var(--sp-3);
+      cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .ig-cluster:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .ig-cluster.ig-selected { box-shadow: 0 0 0 3px var(--c-accent-teal); }
+    .igc-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--sp-2); }
+    .igc-name { font-size: var(--fs-xs); font-weight: var(--fw-bold); color: var(--c-text); }
+    .igc-badge { font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: var(--r-full); }
+    .igc-modules { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: var(--sp-2); }
+    .igc-module-tag {
+      background: var(--c-surface-2); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-sm); padding: 1px 6px; font-size: 10px; color: var(--c-text-muted);
+    }
+    .igc-more { background: var(--c-bg); font-style: italic; }
+    .igc-coupling { display: flex; align-items: center; gap: var(--sp-2); }
+    .igc-coupling-bar { flex: 1; height: 4px; background: var(--c-border-light); border-radius: 2px; overflow: hidden; }
+    .igc-coupling-fill { height: 100%; border-radius: 2px; transition: width 0.5s; }
+    .igc-ext-badge { font-size: 9px; color: #0369a1; background: #e0f2fe; border-radius: var(--r-full); padding: 1px 6px; margin-top: var(--sp-1); display: inline-block; }
+    /* Impact panel */
+    #ig-impact-panel {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-xl); padding: var(--sp-4); overflow-y: auto; max-height: 520px;
+    }
+    .ig-impact-title { font-size: var(--fs-sm); font-weight: var(--fw-bold); color: var(--c-primary); margin-bottom: var(--sp-3); }
+    .ig-impact-placeholder { font-size: var(--fs-xs); color: var(--c-text-muted); line-height: 1.8; padding: var(--sp-4) 0; }
+    .ig-impact-block { margin-bottom: var(--sp-3); padding-bottom: var(--sp-3); border-bottom: 1px solid var(--c-border-light); }
+    .ig-impact-block:last-child { border-bottom: none; }
+    .ig-impact-block-title { font-size: 10px; font-weight: 700; color: var(--c-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--sp-1); }
+    /* Wave summary */
+    #ig-wave-summary { background: var(--c-surface-2); border-radius: var(--r-lg); padding: var(--sp-4); margin-top: var(--sp-4); }
+    .ig-wave-row { display: flex; align-items: flex-start; gap: var(--sp-3); padding: var(--sp-2) 0; border-bottom: 1px solid var(--c-border-light); }
+    .ig-wave-row:last-child { border-bottom: none; }
+    .ig-wave-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
+    .ig-wave-body { flex: 1; }
+    /* Responsive */
+    @media (max-width: 900px) {
+      #ig-layout { grid-template-columns: 1fr; }
+      #ig-phases { grid-template-columns: 1fr; }
+      #ig-impact-panel { max-height: 300px; }
+    }
+
     /* ── What-If Simulation Panel ──────────────────────────── */
     .whatif-panel {
       background: var(--c-surface); border: 2px solid var(--c-accent-teal);
@@ -1013,6 +1066,7 @@
 <script src="js/utils.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/analyze-engine.js"></script>
+<script src="js/impact-graph.js"></script>
 <script src="js/api-client.js"></script>
 <script src="js/export.js"></script>
 <script src="js/analytics.js"></script>
@@ -1107,6 +1161,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentDbId   = item.id;
           renderResult(item.result, style);
           renderWhatIf(item.result);
+          renderImpactGraph(item.result);
           SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
           // Show share button if this record has an ID
           if (item.id) document.getElementById('shareBtn')?.style?.setProperty('display','inline-flex');
@@ -1290,6 +1345,7 @@ async function runAnalysis() {
     SA.Loading.hide();
     renderResult(result, reportStyle);
     renderWhatIf(result);           // ← What-If panel (always shown, instant)
+    renderImpactGraph(result);      // ← Bounded Context Impact Analysis
     saveToHistory(result);
     saveToDatabase(result);   // async, fire-and-forget; shows Share btn when done
 
@@ -2064,6 +2120,34 @@ function renderResult(r, style) {
 
   // Scroll to top of results
   document.getElementById('resultPanel').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Impact Graph (Bounded Context Analysis) ──────────────────
+function renderImpactGraph(result) {
+  if (!result?.inputs || !window.ImpactGraph) return;
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  document.getElementById('igSection')?.remove();
+
+  const graphData = ImpactGraph.buildGraph(result.inputs, result.strategy6R);
+
+  const section = document.createElement('div');
+  section.id = 'igSection';
+  section.className = 'result-section animate-up';
+  section.innerHTML = `
+    <div class="result-section-title">
+      <span class="rst-icon">🗺️</span>架構影響分析（Bounded Context Migration Map）
+      <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
+        基於輸入參數與產業模型自動生成 ・ 點擊群組查看影響分析
+      </span>
+    </div>
+    <div id="igGraphContainer"></div>
+  `;
+  container.appendChild(section);
+
+  ImpactGraph.render('igGraphContainer', graphData);
 }
 
 // ── What-If Simulation Panel ──────────────────────────────────
