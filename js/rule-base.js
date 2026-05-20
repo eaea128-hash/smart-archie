@@ -371,27 +371,60 @@ const RuleBase = (() => {
     const criticalSkillGap = skillGap.filter(s => s.status === 'critical').length;
     const majorSkillGap    = skillGap.filter(s => s.status === 'major').length;
 
-    if (criticalGovFails > 0 || criticalAP > 0) {
+    // ── No-Go：治理基礎嚴重缺失，或多個關鍵風險並存 ──────────────────────
+    // 條件：2+ 個治理關鍵缺口，或 2+ 個關鍵反模式，或同時有 1 個治理缺口＋1 個關鍵反模式
+    // （單一孤立關鍵反模式但治理完整者，降為附條件可行，避免誤判）
+    const hardBlock = criticalGovFails >= 2
+      || criticalAP >= 2
+      || (criticalGovFails >= 1 && criticalAP >= 1);
+
+    if (hardBlock) {
       return {
         decision: 'no-go',
         label:    '🔴 暫緩 (No-Go)',
         color:    '#ef4444',
         bgColor:  '#fef2f2',
-        message:  `發現 ${criticalGovFails} 個治理關鍵缺口、${criticalAP} 個高風險反模式，建議先解決前提條件再啟動遷移。`,
+        message:  `發現 ${criticalGovFails} 個治理關鍵缺口、${criticalAP} 個關鍵反模式，基礎條件不足，建議先完成前提條件再啟動遷移。`,
         conditions: [],
       };
     }
-    if (highGovFails > 1 || highAP > 1 || criticalSkillGap > 0) {
+
+    // ── 附條件可行：有單一關鍵反模式、高度治理缺口或技能嚴重不足 ──────────
+    const softBlock = criticalGovFails >= 1 || criticalAP >= 1
+      || highGovFails > 1 || highAP > 1 || criticalSkillGap > 0;
+
+    if (softBlock) {
       const conditions = [];
-      if (highGovFails > 0) conditions.push(`完成 ${highGovFails} 個高風險治理項目補強`);
-      if (criticalSkillGap > 0) conditions.push(`引入 ${criticalSkillGap} 個關鍵技能資源（外部顧問或招募）`);
-      if (highAP > 0) conditions.push(`制定反模式對應計畫（${highAP} 項）`);
+      if (criticalAP >= 1) {
+        const names = antiPatterns.filter(ap => ap.risk === 'critical').map(ap => ap.name).join('、');
+        conditions.push(`優先處理關鍵反模式：${names}（遷移前必須制定對應緩解計畫）`);
+      }
+      if (criticalGovFails >= 1) conditions.push(`完成 ${criticalGovFails} 個關鍵治理項目建置（IAM / Landing Zone 等）`);
+      if (highGovFails > 0)      conditions.push(`補強 ${highGovFails} 個高風險治理項目`);
+      if (criticalSkillGap > 0)  conditions.push(`引入 ${criticalSkillGap} 個關鍵技能資源（外部顧問或專職招募）`);
+      if (highAP > 0)            conditions.push(`制定 ${highAP} 個高風險反模式的對應計畫`);
       return {
         decision: 'conditional',
         label:    '🟡 附條件可行 (Conditional Go)',
         color:    '#b45309',
         bgColor:  '#fef3c7',
         message:  '整體方向可行，但需先完成以下前提條件後再正式啟動：',
+        conditions,
+      };
+    }
+
+    // ── 建議推進 ─────────────────────────────────────────────────────────────
+    if (majorSkillGap > 0 || highAP > 0 || highGovFails > 0) {
+      const conditions = [];
+      if (highGovFails > 0) conditions.push(`建議完成 ${highGovFails} 個高風險治理項目`);
+      if (highAP > 0)       conditions.push(`留意 ${highAP} 個中高風險反模式，執行中持續監控`);
+      if (majorSkillGap > 0) conditions.push(`技能缺口建議透過培訓或外部顧問補強`);
+      return {
+        decision: 'go-with-notes',
+        label:    '🟢 建議推進（留意事項）',
+        color:    '#15803d',
+        bgColor:  '#f0fdf4',
+        message:  '整體條件符合遷移基準，建議按計畫推進並持續監控以下事項：',
         conditions,
       };
     }
