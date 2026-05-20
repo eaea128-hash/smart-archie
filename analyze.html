@@ -426,6 +426,74 @@
     .feedback-btn { background: var(--c-bg); border: 1px solid var(--c-border-light); border-radius: var(--r-full); padding: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); cursor: pointer; transition: all 0.2s; }
     .feedback-btn:hover { background: var(--c-primary); color: white; border-color: var(--c-primary); }
 
+    /* ── What-If Simulation Panel ──────────────────────────── */
+    .whatif-panel {
+      background: var(--c-surface); border: 2px solid var(--c-accent-teal);
+      border-radius: var(--r-xl); padding: var(--sp-5); margin-top: var(--sp-4);
+    }
+    .whatif-title {
+      display: flex; align-items: center; gap: var(--sp-3);
+      font-size: var(--fs-base); font-weight: var(--fw-bold); color: var(--c-primary);
+      margin-bottom: var(--sp-5);
+    }
+    .whatif-badge {
+      background: var(--c-accent-teal); color: white; font-size: 10px;
+      font-weight: 700; letter-spacing: 0.05em; padding: 2px 8px;
+      border-radius: var(--r-full); text-transform: uppercase;
+    }
+    /* Strategy comparison cards */
+    .strategy-cards { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-3); margin-bottom: var(--sp-5); }
+    .sc-card {
+      background: var(--c-surface-2); border: 2px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-4); cursor: pointer;
+      transition: all 0.2s; position: relative;
+    }
+    .sc-card:hover { border-color: var(--c-accent-teal); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+    .sc-card.recommended { border-color: var(--c-accent-teal); background: #f0fdfa; }
+    .sc-rec-badge {
+      position: absolute; top: -8px; right: 10px;
+      background: var(--c-accent-teal); color: white; font-size: 9px;
+      font-weight: 700; padding: 2px 8px; border-radius: var(--r-full);
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .sc-icon { font-size: 20px; margin-bottom: 4px; }
+    .sc-label { font-size: 11px; font-weight: 700; color: var(--c-text); margin-bottom: var(--sp-3); }
+    .sc-metric { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--c-border-light); font-size: 11px; }
+    .sc-metric:last-child { border-bottom: none; }
+    .sc-metric-label { color: var(--c-text-muted); }
+    .sc-metric-val { font-weight: 600; color: var(--c-text); }
+    .sc-adv { font-size: 10px; color: var(--c-success); margin-top: var(--sp-2); line-height: 1.5; }
+    .sc-trade { font-size: 10px; color: var(--c-warning); line-height: 1.5; }
+    /* Parameter adjustment */
+    .whatif-params { background: var(--c-bg); border-radius: var(--r-lg); padding: var(--sp-4); margin-bottom: var(--sp-4); }
+    .wp-title { font-size: var(--fs-xs); font-weight: 700; color: var(--c-primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--sp-3); }
+    .wp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+    .wp-row { display: flex; flex-direction: column; gap: 6px; }
+    .wp-label { font-size: var(--fs-xs); color: var(--c-text-muted); font-weight: 500; }
+    .wp-toggle { display: flex; gap: 4px; }
+    .wp-btn {
+      flex: 1; padding: 5px; border: 1px solid var(--c-border); border-radius: var(--r-md);
+      background: var(--c-surface); font-size: 11px; font-weight: 500; cursor: pointer;
+      transition: all 0.15s; color: var(--c-text-muted); text-align: center;
+    }
+    .wp-btn.active { background: var(--c-primary); color: white; border-color: var(--c-primary); }
+    .wp-btn:hover:not(.active) { border-color: var(--c-accent-teal); color: var(--c-accent-teal); }
+    /* Delta display */
+    .whatif-delta { display: grid; grid-template-columns: repeat(4,1fr); gap: var(--sp-3); }
+    .wd-card {
+      background: var(--c-surface); border: 1px solid var(--c-border-light);
+      border-radius: var(--r-lg); padding: var(--sp-3); text-align: center;
+    }
+    .wd-label { font-size: 10px; color: var(--c-text-muted); margin-bottom: 4px; }
+    .wd-base { font-size: 11px; color: var(--c-text-muted); text-decoration: line-through; }
+    .wd-new { font-size: var(--fs-base); font-weight: 700; color: var(--c-text); }
+    .wd-delta { font-size: 10px; font-weight: 600; margin-top: 2px; }
+    .wd-delta.up   { color: #ef4444; }
+    .wd-delta.down { color: #10b981; }
+    .wd-delta.flat { color: var(--c-text-muted); }
+    .whatif-note { font-size: 11px; color: #b45309; background: #fff8e1; border: 1px solid #fde68a; border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3); margin-top: var(--sp-3); display: none; }
+    .whatif-note.visible { display: block; }
+
     /* Responsive adjustments */
     @media (max-width: 1200px) {
       .analyze-layout { grid-template-columns: 360px 1fr; }
@@ -439,6 +507,9 @@
     @media (max-width: 640px) {
       .kpi-grid, .lz-accounts-grid, .cost-breakdown-grid, .risk-items { grid-template-columns: 1fr; }
       .strategy-compare { grid-template-columns: repeat(3, 1fr); }
+      .strategy-cards { grid-template-columns: repeat(2,1fr); }
+      .wp-grid { grid-template-columns: 1fr; }
+      .whatif-delta { grid-template-columns: repeat(2,1fr); }
     }
   </style>
 </head>
@@ -1035,6 +1106,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentResult = item.result;
           currentDbId   = item.id;
           renderResult(item.result, style);
+          renderWhatIf(item.result);
           SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
           // Show share button if this record has an ID
           if (item.id) document.getElementById('shareBtn')?.style?.setProperty('display','inline-flex');
@@ -1217,6 +1289,7 @@ async function runAnalysis() {
     clearInterval(msgTimer);
     SA.Loading.hide();
     renderResult(result, reportStyle);
+    renderWhatIf(result);           // ← What-If panel (always shown, instant)
     saveToHistory(result);
     saveToDatabase(result);   // async, fire-and-forget; shows Share btn when done
 
@@ -1991,6 +2064,310 @@ function renderResult(r, style) {
 
   // Scroll to top of results
   document.getElementById('resultPanel').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── What-If Simulation Panel ──────────────────────────────────
+// Renders strategy comparison + interactive parameter sliders with instant delta display.
+// Uses AnalyzeEngine.runScenario() / compareStrategies() — no API call, fully synchronous.
+
+let _whatifBase     = null;   // baseline scenario from last analysis
+let _whatifOverrides = {};    // current parameter overrides from sliders
+
+function renderWhatIf(result) {
+  if (!result?.inputs) return;
+
+  // Engine may not be available if we're in api-only mode but inputs still work
+  const Engine = window.AnalyzeEngine;
+  if (!Engine?.compareStrategies) return;
+
+  _whatifBase     = result.inputs;
+  _whatifOverrides = {};
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  // Remove old panel if re-rendering
+  document.getElementById('whatifPanel')?.remove();
+
+  const panel = document.createElement('div');
+  panel.id = 'whatifPanel';
+  panel.className = 'whatif-panel animate-up';
+  panel.innerHTML = _buildWhatIfHTML(result);
+  container.appendChild(panel);
+}
+
+function _buildWhatIfHTML(result) {
+  const Engine = window.AnalyzeEngine;
+  const comparisons = Engine.compareStrategies(result.inputs);
+  const baseline    = Engine.runScenario(result.inputs, {});
+
+  const fmtCost = v => `$${Math.round(v/1000*10)/10}K`;
+  const fmtWks  = v => v >= 52 ? `${(v/52).toFixed(1)}年` : `${v}週`;
+
+  // Strategy cards
+  const cardsHtml = comparisons.map(c => `
+    <div class="sc-card ${c.isRecommended ? 'recommended' : ''}" title="${c.advantage}">
+      ${c.isRecommended ? '<div class="sc-rec-badge">✓ 建議</div>' : ''}
+      <div class="sc-icon">${c.icon}</div>
+      <div class="sc-label">${c.label}</div>
+      <div class="sc-metric">
+        <span class="sc-metric-label">月費估算</span>
+        <span class="sc-metric-val">${fmtCost(c.monthlyCost)}</span>
+      </div>
+      <div class="sc-metric">
+        <span class="sc-metric-label">就緒度</span>
+        <span class="sc-metric-val">${c.readiness}%</span>
+      </div>
+      <div class="sc-metric">
+        <span class="sc-metric-label">整體風險</span>
+        <span class="sc-metric-val">${c.riskScore}</span>
+      </div>
+      <div class="sc-metric">
+        <span class="sc-metric-label">預計時程</span>
+        <span class="sc-metric-val">${fmtWks(c.timelineWks)}</span>
+      </div>
+      <div class="sc-metric">
+        <span class="sc-metric-label">ROI 預估</span>
+        <span class="sc-metric-val">${c.roiNote.replace('約','').trim()}</span>
+      </div>
+      <div class="sc-adv">✓ ${c.advantage}</div>
+      <div class="sc-trade">⚠ ${c.tradeoff}</div>
+    </div>`).join('');
+
+  // Current scenario delta cards (will be updated by sliders)
+  const deltaHtml = `
+    <div class="wd-card">
+      <div class="wd-label">搬遷就緒度</div>
+      <div class="wd-base" id="wi-base-ready">${baseline.readiness}%</div>
+      <div class="wd-new" id="wi-new-ready">${baseline.readiness}%</div>
+      <div class="wd-delta flat" id="wi-delta-ready">— 基準值</div>
+    </div>
+    <div class="wd-card">
+      <div class="wd-label">月費估算 (中估值)</div>
+      <div class="wd-base" id="wi-base-cost">${fmtCost(baseline.cost.mid)}</div>
+      <div class="wd-new" id="wi-new-cost">${fmtCost(baseline.cost.mid)}</div>
+      <div class="wd-delta flat" id="wi-delta-cost">— 基準值</div>
+    </div>
+    <div class="wd-card">
+      <div class="wd-label">整體風險分數</div>
+      <div class="wd-base" id="wi-base-risk">${baseline.riskScore}</div>
+      <div class="wd-new" id="wi-new-risk">${baseline.riskScore}</div>
+      <div class="wd-delta flat" id="wi-delta-risk">— 基準值</div>
+    </div>
+    <div class="wd-card">
+      <div class="wd-label">預計時程</div>
+      <div class="wd-base" id="wi-base-wks">${fmtWks(baseline.timelineWks)}</div>
+      <div class="wd-new" id="wi-new-wks">${fmtWks(baseline.timelineWks)}</div>
+      <div class="wd-delta flat" id="wi-delta-wks">— 基準值</div>
+    </div>`;
+
+  return `
+    <div class="whatif-title">
+      🧪 What-If 情境模擬
+      <span class="whatif-badge">即時連動</span>
+      <span style="font-size:var(--fs-xs);color:var(--c-text-muted);font-weight:400;margin-left:auto;">
+        調整下方參數，數字即時更新（無需重新分析）
+      </span>
+    </div>
+
+    <!-- Strategy Comparison -->
+    <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">
+      四大策略並排比較（基於相同輸入條件）
+    </div>
+    <div class="strategy-cards">${cardsHtml}</div>
+
+    <!-- Parameter Adjustment -->
+    <div class="whatif-params">
+      <div class="wp-title">🎛️ 情境參數調校 — 調整後自動更新下方即時影響</div>
+      <div class="wp-grid">
+        <div class="wp-row">
+          <div class="wp-label">📦 資料庫策略</div>
+          <div class="wp-toggle">
+            <button class="wp-btn active" data-param="dbMode" data-val="cloud"
+              onclick="updateWhatIf('dbMode','cloud',this)">全上雲</button>
+            <button class="wp-btn" data-param="dbMode" data-val="onprem"
+              onclick="updateWhatIf('dbMode','onprem',this)">DB 保留地端 (+$1,800/月)</button>
+          </div>
+        </div>
+        <div class="wp-row">
+          <div class="wp-label">☁️ 雲端成熟度</div>
+          <div class="wp-toggle">
+            <button class="wp-btn ${(result.inputs.cloudMaturity||'low')==='low'?'active':''}"
+              data-param="cloudMaturity" data-val="low"
+              onclick="updateWhatIf('cloudMaturity','low',this)">低</button>
+            <button class="wp-btn ${(result.inputs.cloudMaturity||'low')==='medium'?'active':''}"
+              data-param="cloudMaturity" data-val="medium"
+              onclick="updateWhatIf('cloudMaturity','medium',this)">中</button>
+            <button class="wp-btn ${(result.inputs.cloudMaturity||'low')==='high'?'active':''}"
+              data-param="cloudMaturity" data-val="high"
+              onclick="updateWhatIf('cloudMaturity','high',this)">高</button>
+          </div>
+        </div>
+        <div class="wp-row">
+          <div class="wp-label">⚖️ 合規等級</div>
+          <div class="wp-toggle">
+            <button class="wp-btn ${(result.inputs.complianceLevel||'medium')==='low'?'active':''}"
+              data-param="complianceLevel" data-val="low"
+              onclick="updateWhatIf('complianceLevel','low',this)">一般</button>
+            <button class="wp-btn ${(result.inputs.complianceLevel||'medium')==='medium'?'active':''}"
+              data-param="complianceLevel" data-val="medium"
+              onclick="updateWhatIf('complianceLevel','medium',this)">中等</button>
+            <button class="wp-btn ${(result.inputs.complianceLevel||'medium')==='high'?'active':''}"
+              data-param="complianceLevel" data-val="high"
+              onclick="updateWhatIf('complianceLevel','high',this)">高（金融）</button>
+          </div>
+        </div>
+        <div class="wp-row">
+          <div class="wp-label">🔧 技術債程度</div>
+          <div class="wp-toggle">
+            <button class="wp-btn ${(result.inputs.techDebt||'medium')==='low'?'active':''}"
+              data-param="techDebt" data-val="low"
+              onclick="updateWhatIf('techDebt','low',this)">低</button>
+            <button class="wp-btn ${(result.inputs.techDebt||'medium')==='medium'?'active':''}"
+              data-param="techDebt" data-val="medium"
+              onclick="updateWhatIf('techDebt','medium',this)">中</button>
+            <button class="wp-btn ${(result.inputs.techDebt||'medium')==='high'?'active':''}"
+              data-param="techDebt" data-val="high"
+              onclick="updateWhatIf('techDebt','high',this)">高</button>
+          </div>
+        </div>
+        <div class="wp-row">
+          <div class="wp-label">⏱️ 時程壓力</div>
+          <div class="wp-toggle">
+            <button class="wp-btn ${(result.inputs.timeline||'medium')==='flexible'?'active':''}"
+              data-param="timeline" data-val="flexible"
+              onclick="updateWhatIf('timeline','flexible',this)">彈性</button>
+            <button class="wp-btn ${(result.inputs.timeline||'medium')==='medium'?'active':''}"
+              data-param="timeline" data-val="medium"
+              onclick="updateWhatIf('timeline','medium',this)">一般</button>
+            <button class="wp-btn ${(result.inputs.timeline||'medium')==='urgent'?'active':''}"
+              data-param="timeline" data-val="urgent"
+              onclick="updateWhatIf('timeline','urgent',this)">緊急</button>
+          </div>
+        </div>
+        <div class="wp-row">
+          <div class="wp-label">🛡️ 異地備援 (DR)</div>
+          <div class="wp-toggle">
+            <button class="wp-btn ${(result.inputs.needDR||'no')!=='yes'?'active':''}"
+              data-param="needDR" data-val="no"
+              onclick="updateWhatIf('needDR','no',this)">無規劃</button>
+            <button class="wp-btn ${(result.inputs.needDR||'no')==='yes'?'active':''}"
+              data-param="needDR" data-val="yes"
+              onclick="updateWhatIf('needDR','yes',this)">需要 DR</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Real-time Delta Display -->
+    <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">
+      📊 即時影響（vs 基準分析）
+    </div>
+    <div class="whatif-delta">${deltaHtml}</div>
+    <div class="whatif-note" id="wiDbNote"></div>
+  `;
+}
+
+function updateWhatIf(param, val, btn) {
+  if (!_whatifBase || !window.AnalyzeEngine?.runScenario) return;
+
+  // Update button active state (within same toggle group)
+  btn.closest('.wp-toggle').querySelectorAll('.wp-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Update overrides
+  if (param === 'dbMode') {
+    if (val === 'onprem') {
+      _whatifOverrides = { ..._whatifOverrides, ...window.AnalyzeEngine.applyDbOnPremOverride(_whatifBase) };
+    } else {
+      // Remove db on-prem overrides
+      const clean = { ..._whatifOverrides };
+      delete clean.hasExternalIntegration;
+      delete clean._dbOnPremPremium;
+      delete clean._dbOnPremNote;
+      _whatifOverrides = clean;
+    }
+  } else {
+    _whatifOverrides[param] = val;
+  }
+
+  // Run scenario instantly (synchronous — no spinner needed)
+  const scenario = window.AnalyzeEngine.runScenario(_whatifBase, _whatifOverrides);
+  const baseline  = window.AnalyzeEngine.runScenario(_whatifBase, {});
+  _refreshWhatIfDeltas(baseline, scenario);
+}
+
+function _refreshWhatIfDeltas(baseline, scenario) {
+  const fmtCost = v => `$${Math.round(v/1000*10)/10}K`;
+  const fmtWks  = v => v >= 52 ? `${(v/52).toFixed(1)}年` : `${v}週`;
+
+  const updates = [
+    {
+      id: 'ready',
+      base: baseline.readiness,
+      cur:  scenario.readiness,
+      fmt:  v => `${v}%`,
+      good: 'up',   // higher is better
+    },
+    {
+      id: 'cost',
+      base: baseline.cost.mid,
+      cur:  scenario.cost.mid,
+      fmt:  fmtCost,
+      good: 'down',  // lower is better
+    },
+    {
+      id: 'risk',
+      base: baseline.riskScore,
+      cur:  scenario.riskScore,
+      fmt:  v => String(v),
+      good: 'down',
+    },
+    {
+      id: 'wks',
+      base: baseline.timelineWks,
+      cur:  scenario.timelineWks,
+      fmt:  fmtWks,
+      good: 'down',
+    },
+  ];
+
+  updates.forEach(({ id, base, cur, fmt, good }) => {
+    const elNew   = document.getElementById(`wi-new-${id}`);
+    const elDelta = document.getElementById(`wi-delta-${id}`);
+    if (!elNew || !elDelta) return;
+
+    elNew.textContent = fmt(cur);
+
+    const diff = cur - base;
+    if (Math.abs(diff) < (typeof base === 'number' && base > 100 ? 5 : 1)) {
+      elDelta.textContent = '— 無變化';
+      elDelta.className = 'wd-delta flat';
+    } else if (diff > 0) {
+      const sign = good === 'up' ? '↑' : '↑';
+      const cls  = good === 'up' ? 'down' : 'up';  // "down" class = green (good going up), "up" class = red (bad going up)
+      const pct  = Math.round(Math.abs(diff / base) * 100);
+      elDelta.textContent = `${sign} +${typeof cur === 'number' && id !== 'cost' ? Math.abs(Math.round(diff)) : fmt(Math.abs(diff)).replace('$','')} (${pct}%)`;
+      elDelta.className   = `wd-delta ${cls}`;
+    } else {
+      const sign = good === 'down' ? '↓' : '↓';
+      const cls  = good === 'down' ? 'down' : 'up';
+      const pct  = Math.round(Math.abs(diff / base) * 100);
+      elDelta.textContent = `${sign} -${typeof cur === 'number' && id !== 'cost' ? Math.abs(Math.round(diff)) : fmt(Math.abs(diff)).replace('$','')} (${pct}%)`;
+      elDelta.className   = `wd-delta ${cls}`;
+    }
+  });
+
+  // DB on-prem note
+  const noteEl = document.getElementById('wiDbNote');
+  if (noteEl) {
+    if (scenario.dbNote) {
+      noteEl.textContent = `⚠️ ${scenario.dbNote}`;
+      noteEl.classList.add('visible');
+    } else {
+      noteEl.classList.remove('visible');
+    }
+  }
 }
 
 function switchTechTab(tab) {

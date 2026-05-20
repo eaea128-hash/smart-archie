@@ -774,6 +774,104 @@ const AnalyzeEngine = (() => {
     return { notActingCost, coreDecisions, mvpMust };
   }
 
+  // ── What-If Scenario Engine ───────────────────────────────
+  // Synchronous (instant, no API call) — for real-time slider updates
+
+  const STRATEGY_META = {
+    rehost: {
+      label: '直接遷移 (Rehost)', icon: '🔄', color: '#3b82f6',
+      costMult: 1.00, riskDelta: -5,  timelineMult: 0.6,
+      advantage: '速度最快、初期投入最低，6 個月可見效',
+      tradeoff:  '雲端最佳化效益有限，長期維護成本不減',
+      roiNote:   '約 12–18 個月回本',
+    },
+    replatform: {
+      label: '平台調整 (Replatform)', icon: '⚡', color: '#10b981',
+      costMult: 1.25, riskDelta: 0,  timelineMult: 1.0,
+      advantage: '兼顧速度與最佳化，RDS/容器化後成本下降 20–35%',
+      tradeoff:  '需要中等工程投入，部分模組需重新測試',
+      roiNote:   '約 18–26 個月回本',
+    },
+    refactor: {
+      label: '架構重構 (Refactor)', icon: '🏗️', color: '#8b5cf6',
+      costMult: 1.80, riskDelta: +18, timelineMult: 2.2,
+      advantage: '長期 TCO 最低，雲原生彈性最高，AI/ML 整合最佳',
+      tradeoff:  '時程最長（12–24 個月），短期成本最高，人力需求大',
+      roiNote:   '約 36–48 個月回本',
+    },
+    retain: {
+      label: '暫緩保留 (Retain)', icon: '🔒', color: '#f59e0b',
+      costMult: 0.50, riskDelta: -12, timelineMult: 0.3,
+      advantage: '短期成本最低，遷移風險規避，可先建 Landing Zone',
+      tradeoff:  '錯失上雲效益，技術債持續累積，市場競爭力下滑',
+      roiNote:   '未計算（保留策略無遷移 ROI）',
+    },
+  };
+
+  // DB retention scenario — simulates hybrid architecture (DB on-premise + compute on cloud)
+  function applyDbOnPremOverride(inputs) {
+    return {
+      ...inputs,
+      hasExternalIntegration: 'yes',   // DB is now "external" system
+      _dbOnPremPremium: 1800,           // USD/month for ExpressRoute/DirectConnect
+      _dbOnPremNote: 'DB2 地端保留：混合架構需支付 ExpressRoute/DirectConnect 費用 +$1,800/月',
+    };
+  }
+
+  // Compute timeline estimate in weeks from inputs + strategy
+  function estimateTimelineWeeks(inputs, strategy) {
+    const base = { rehost: 20, replatform: 32, refactor: 56, retain: 10 };
+    let weeks = base[strategy] || 28;
+    if (inputs.cloudMaturity === 'low')    weeks = Math.round(weeks * 1.3);
+    if (inputs.cloudMaturity === 'high')   weeks = Math.round(weeks * 0.8);
+    if (inputs.techDebt === 'high')        weeks = Math.round(weeks * 1.2);
+    if (inputs.isCoreSystem === 'yes')     weeks = Math.round(weeks * 1.15);
+    if (inputs.complianceLevel === 'high') weeks = Math.round(weeks * 1.25);
+    return weeks;
+  }
+
+  // Synchronous runner — re-runs key functions with overridden inputs
+  function runScenario(baseInputs, overrides) {
+    const inputs    = { ...baseInputs, ...overrides };
+    const strategy6R = determine6R(inputs);
+    const cost      = estimateCost(inputs);
+    const risk      = assessRisk(inputs);
+    const kpi       = calcKPIs(inputs, strategy6R.primary);
+
+    // Apply DB on-prem hybrid premium to cost
+    const monthlyMid = cost.mid + (inputs._dbOnPremPremium || 0);
+
+    return {
+      strategy6R,
+      cost: { ...cost, mid: monthlyMid, low: cost.low + (inputs._dbOnPremPremium || 0) * 0.85, high: cost.high + (inputs._dbOnPremPremium || 0) * 1.1 },
+      risk,
+      kpi,
+      readiness:  Math.min(98, Math.max(10, kpi.lzReadiness)),
+      riskScore:  risk.overall,
+      timelineWks: estimateTimelineWeeks(inputs, strategy6R.primary),
+      dbNote:     inputs._dbOnPremNote || null,
+    };
+  }
+
+  // Compare all 4 strategies side-by-side given same base inputs
+  function compareStrategies(baseInputs) {
+    const base = runScenario(baseInputs, {});
+    return Object.entries(STRATEGY_META).map(([strat, meta]) => {
+      const kpi  = calcKPIs(baseInputs, strat);
+      const cost = Math.round(base.cost.mid * meta.costMult);
+      const risk = Math.min(95, Math.max(10, base.risk.overall + meta.riskDelta));
+      const wks  = estimateTimelineWeeks(baseInputs, strat);
+      return {
+        strategy: strat, ...meta,
+        monthlyCost: cost,
+        riskScore:   risk,
+        readiness:   Math.min(98, Math.max(10, kpi.lzReadiness)),
+        timelineWks: wks,
+        isRecommended: strat === base.strategy6R.primary,
+      };
+    });
+  }
+
   // ── Main Analysis Entry Point ─────────────────────────────
   async function analyze(inputs) {
     // Simulate AI processing delay
@@ -809,7 +907,12 @@ const AnalyzeEngine = (() => {
     return result;
   }
 
-  return { analyze, determine6R, determineLandingZone, estimateCost, assessRisk, calcKPIs };
+  return {
+    analyze,
+    determine6R, determineLandingZone, estimateCost, assessRisk, calcKPIs,
+    // What-If scenario engine
+    runScenario, compareStrategies, applyDbOnPremOverride, STRATEGY_META,
+  };
 
 })();
 
