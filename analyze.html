@@ -1862,11 +1862,20 @@ function renderResult(r, style) {
     </div>
     <div style="padding:var(--sp-4);background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);">
       <div style="font-size:11px;font-weight:600;color:var(--c-success);margin-bottom:4px;">💡 成本優化建議</div>
-      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);">${cost.recommendation}</div>
+      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);">${cost.recommendation || '建議採用 On-Demand 起步，第一季後根據使用率採購 Compute Savings Plans。'}</div>
       <div style="margin-top:var(--sp-3);font-size:11px;color:var(--c-text-muted);">遷移一次性費用：$${cost.migrationLow.toLocaleString()} – $${cost.migrationHigh.toLocaleString()}</div>
     </div>
   </div>`;
   } else {
+  // Defensive fallback: API path may not include breakdown (computed from mid proportions)
+  const bd = cost.breakdown || {
+    compute:   Math.round(cost.mid * 0.38),
+    database:  Math.round(cost.mid * 0.18),
+    storage:   Math.round(cost.mid * 0.15),
+    network:   Math.round(cost.mid * 0.12),
+    security:  Math.round(cost.mid * 0.08),
+    dr_backup: Math.round(cost.mid * 0.04),
+  };
   html += `
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本估算</div>
@@ -1877,12 +1886,12 @@ function renderResult(r, style) {
       <div class="cost-hero-range">低估：$${cost.low.toLocaleString()} ～ 高估：$${cost.high.toLocaleString()}</div>
     </div>
     <div class="cost-breakdown-grid">
-      <div class="cost-item"><span class="cost-item-name">🖥️ Compute / VM</span><span class="cost-item-val">$${cost.breakdown.compute.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">🗄️ 資料庫 / RDS</span><span class="cost-item-val">$${cost.breakdown.database.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">💾 Storage / S3</span><span class="cost-item-val">$${cost.breakdown.storage.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">🌐 Network / CDN</span><span class="cost-item-val">$${cost.breakdown.network.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">🔒 安全工具</span><span class="cost-item-val">$${cost.breakdown.security.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">☁️ DR / Backup</span><span class="cost-item-val">$${cost.breakdown.dr_backup.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🖥️ Compute / VM</span><span class="cost-item-val">$${bd.compute.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🗄️ 資料庫 / RDS</span><span class="cost-item-val">$${bd.database.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">💾 Storage / S3</span><span class="cost-item-val">$${bd.storage.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🌐 Network / CDN</span><span class="cost-item-val">$${bd.network.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🔒 安全工具</span><span class="cost-item-val">$${bd.security.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">☁️ DR / Backup</span><span class="cost-item-val">$${bd.dr_backup.toLocaleString()}</span></div>
     </div>
     <div class="card mb-4">
       <div class="card-body">
@@ -1891,8 +1900,8 @@ function renderResult(r, style) {
         <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--c-border-light);font-size:12px;">
           <span style="font-weight:500;">${d.name}</span>
           <div style="display:flex;gap:8px;align-items:center;">
-            <span style="color:var(--c-text-muted);">${d.note}</span>
-            <span class="badge ${d.impact==='high'?'badge-danger':d.impact==='medium'?'badge-warning':'badge-neutral'}">${d.impact}</span>
+            <span style="color:var(--c-text-muted);">${d.note || ''}</span>
+            ${d.impact ? `<span class="badge ${d.impact==='high'?'badge-danger':d.impact==='medium'?'badge-warning':'badge-neutral'}">${d.impact}</span>` : ''}
           </div>
         </div>`).join('')}
         <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-info-bg);border-radius:var(--r-md);border:1px solid rgba(26,107,175,0.2);">
@@ -1901,7 +1910,7 @@ function renderResult(r, style) {
         </div>
         <div style="margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:var(--c-success-bg);border-radius:var(--r-md);border:1px solid rgba(45,157,120,0.2);">
           <div style="font-size:11px;color:var(--c-success);font-weight:600;margin-bottom:4px;">💡 成本優化建議</div>
-          <div style="font-size:12px;color:var(--c-text-muted);">${cost.recommendation}</div>
+          <div style="font-size:12px;color:var(--c-text-muted);">${cost.recommendation || '建議採用 On-Demand 起步，第一季後根據使用率採購 Compute Savings Plans。'}</div>
         </div>
         ${cost.pricingNote ? `
         <div style="margin-top:var(--sp-3);padding:var(--sp-2) var(--sp-4);background:rgba(234,179,8,0.06);border-radius:var(--r-md);border:1px solid rgba(234,179,8,0.2);">
