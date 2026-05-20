@@ -472,6 +472,80 @@
     .ig-wave-row:last-child { border-bottom: none; }
     .ig-wave-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
     .ig-wave-body { flex: 1; }
+    /* Metadata input panel */
+    #ig-metadata-panel {
+      margin-top: var(--sp-4); border: 2px dashed var(--c-border);
+      border-radius: var(--r-xl); overflow: hidden; background: var(--c-surface);
+    }
+    .ig-metadata-header {
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      padding: var(--sp-3) var(--sp-4);
+      border-bottom: 1px solid #bae6fd;
+    }
+    .ig-metadata-source-badge {
+      display: inline-block; font-size: 9px; font-weight: 700; padding: 2px 8px;
+      border-radius: var(--r-full); background: #e0e7ff; color: #4338ca;
+      margin-left: var(--sp-2); vertical-align: middle;
+    }
+    .ig-metadata-body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+    .ig-format-toggle { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+    .ig-fmt-btn {
+      font-size: 11px; font-weight: 600; padding: 4px 12px;
+      border: 1px solid var(--c-border); border-radius: var(--r-full);
+      background: var(--c-surface-2); color: var(--c-text-muted);
+      cursor: pointer; transition: all 0.15s;
+    }
+    .ig-fmt-btn:hover { border-color: var(--c-accent-teal); color: var(--c-accent-teal); }
+    .ig-fmt-active, .ig-fmt-btn.ig-fmt-active {
+      background: var(--c-accent-teal) !important; color: white !important;
+      border-color: var(--c-accent-teal) !important;
+    }
+    .ig-fmt-hint {
+      display: none; font-size: 11px; color: var(--c-text-muted);
+      background: var(--c-surface-2); border-radius: var(--r-md);
+      padding: 6px 10px; line-height: 1.7;
+    }
+    .ig-fmt-hint-show { display: block; }
+    .ig-fmt-hint code { background: #e0e7ff; color: #4338ca; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+    .ig-metadata-textarea {
+      width: 100%; box-sizing: border-box; font-family: 'Courier New', monospace;
+      font-size: 11px; line-height: 1.6; color: var(--c-text);
+      background: #f9fafb; border: 1px solid var(--c-border-light);
+      border-radius: var(--r-md); padding: var(--sp-3); resize: vertical;
+      min-height: 160px; outline: none; transition: border-color 0.15s;
+    }
+    .ig-metadata-textarea:focus { border-color: var(--c-accent-teal); background: white; }
+    .ig-metadata-actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; align-items: center; }
+    .ig-upload-label {
+      font-size: 11px; font-weight: 600; padding: 6px 14px;
+      border: 1px solid var(--c-border); border-radius: var(--r-full);
+      background: var(--c-surface-2); color: var(--c-text-muted);
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .ig-upload-label:hover { border-color: var(--c-primary); color: var(--c-primary); }
+    .ig-parse-btn {
+      font-size: 12px; font-weight: 700; padding: 7px 20px;
+      background: var(--c-accent-teal); color: white;
+      border: none; border-radius: var(--r-full); cursor: pointer;
+      transition: opacity 0.15s; white-space: nowrap;
+    }
+    .ig-parse-btn:hover { opacity: 0.88; }
+    .ig-load-example-btn {
+      font-size: 11px; font-weight: 600; padding: 6px 14px;
+      border: 1px solid var(--c-border); border-radius: var(--r-full);
+      background: var(--c-surface-2); color: var(--c-text-muted);
+      cursor: pointer; transition: all 0.15s; white-space: nowrap;
+    }
+    .ig-load-example-btn:hover { border-color: var(--c-accent-teal); color: var(--c-accent-teal); }
+    #ig-parse-stats {
+      display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center;
+    }
+    .ig-stat-chip {
+      font-size: 11px; font-weight: 600; padding: 3px 10px;
+      background: #f0fdf4; border: 1px solid #86efac;
+      border-radius: var(--r-full); color: #15803d;
+    }
+    .ig-stat-warn { background: #fff7ed; border-color: #fdba74; color: #c2410c; }
     /* Responsive */
     @media (max-width: 900px) {
       #ig-layout { grid-template-columns: 1fr; }
@@ -1067,6 +1141,7 @@
 <script src="js/auth.js"></script>
 <script src="js/analyze-engine.js"></script>
 <script src="js/impact-graph.js"></script>
+<script src="js/metadata-parser.js"></script>
 <script src="js/api-client.js"></script>
 <script src="js/export.js"></script>
 <script src="js/analytics.js"></script>

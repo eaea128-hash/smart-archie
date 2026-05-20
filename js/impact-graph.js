@@ -339,6 +339,9 @@ const ImpactGraph = (() => {
     return insight + (extNote ? ' ' + extNote : '');
   }
 
+  // ── Render State ─────────────────────────────────────────
+  let _currentFormat = 'dsl';
+
   // ── Render ────────────────────────────────────────────────
 
   const RISK_COLORS = {
@@ -424,6 +427,67 @@ const ImpactGraph = (() => {
               </div>
             </div>`;
         }).join('')}
+      </div>
+
+      <!-- ── Metadata Input Panel ─────────────────────── -->
+      <div id="ig-metadata-panel">
+        <div class="ig-metadata-header">
+          <div>
+            <span style="font-size:var(--fs-sm);font-weight:700;color:var(--c-primary);">🔬 真實 Metadata 驅動分析</span>
+            <span class="ig-metadata-source-badge" id="ig-source-badge">行業範本模式</span>
+          </div>
+          <div style="font-size:10px;color:var(--c-text-muted);margin-top:2px;">
+            貼入您的系統相依關係資料，即可自動偵測群組、計算耦合度並重繪圖譜
+          </div>
+        </div>
+        <div class="ig-metadata-body">
+          <!-- Format Toggle -->
+          <div class="ig-format-toggle">
+            <button class="ig-fmt-btn ig-fmt-active" data-fmt="dsl"  onclick="ImpactGraph.setFormat('dsl')">DSL 語法</button>
+            <button class="ig-fmt-btn"               data-fmt="csv"  onclick="ImpactGraph.setFormat('csv')">CSV 表格</button>
+            <button class="ig-fmt-btn"               data-fmt="json" onclick="ImpactGraph.setFormat('json')">JSON 格式</button>
+            <button class="ig-fmt-btn"               data-fmt="auto" onclick="ImpactGraph.setFormat('auto')">自動偵測</button>
+          </div>
+
+          <!-- Format Hints -->
+          <div id="ig-fmt-hint-dsl"  class="ig-fmt-hint ig-fmt-hint-show">
+            <code>程式A -&gt; 程式B [CALL|DB-READ|DB-WRITE|EXTERNAL|BATCH]</code>
+            ・多目標：<code>A -&gt; B, C</code>
+            ・群組：<code>GROUP: 名稱 &#123; A, B, C &#125;</code>
+          </div>
+          <div id="ig-fmt-hint-csv"  class="ig-fmt-hint">
+            標題行（可選）：<code>FROM,TO,TYPE</code>　每行一條依賴關係，TYPE 可省略
+          </div>
+          <div id="ig-fmt-hint-json" class="ig-fmt-hint">
+            <code>&#123;"nodes":["A","B"],"edges":[&#123;"from":"A","to":"B","type":"CALL"&#125;]&#125;</code>
+          </div>
+          <div id="ig-fmt-hint-auto" class="ig-fmt-hint">
+            自動偵測格式：JSON 以 &#123; 開頭；CSV 用逗號分隔；其餘視為 DSL
+          </div>
+
+          <!-- Textarea -->
+          <textarea id="ig-metadata-input" class="ig-metadata-textarea" rows="9"
+            placeholder="貼入或輸入系統相依關係資料..."></textarea>
+
+          <!-- Action Row -->
+          <div class="ig-metadata-actions">
+            <label class="ig-upload-label">
+              📂 上傳 CSV 檔
+              <input type="file" accept=".csv,.txt,.json" style="display:none;"
+                onchange="ImpactGraph.handleFileUpload(event)">
+            </label>
+            <button class="ig-parse-btn" onclick="ImpactGraph.parseAndRender()">
+              🔬 解析並更新圖譜
+            </button>
+            <button class="ig-load-example-btn" onclick="ImpactGraph.loadExample()">
+              📋 載入範例
+            </button>
+          </div>
+
+          <!-- Stats & Errors -->
+          <div id="ig-parse-stats"  style="display:none;"></div>
+          <div id="ig-parse-errors" style="display:none;"></div>
+        </div>
       </div>
     `;
 
@@ -592,8 +656,155 @@ const ImpactGraph = (() => {
     `;
   }
 
+  // ── Metadata Panel Methods ────────────────────────────────
+
+  function setFormat(fmt) {
+    _currentFormat = fmt;
+
+    // Toggle button active state
+    document.querySelectorAll('.ig-fmt-btn').forEach(btn => {
+      btn.classList.toggle('ig-fmt-active', btn.dataset.fmt === fmt);
+    });
+
+    // Show matching hint, hide others
+    ['dsl','csv','json','auto'].forEach(f => {
+      const el = document.getElementById(`ig-fmt-hint-${f}`);
+      if (el) el.classList.toggle('ig-fmt-hint-show', f === fmt);
+    });
+  }
+
+  function loadExample() {
+    const ta = document.getElementById('ig-metadata-input');
+    if (!ta) return;
+    if (typeof MetadataParser === 'undefined') {
+      _showError('MetadataParser 尚未載入，請確認 js/metadata-parser.js 已引入。');
+      return;
+    }
+    ta.value = MetadataParser.DSL_EXAMPLE;
+    setFormat('dsl');
+  }
+
+  function handleFileUpload(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const ta = document.getElementById('ig-metadata-input');
+      if (ta) ta.value = e.target.result;
+
+      // Auto-detect format from extension
+      if (file.name.endsWith('.json')) setFormat('json');
+      else if (file.name.endsWith('.csv')) setFormat('csv');
+      else setFormat('auto');
+
+      _showStats(null, `已載入檔案：${file.name}（${(file.size / 1024).toFixed(1)} KB）`);
+    };
+    reader.onerror = () => _showError('檔案讀取失敗，請重試。');
+    reader.readAsText(file, 'UTF-8');
+  }
+
+  function parseAndRender() {
+    const ta = document.getElementById('ig-metadata-input');
+    if (!ta || !ta.value.trim()) {
+      _showError('請先輸入或貼上系統相依關係資料。');
+      return;
+    }
+
+    if (typeof MetadataParser === 'undefined') {
+      _showError('MetadataParser 模組尚未載入，請確認 js/metadata-parser.js 已正確引入。');
+      return;
+    }
+
+    const rawText = ta.value.trim();
+    const fmt     = _currentFormat === 'auto' ? MetadataParser.detectFormat(rawText) : _currentFormat;
+
+    // Get current strategy from stored graphData
+    const container = document.getElementById('igGraphContainer');
+    const strategy6R = container?.__graphData
+      ? { primary: container.__graphData.strategy }
+      : { primary: 'replatform' };
+
+    _showStats(null, '⏳ 解析中...');
+
+    let graphData;
+    try {
+      graphData = MetadataParser.buildGraphFromMetadata(rawText, fmt, strategy6R);
+    } catch (e) {
+      _showError(`解析失敗：${e.message}`);
+      return;
+    }
+
+    if (!graphData.clusters.length) {
+      _showError('未能偵測到有效節點，請確認資料格式正確。' +
+        (graphData.errors?.length ? '<br>' + graphData.errors.join('<br>') : ''));
+      return;
+    }
+
+    // Re-render graph with real data
+    render('igGraphContainer', graphData);
+
+    // Restore format toggle after re-render (render() resets innerHTML)
+    setFormat(fmt);
+
+    // Restore textarea content
+    const newTa = document.getElementById('ig-metadata-input');
+    if (newTa) newTa.value = rawText;
+
+    // Show stats
+    const s = graphData.stats;
+    _showStats(s, null);
+
+    // Update source badge
+    const badge = document.getElementById('ig-source-badge');
+    if (badge) {
+      badge.textContent = 'Metadata 驅動模式';
+      badge.style.background = '#dbeafe';
+      badge.style.color = '#1d4ed8';
+    }
+
+    // Show parse errors as warnings if any
+    if (s.errors?.length) {
+      _showError('⚠️ 部分行無法解析（已忽略）：<br>' + s.errors.join('<br>'), 'warning');
+    }
+  }
+
+  function _showStats(stats, msg) {
+    const el = document.getElementById('ig-parse-stats');
+    if (!el) return;
+
+    if (msg) {
+      el.style.display = 'block';
+      el.innerHTML = `<span style="color:var(--c-text-muted);">${msg}</span>`;
+      return;
+    }
+
+    if (!stats) { el.style.display = 'none'; return; }
+
+    el.style.display = 'flex';
+    el.innerHTML = `
+      <span class="ig-stat-chip">📦 ${stats.programs} 個程式</span>
+      <span class="ig-stat-chip">🔗 ${stats.edges} 條依賴</span>
+      <span class="ig-stat-chip">🗂 ${stats.clusters} 個群組</span>
+      ${stats.externalDeps > 0 ? `<span class="ig-stat-chip ig-stat-warn">🌐 ${stats.externalDeps} 個外部介面</span>` : ''}
+      ${stats.dbDeps > 0       ? `<span class="ig-stat-chip">🗄 ${stats.dbDeps} 個 DB 依賴</span>` : ''}
+    `;
+
+    const errEl = document.getElementById('ig-parse-errors');
+    if (errEl) errEl.style.display = 'none';
+  }
+
+  function _showError(msg, level = 'error') {
+    const el = document.getElementById('ig-parse-errors');
+    if (!el) return;
+    const bg = level === 'warning' ? '#fff8e1' : '#fef2f2';
+    const cl = level === 'warning' ? '#b45309' : '#b91c1c';
+    el.style.display = 'block';
+    el.innerHTML = `<div style="background:${bg};color:${cl};border-radius:var(--r-md);padding:8px 10px;font-size:11px;line-height:1.6;">${msg}</div>`;
+  }
+
   // ── Public API ────────────────────────────────────────────
-  return { buildGraph, render, selectCluster };
+  return { buildGraph, render, selectCluster, setFormat, loadExample, handleFileUpload, parseAndRender };
 
 })();
 
