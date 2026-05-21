@@ -299,7 +299,16 @@ const AnalyzeEngine = (() => {
       ? '建議優先進行 PoC / MVP 試驗，透過 Savings Plans 或 Reserved Instances 降低長期成本。'
       : '建議採用 On-Demand 起步，第一季後根據使用率採購 Compute Savings Plans。';
 
-    return { low, mid, high, annualLow, annualHigh, breakdown, drivers, recommendation, migrationLow, migrationHigh };
+    // Assumption transparency for local engine path
+    const assumptions = [
+      `估算基準：${inputs.systemCount || inputs.vmCount || '—'} 套系統，規模分類：${({'small':'小型（≤10台）','medium':'中型（11–50台）','large':'大型（51–200台）','enterprise':'企業級（200台+）'})[inputs.companySize] || '中型'}`,
+      `購買模式：60% Compute Savings Plans（1年期）+ 40% On-Demand（中估情境）`,
+      `DR 等級：${({'none':'無 DR','rto24h':'RTO ≤ 24hr（冷備援）','rto4h':'RTO ≤ 4hr（暖備援）','rto1h':'RTO ≤ 1hr（熱備援）','rto15m':'RTO ≤ 15min（主動-主動）'})[inputs.drRequirements] || '暖備援'}，已計入 DR 費用加乘`,
+      `合規等級：${({'low':'一般合規','medium':'中等合規（+18%）','high':'高度合規（+55%，含金融/個資工具）'})[inputs.complianceLevel] || '中等合規'}`,
+      `不含費用：Professional Services 顧問費、授權遷移（License Mobility）、客製化開發、人員培訓`,
+      `最終報價請以 ${inputs.targetCloud || 'AWS'} 官方 Pricing Calculator 或企業報價為準`,
+    ];
+    return { low, mid, high, annualLow, annualHigh, breakdown, drivers, recommendation, migrationLow, migrationHigh, assumptions };
   }
 
   // ── Risk Radar ────────────────────────────────────────────

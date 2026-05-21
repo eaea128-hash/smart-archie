@@ -1916,6 +1916,25 @@ function renderResult(r, style) {
         <div style="margin-top:var(--sp-3);padding:var(--sp-2) var(--sp-4);background:rgba(234,179,8,0.06);border-radius:var(--r-md);border:1px solid rgba(234,179,8,0.2);">
           <div style="font-size:11px;color:var(--c-text-muted);">⚠️ 定價資料說明：${cost.pricingNote}。最終報價請以各雲端原廠官方報價為準。</div>
         </div>` : ''}
+        <!-- 估算假設透明度 -->
+        <details style="margin-top:var(--sp-3);">
+          <summary style="font-size:11px;color:var(--c-text-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:4px;">
+            <span style="font-size:10px;">▶</span> 📋 估算假設與前提條件
+          </summary>
+          <div style="margin-top:var(--sp-2);padding:var(--sp-3);background:var(--c-bg);border-radius:var(--r-md);border:1px solid var(--c-border-light);">
+            ${(cost.assumptions || [
+              `基準：${r.inputs?.serverCount || r.inputs?.vmCount || '—'} 台主機，系統規模評估為中型環境`,
+              '購買模式假設：60% On-Demand + 40% Compute Savings Plans（1 年期）',
+              '儲存假設：S3 Standard 熱資料 + 30 天後 Lifecycle 轉 IA，未含 Glacier 長期歸檔',
+              '不含費用：Professional Services 顧問費、授權遷移費（License Mobility）、客製化開發',
+              '匯率基準：以 USD 計算，換算請參考即時 TWD/USD 匯率',
+              '最終報價請以各雲端原廠官方 Pricing Calculator 為準',
+            ]).map((a, i) => `
+            <div style="display:flex;gap:8px;font-size:11px;color:var(--c-text-muted);padding:3px 0;${i > 0 ? 'border-top:1px solid var(--c-border-light);' : ''}">
+              <span style="color:var(--c-accent-teal);flex-shrink:0;">•</span><span>${a}</span>
+            </div>`).join('')}
+          </div>
+        </details>
       </div>
     </div>
   </div>`;
@@ -2429,7 +2448,7 @@ function renderDecisionBoard(result) {
     const badgeBg  = rule.severity === 'critical' ? '#fef2f2' : rule.severity === 'high' ? '#fff7ed' : '#fefce8';
     const badgeCol = rule.severity === 'critical' ? '#b91c1c' : rule.severity === 'high' ? '#c2410c' : '#b45309';
     return `
-      <div class="bdb-gov-row">
+      <div class="bdb-gov-row" style="flex-wrap:wrap;row-gap:2px;">
         <div class="bdb-gov-dot" style="background:${dotColor};"></div>
         <div class="bdb-gov-text" style="color:${rule.passed ? 'var(--c-text-muted)' : 'var(--c-text)'};">
           ${rule.passed ? '<s>' : ''}${rule.title}${rule.passed ? '</s>' : ''}
@@ -2437,6 +2456,10 @@ function renderDecisionBoard(result) {
         <div class="bdb-gov-badge" style="background:${badgeBg};color:${badgeCol};">
           ${rule.severity === 'critical' ? '關鍵' : rule.severity === 'high' ? '高' : '中'}
         </div>
+        ${!rule.passed && rule.failReason ? `
+        <div style="width:100%;padding:4px 8px 4px 22px;font-size:10px;color:#b91c1c;background:rgba(239,68,68,0.04);border-radius:4px;line-height:1.5;border-left:2px solid rgba(239,68,68,0.3);">
+          ⚠️ ${rule.failReason}
+        </div>` : ''}
       </div>`;
   }).join('');
 

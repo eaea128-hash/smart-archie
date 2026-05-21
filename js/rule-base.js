@@ -25,6 +25,7 @@ const RuleBase = (() => {
       desc:  '所有雲端帳號須啟用 MFA，採最小權限原則，禁止以 Root 帳號執行日常作業',
       severity: 'critical',
       check: i => i.hasIAM === 'yes',
+      failMsg: i => `您的評估顯示 IAM 尚未建置。需部署 AWS IAM Identity Center（SSO）並對所有帳號強制啟用 MFA，禁止 Root 帳號日常使用。`,
       remedy:   '部署 AWS IAM Identity Center / Azure Entra ID；建立 Role-Based Access Control (RBAC) 矩陣',
       standard: 'NIST SP 800-53 AC-6、CIS Benchmark Level 1',
     },
@@ -34,6 +35,7 @@ const RuleBase = (() => {
       desc:  '生產、測試、稽核帳號需 OU 層級隔離，避免爆炸半徑擴大',
       severity: 'critical',
       check: i => i.hasLandingZone === 'yes',
+      failMsg: i => `您的評估顯示尚未建立 Landing Zone。在此狀態下直接部署應用，任何帳號遭入侵將影響全環境（無爆炸半徑隔離）。需先完成 AWS Control Tower 多帳號架構。`,
       remedy:   'AWS Control Tower 或 Azure Landing Zone Blueprint；建立 SCP / Azure Policy 邊界',
       standard: 'AWS Well-Architected Security Pillar、Azure CAF',
     },
@@ -43,6 +45,7 @@ const RuleBase = (() => {
       desc:  '所有儲存資料需 AES-256 加密；傳輸需 TLS 1.2+；金鑰由 KMS 集中管理',
       severity: 'critical',
       check: i => !( (i.hasPersonalData === 'yes' || i.hasFinancialData === 'yes') && i.complianceLevel !== 'high' ),
+      failMsg: i => `您的系統含${i.hasPersonalData==='yes'?'個人資料':''}${i.hasFinancialData==='yes'?'／金融交易資料':''}，但合規等級設為「${i.complianceLevel}」，不符合高敏感資料的加密管控要求。需啟用 KMS + 全量靜態加密 + TLS 1.2+。`,
       remedy:   '啟用 AWS KMS / Azure Key Vault；Storage、RDS、EBS 預設加密；禁用 TLS 1.0/1.1',
       standard: 'FIPS 140-2 Level 2；PCI DSS 3.4；ISO 27001 A.10',
     },
@@ -51,7 +54,8 @@ const RuleBase = (() => {
       title: '集中式日誌與稽核軌跡（CloudTrail/Monitor）',
       desc:  '所有 API 呼叫須記錄稽核日誌，保留 ≥ 1 年，不可竄改',
       severity: 'high',
-      check: _ => true, // always a gap if not explicitly confirmed
+      check: _ => true,
+      failMsg: _ => null, // always passes — is a standing recommendation
       remedy:   'AWS CloudTrail → S3 (Object Lock)；Azure Monitor → Log Analytics Workspace；設定異常告警',
       standard: 'SOC 2 Type II (CC7.2)；ISO 27001 A.12.4；NIST AU-12',
     },
@@ -61,6 +65,7 @@ const RuleBase = (() => {
       desc:  '工作負載部署於私有子網路；WAF + API Gateway 作為公開入口；禁止直接公開 DB',
       severity: 'high',
       check: i => i.hasLandingZone === 'yes',
+      failMsg: i => `無 Landing Zone 表示尚未建立 VPC 隔離與私有子網路架構。工作負載可能直接暴露於公共網路，需先完成 Hub-Spoke VPC 建置。`,
       remedy:   'Hub-Spoke VPC 架構；WAF 規則集 (OWASP Top 10)；Security Group 最小開放；PrivateLink',
       standard: 'NIST SP 800-207 Zero Trust Architecture；CIS AWS/Azure Foundations',
     },
@@ -70,6 +75,7 @@ const RuleBase = (() => {
       desc:  '核心系統 RTO ≤ 4hr / RPO ≤ 1hr，並每季執行一次完整 DR 演練',
       severity: 'critical',
       check: i => !(i.isCoreSystem === 'yes' && i.downtimeTolerance !== 'low'),
+      failMsg: i => `您的系統為核心業務系統（停機容忍度：${i.downtimeTolerance || '未設定'}），但未見 DR 計畫。若無 BCP/Runbook 與 DR 演練，遷移後發生事故將缺乏回復機制。需完成 Multi-AZ 部署驗證與 DR 演練。`,
       remedy:   'Multi-AZ 主動-主動或主動-待命部署；制訂 Runbook；自動化 DR 觸發（Route 53 Health Check）',
       standard: 'ISO 22301 Business Continuity；MAS TRM 2021 §9.5',
     },
@@ -78,7 +84,8 @@ const RuleBase = (() => {
       title: '資源標籤策略與預算告警',
       desc:  '所有資源打 Project / Env / Owner 標籤；設定預算告警（≥80% 觸發）；月度成本審查',
       severity: 'medium',
-      check: _ => true, // always a recommendation
+      check: _ => true,
+      failMsg: _ => null,
       remedy:   'AWS Cost Explorer Tag Policy + Budget Alert；Azure Cost Management + Tag Governance Policy',
       standard: 'FinOps Foundation Best Practices；ITFM / TBM Framework',
     },
@@ -87,7 +94,8 @@ const RuleBase = (() => {
       title: 'Container Image 掃描與 SBOM 管理',
       desc:  '容器映像上傳前須通過 CVE 掃描；維護 SBOM（軟體物料清單）；禁用 latest tag',
       severity: 'high',
-      check: i => i.archType !== 'microservices', // microservices = containers = higher risk
+      check: i => i.archType !== 'microservices',
+      failMsg: i => `您的架構類型為微服務（Microservices），大量使用容器映像，若無 CVE 掃描與 SBOM 管理，供應鏈安全風險高。需整合 ECR Image Scanning + Trivy 至 CI/CD 流水線。`,
       remedy:   'AWS ECR Image Scanning / Azure Defender for Containers；Trivy 整合 CI/CD；Cosign 簽章驗證',
       standard: 'EO 14028 (美國行政命令)；NIST SSDF；CIS Software Supply Chain Security',
     },
@@ -153,6 +161,34 @@ const RuleBase = (() => {
         check: _ => true,
         remedy:   '建立 ICT Risk Register；確保 CSP 合約包含 DORA Article 28 要求；指定 ICT 風險管理負責人',
         authority: 'EU Regulation 2022/2554 (DORA)',
+      },
+      // ── 台灣金融機構細分規則（依機構類型）──────────────────────────────────
+      {
+        id: 'FSC-BANK-001', jurisdiction: '台灣 FSC 銀行局',
+        title: '銀行法 §125-5 重大資訊系統事件通報（2小時內）',
+        desc:  '銀行資訊系統發生重大事件（含雲端服務中斷）須於 2 小時內通報金管會銀行局，並於 72 小時內提交完整報告',
+        severity: 'critical',
+        check: i => !(i.complianceLevel === 'high' && i.isCoreSystem === 'yes'),
+        remedy:   '建立雲端服務 SLA 監控機制；設定 CloudWatch Alarm → SNS 自動通報流程；制訂事件回應 SOP（含通報模板）',
+        authority: 'FSC 銀行局 資訊安全管理實務守則',
+      },
+      {
+        id: 'FSC-INS-001', jurisdiction: '台灣 FSC 保險局',
+        title: '保險業辦理資訊委外作業注意事項',
+        desc:  '保險業委外資訊系統（含雲端）需事前報備，客戶保單資料不得傳輸至境外，委外合約需包含稽核權',
+        severity: 'critical',
+        check: i => !(i.isMajorOutsource === 'yes' && i.complianceLevel === 'high'),
+        remedy:   '向保險局提交委外申請書；合約加入「境內資料儲存」及「稽核權」條款；保單核心系統採境內 Region',
+        authority: 'FSC 保險局 委外作業注意事項',
+      },
+      {
+        id: 'FSC-SEC-001', jurisdiction: '台灣 FSC 證期局',
+        title: '證券商交易系統連續性要求（RTO ≤ 2hr）',
+        desc:  '證券交易核心系統 RTO ≤ 2hr，需每半年執行一次 DR 演練並向證期局申報，雲端化須事先取得核准',
+        severity: 'critical',
+        check: i => !(i.isCoreSystem === 'yes' && i.complianceLevel === 'high'),
+        remedy:   '建立 Active-Active Multi-AZ 部署；每半年 DR 演練記錄存查；上雲前向證期局提交資訊系統委外計畫',
+        authority: 'FSC 證期局 證券商資訊系統委外辦法',
       },
     ],
 
@@ -489,10 +525,12 @@ const RuleBase = (() => {
     const strategy = strategy6R?.primary || 'replatform';
     const industry = (inputs.industry || '').toLowerCase();
 
-    // 1. Governance rules
-    const govResults = GOVERNANCE_RULES.map(rule => ({
-      ...rule, passed: rule.check(inputs),
-    }));
+    // 1. Governance rules — include dynamic failReason for explainability
+    const govResults = GOVERNANCE_RULES.map(rule => {
+      const passed = rule.check(inputs);
+      const failReason = (!passed && rule.failMsg) ? rule.failMsg(inputs) : null;
+      return { ...rule, passed, failReason };
+    });
 
     // 2. Industry compliance rules
     const compKey = (['financial','banking','insurance','banking_finance','financial services','finance'].some(k => industry.includes(k)))
@@ -558,11 +596,79 @@ const RuleBase = (() => {
     };
   }
 
+  // ══════════════════════════════════════════════════════════
+  // ── COMPLIANCE MATRIX ─────────────────────────────────────
+  // Cross-reference: Regulation × Required Control × AWS Service × Gap Status
+  // Status: 'auto'=AWS handles it | 'config'=needs config | 'manual'=customer responsibility
+  // ══════════════════════════════════════════════════════════
+
+  const COMPLIANCE_MATRIX = {
+    financial: {
+      title: '金融業法規合規對照矩陣',
+      subtitle: '適用：銀行、保險、證券、期貨等受 FSC/MAS/APRA 監管機構',
+      regulations: [
+        {
+          id: 'IDENTITY', name: '身份與存取控管',
+          controls: [
+            { req: 'MFA 強制啟用',                   aws: 'IAM Identity Center + MFA Policy', azure: 'Entra ID Conditional Access',    status: 'config',  standard: 'CIS 1.10、FSC 委外辦法' },
+            { req: '特權帳號最小授權 (PAM)',            aws: 'IAM Roles + SCPs',               azure: 'Privileged Identity Management', status: 'config',  standard: 'NIST AC-6、MAS TRM §9.1' },
+            { req: '服務帳號金鑰輪替（≤90天）',          aws: 'AWS Secrets Manager + Rotation',  azure: 'Key Vault + Rotation Policy',    status: 'config',  standard: 'CIS 1.14、APRA CPS234' },
+          ],
+        },
+        {
+          id: 'DATA_PROTECTION', name: '資料保護與主權',
+          controls: [
+            { req: '靜態資料加密 (AES-256)',            aws: 'KMS + S3/EBS/RDS 預設加密',       azure: 'Key Vault + Storage Encryption', status: 'config',  standard: 'FSC §10、MAS TRM §11.3' },
+            { req: '傳輸加密 (TLS 1.2+)',               aws: 'ACM + ALB TLS Policy',           azure: 'App Gateway SSL Policy',         status: 'config',  standard: 'PCI DSS 4.2.1、FIPS 140-2' },
+            { req: '資料主權（境內儲存）',                aws: 'Region: ap-northeast-1 / ap-southeast-1', azure: 'East Asia Region',        status: 'manual',  standard: 'FSC 委外辦法、PDPA' },
+            { req: '金鑰管理（客戶自管）',                aws: 'KMS Customer Managed Keys (CMK)', azure: 'Customer-Managed Keys',         status: 'config',  standard: 'ISO 27001 A.10、MAS TRM §11.4' },
+          ],
+        },
+        {
+          id: 'NETWORK', name: '網路隔離與存取控制',
+          controls: [
+            { req: 'VPC 私有子網路隔離',                aws: 'VPC + Private Subnet + NACLs',  azure: 'VNet + NSG + Private Endpoint',  status: 'config',  standard: 'CIS AWS 5.x、NIST SC-7' },
+            { req: 'WAF + DDoS 防護',                   aws: 'AWS WAF + Shield Standard',      azure: 'WAF + DDoS Protection',          status: 'config',  standard: 'OWASP Top 10、MAS TRM §12' },
+            { req: 'DB 禁止直接公開（Private 存取）',     aws: 'RDS in Private Subnet + SG',    azure: 'SQL Private Endpoint',           status: 'config',  standard: 'CIS 2.3.1、FSC 資安管理規範' },
+          ],
+        },
+        {
+          id: 'LOGGING', name: '稽核日誌與監控',
+          controls: [
+            { req: '全帳號 API 操作紀錄',               aws: 'CloudTrail (All Regions)',        azure: 'Activity Log + Diagnostic Settings', status: 'config', standard: 'SOC 2 CC7.2、MAS TRM §13.1' },
+            { req: '日誌不可竄改（保留 ≥ 1 年）',         aws: 'S3 Object Lock (Compliance Mode)', azure: 'Immutable Storage (WORM)',      status: 'config',  standard: 'MAS TRM §13.2、FSC §15' },
+            { req: '異常行為即時告警',                   aws: 'GuardDuty + SNS + Lambda',       azure: 'Sentinel SIEM Rules',            status: 'config',  standard: 'NIST SI-4、APRA CPS234 §36' },
+            { req: '安全基線合規掃描',                   aws: 'AWS Config Rules + Security Hub', azure: 'Defender for Cloud + Policy',   status: 'config',  standard: 'CIS Benchmark、MAS TRM §14' },
+          ],
+        },
+        {
+          id: 'DR_BCM', name: '災難復原與業務連續',
+          controls: [
+            { req: 'RTO ≤ 4hr（核心系統）',             aws: 'Multi-AZ + Route 53 Health Check', azure: 'Availability Zones + Traffic Manager', status: 'config', standard: 'MAS TRM §9.5、FSC-BANK-001' },
+            { req: 'RPO ≤ 1hr（核心資料）',              aws: 'RDS Multi-AZ + S3 CRR',          azure: 'Geo-Redundant Storage',          status: 'config',  standard: 'ISO 22301、MAS TRM 2021 Annex 5' },
+            { req: '每季 DR 演練（核心系統）',             aws: 'Elastic Disaster Recovery (DRS)', azure: 'Azure Site Recovery',            status: 'manual',  standard: 'MAS TRM §9.6、FSC 銀行局函' },
+            { req: 'Runbook 自動化',                    aws: 'AWS Systems Manager + OpsItems',  azure: 'Automation Runbooks',            status: 'manual',  standard: 'ISO 22301 §8.4' },
+          ],
+        },
+        {
+          id: 'VENDOR_RISK', name: '第三方風險管理 (TPRM)',
+          controls: [
+            { req: 'CSP SOC 2 Type II 報告取得',        aws: 'AWS Artifact (自助下載)',         azure: 'Service Trust Portal',           status: 'auto',    standard: 'MAS TPOR 2023、FSC-002' },
+            { req: 'CSP ISO 27001 認證確認',             aws: 'AWS ISO 認證（含台灣 Region）',   azure: 'Azure ISO 27001',                status: 'auto',    standard: 'APRA CPS234、FSC-001' },
+            { req: 'CSP 合約稽核權條款',                 aws: '客戶合約協商（Enterprise Support）', azure: 'Enterprise Agreement',         status: 'manual',  standard: 'FSC 委外辦法第 5 條' },
+            { req: '重大委外事前通報主管機關',              aws: '—（客戶責任）',                  azure: '—（客戶責任）',                  status: 'manual',  standard: 'FSC-001、MAS 外包準則 §5.3' },
+          ],
+        },
+      ],
+    },
+  };
+
   // ── Public API ────────────────────────────────────────────
   return {
     evaluate,
     assessSkillGap,
     strategyDistribution,
+    COMPLIANCE_MATRIX,
     STRATEGY_COLORS,
     STRATEGY_LABELS_ZH,
   };
