@@ -429,12 +429,19 @@ const RuleBase = (() => {
     const criticalSkillGap = skillGap.filter(s => s.status === 'critical').length;
     const majorSkillGap    = skillGap.filter(s => s.status === 'major').length;
 
-    // ── No-Go：治理基礎嚴重缺失，或多個關鍵風險並存 ──────────────────────
-    // 條件：2+ 個治理關鍵缺口，或 2+ 個關鍵反模式，或同時有 1 個治理缺口＋1 個關鍵反模式
-    // （單一孤立關鍵反模式但治理完整者，降為附條件可行，避免誤判）
+    // ── No-Go：治理基礎嚴重缺失 ──────────────────────────────────────────────
+    // 原則：No-Go 只在「技術/治理根基」嚴重崩潰時觸發，不因法遵流程未完成而觸發。
+    // 法遵流程問題（AP-007 委外通知、AP-008 資料主權）→ Conditional Go（可邊準備邊規劃）
+    // 真正的 No-Go 條件（技術架構根本不可行）：
+    //   A) 2+ 個治理關鍵缺口（IAM/Landing Zone 等技術基礎完全缺失）
+    //   B) 治理缺口 1+ 個「同時」有架構性關鍵反模式（AP-001/003/005，非純法遵類）
+    // 架構性 AP（技術根本風險）vs 法遵性 AP（流程待完成）
+    const ARCH_CRITICAL_AP = ['AP-001', 'AP-002', 'AP-003', 'AP-005'];  // 技術架構根本問題
+    const archCriticalAP = antiPatterns.filter(ap => ap.risk === 'critical' && ARCH_CRITICAL_AP.includes(ap.id)).length;
+    const compliCriticalAP = antiPatterns.filter(ap => ap.risk === 'critical' && !ARCH_CRITICAL_AP.includes(ap.id)).length;
+
     const hardBlock = criticalGovFails >= 2
-      || criticalAP >= 2
-      || (criticalGovFails >= 1 && criticalAP >= 1);
+      || (criticalGovFails >= 1 && archCriticalAP >= 1);  // 技術根基雙重崩潰才 No-Go
 
     if (hardBlock) {
       return {
@@ -442,7 +449,7 @@ const RuleBase = (() => {
         label:    '🔴 暫緩 (No-Go)',
         color:    '#ef4444',
         bgColor:  '#fef2f2',
-        message:  `發現 ${criticalGovFails} 個治理關鍵缺口、${criticalAP} 個關鍵反模式，基礎條件不足，建議先完成前提條件再啟動遷移。`,
+        message:  `發現 ${criticalGovFails} 個治理關鍵缺口、${archCriticalAP} 個架構性關鍵反模式，技術基礎條件不足，需先補強再啟動遷移。`,
         conditions: [],
       };
     }
@@ -460,7 +467,7 @@ const RuleBase = (() => {
       ? 'MVP Pilot 先行：以非核心系統完成 4–8 週 Pilot，驗證 Landing Zone + 合規掃描後再啟動核心系統波次'
       : null;
 
-    // ── 附條件可行：有單一關鍵反模式、高度治理缺口或技能嚴重不足 ──────────
+    // ── 附條件可行（含法遵性反模式、治理缺口、技能不足） ───────────────────
     const softBlock = criticalGovFails >= 1 || criticalAP >= 1
       || highGovFails > 1 || highAP > 1 || criticalSkillGap > 0
       || financialPrereqs.length > 0;
@@ -470,21 +477,24 @@ const RuleBase = (() => {
       if (mvpPrereq)         conditions.push(mvpPrereq);
       if (criticalAP >= 1) {
         const names = antiPatterns.filter(ap => ap.risk === 'critical').map(ap => ap.name).join('、');
-        conditions.push(`優先處理關鍵反模式：${names}（遷移前必須制定對應緩解計畫）`);
+        conditions.push(`優先處理關鍵風險項目：${names}（遷移前須制定緩解計畫）`);
       }
       if (criticalGovFails >= 1) conditions.push(`完成 ${criticalGovFails} 個關鍵治理項目建置（IAM / Landing Zone 等）`);
       if (highGovFails > 0)      conditions.push(`補強 ${highGovFails} 個高風險治理項目`);
       if (criticalSkillGap > 0)  conditions.push(`引入 ${criticalSkillGap} 個關鍵技能資源（外部顧問或專職招募）`);
-      if (highAP > 0)            conditions.push(`制定 ${highAP} 個高風險反模式的對應計畫`);
+      if (highAP > 0)            conditions.push(`制定 ${highAP} 個中高風險反模式的對應計畫`);
       conditions.push(...financialPrereqs);
+
+      // Strategy direction is valid — clarify the relationship
+      const stratHint = `策略方向正確，建議依評估結果推進，完成以下前提條件後即可啟動：`;
       return {
         decision: 'conditional',
         label:    '🟡 附條件可行 (Conditional Go)',
         color:    '#b45309',
         bgColor:  '#fef3c7',
         message:  isFinancial
-          ? '金融行業遷移條件評估：整體方向可行，需先完成以下監管與技術前提條件：'
-          : '整體方向可行，但需先完成以下前提條件後再正式啟動：',
+          ? `金融行業遷移評估：${stratHint}`
+          : stratHint,
         conditions,
       };
     }
