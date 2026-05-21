@@ -2366,7 +2366,7 @@ function renderDecisionBoard(result) {
 
   const { inputs, strategy6R } = result;
   const rb = RuleBase.evaluate(inputs, strategy6R);
-  const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, mvpMust, scores } = rb;
+  const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, mvpMust, scores, rulesMeta } = rb;
   const isFinancialBoard = (inputs.industry || '').toLowerCase().match(/financial|banking|insurance|finance|金融|銀行|保險/);
 
   // ── Go/NoGo Banner ──
@@ -2376,8 +2376,17 @@ function renderDecisionBoard(result) {
       <div class="bdb-gonogo-body">
         <div class="bdb-gonogo-msg" style="color:${goNoGo.color};">${goNoGo.message}</div>
         ${goNoGo.conditions.length ? `
-          <ul class="bdb-gonogo-cond" style="margin:0;padding-left:16px;">
-            ${goNoGo.conditions.map(c => `<li style="color:#92400e;">${c}</li>`).join('')}
+          <ul class="bdb-gonogo-cond" style="margin:var(--sp-2) 0 0;padding-left:18px;">
+            ${goNoGo.conditions.map((c, i) => {
+              const isLast = i === goNoGo.conditions.length - 1 && goNoGo.decision === 'no-go';
+              const col = goNoGo.decision === 'no-go'
+                ? (isLast ? '#6b7280' : '#b91c1c')
+                : '#92400e';
+              const sty = isLast
+                ? `color:${col};font-style:italic;list-style:none;margin-left:-18px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(0,0,0,0.08);`
+                : `color:${col};margin-bottom:4px;line-height:1.6;`;
+              return `<li style="${sty}">${c}</li>`;
+            }).join('')}
           </ul>` : ''}
       </div>
     </div>`;
@@ -2575,6 +2584,28 @@ function renderDecisionBoard(result) {
           * 以上為常見法遵要求摘要，具體適用性請諮詢法律顧問確認
         </div>
       </div>` : ''}
+
+      <!-- 規則來源透明度 / 資料時效說明 -->
+      ${rulesMeta ? `
+      <details style="margin-top:var(--sp-4);">
+        <summary style="font-size:11px;color:var(--c-text-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px;padding:var(--sp-2) 0;">
+          <span style="font-size:9px;">▶</span>
+          <span>📚 規則庫來源與版本資訊（v${rulesMeta.version}，${rulesMeta.lastReviewed} 審查）</span>
+          <span style="margin-left:auto;font-size:10px;background:rgba(15,43,61,0.06);padding:2px 8px;border-radius:20px;">AI 分析 + 靜態規則庫雙引擎</span>
+        </summary>
+        <div style="margin-top:var(--sp-2);padding:var(--sp-3) var(--sp-4);background:var(--c-bg);border-radius:var(--r-md);border:1px solid var(--c-border-light);">
+          <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--sp-3);">
+            ${(rulesMeta.sources || []).map(s => `
+            <a href="${s.url}" target="_blank" rel="noopener"
+               style="font-size:10px;padding:2px 8px;border-radius:var(--r-full);background:var(--c-surface);border:1px solid var(--c-border);color:var(--c-text-muted);text-decoration:none;display:inline-flex;align-items:center;gap:4px;">
+              📄 ${s.name} <span style="color:var(--c-accent-teal);">${s.version}</span>
+            </a>`).join('')}
+          </div>
+          <div style="font-size:10px;color:var(--c-text-muted);line-height:1.7;padding:var(--sp-2) var(--sp-3);background:rgba(26,107,175,0.04);border-radius:var(--r-md);border-left:3px solid var(--c-accent-teal);">
+            ℹ️ ${rulesMeta.note}
+          </div>
+        </div>
+      </details>` : ''}
     </div>
   `;
 }

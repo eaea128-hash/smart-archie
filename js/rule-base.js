@@ -444,13 +444,24 @@ const RuleBase = (() => {
       || (criticalGovFails >= 1 && archCriticalAP >= 1);  // 技術根基雙重崩潰才 No-Go
 
     if (hardBlock) {
+      // Build actionable conditions so executives know EXACTLY what to fix
+      const noGoConditions = [];
+      // List each failing governance rule with its remedy
+      govResults
+        .filter(r => !r.passed && r.severity === 'critical')
+        .forEach(r => noGoConditions.push(`【${r.id}】${r.title} — 補救：${r.remedy}`));
+      // List each architectural anti-pattern with its recommendation
+      antiPatterns
+        .filter(ap => ap.risk === 'critical' && ARCH_CRITICAL_AP.includes(ap.id))
+        .forEach(ap => noGoConditions.push(`【${ap.id}】${ap.name} — 建議：${ap.recommendation}`));
+      noGoConditions.push('完成以上項目後，重新評估即可轉為可行。評估結果的策略方向仍供後續規劃參考。');
       return {
         decision: 'no-go',
         label:    '🔴 暫緩 (No-Go)',
         color:    '#ef4444',
         bgColor:  '#fef2f2',
-        message:  `發現 ${criticalGovFails} 個治理關鍵缺口、${archCriticalAP} 個架構性關鍵反模式，技術基礎條件不足，需先補強再啟動遷移。`,
-        conditions: [],
+        message:  `技術基礎條件不足（${criticalGovFails} 個治理關鍵缺口、${archCriticalAP} 個架構性關鍵反模式），需先完成以下項目：`,
+        conditions: noGoConditions,
       };
     }
 
@@ -603,6 +614,22 @@ const RuleBase = (() => {
       goNoGo,
       mvpMust,
       scores: { governance: govScore, skill: skillScore, compliance: compliScore, antiPattern: antiPatScore, bizReadiness },
+      // Rule base metadata — for transparency / freshness display in UI
+      rulesMeta: {
+        version:       '2.4.0',
+        lastReviewed:  '2025-05',
+        sources: [
+          { name: 'AWS Well-Architected Framework', version: '2024 Rev', url: 'https://aws.amazon.com/architecture/well-architected/' },
+          { name: 'CIS AWS Foundations Benchmark', version: 'v3.0.0 (2023)', url: 'https://www.cisecurity.org/benchmark/amazon_web_services' },
+          { name: 'MAS TRM Guidelines', version: '2021', url: 'https://www.mas.gov.sg/regulation/guidelines/technology-risk-management-guidelines' },
+          { name: 'FSC 金管會資訊委外辦法', version: '2023修正版', url: 'https://www.fsc.gov.tw' },
+          { name: 'APRA CPS 234', version: '2019', url: 'https://www.apra.gov.au/cps-234-information-security' },
+          { name: 'EU DORA', version: 'Regulation 2022/2554 (生效 2025/1)', url: 'https://www.eba.europa.eu/regulation-and-policy/dora' },
+          { name: 'NIST SP 800-53', version: 'Rev 5 (2020)', url: 'https://csrc.nist.gov/publications/detail/sp/800-53/rev-5/final' },
+          { name: 'ISO/IEC 27001', version: '2022', url: 'https://www.iso.org/standard/27001' },
+        ],
+        note: '規則庫由 CloudFrame 工程團隊每季審查更新；AI 分析部分使用 Claude claude-sonnet-4-5 模型即時推理，不受規則庫版本限制。如有最新監管函釋，請以主管機關官方公告為準。',
+      },
     };
   }
 
