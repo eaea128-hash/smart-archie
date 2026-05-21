@@ -1435,6 +1435,11 @@ function validateInputs(inputs) {
 }
 
 async function runAnalysis() {
+  // Ensure rule-base JSON is loaded before analysis (non-blocking init already started on page load)
+  if (window.RuleBase?.init) {
+    try { await RuleBase.init(); } catch(_e) { /* fallback rules will be used */ }
+  }
+
   const rawInputs = collectInputs();
 
   // Sanitize text fields
@@ -2591,7 +2596,9 @@ function renderDecisionBoard(result) {
         <summary style="font-size:11px;color:var(--c-text-muted);cursor:pointer;user-select:none;list-style:none;display:flex;align-items:center;gap:6px;padding:var(--sp-2) 0;">
           <span style="font-size:9px;">▶</span>
           <span>📚 規則庫來源與版本資訊（v${rulesMeta.version}，${rulesMeta.lastReviewed} 審查）</span>
-          <span style="margin-left:auto;font-size:10px;background:rgba(15,43,61,0.06);padding:2px 8px;border-radius:20px;">AI 分析 + 靜態規則庫雙引擎</span>
+          <span style="margin-left:auto;font-size:10px;background:${rulesMeta.usingFallback?'rgba(234,179,8,0.12)':'rgba(15,43,61,0.06)'};color:${rulesMeta.usingFallback?'#92400e':'inherit'};padding:2px 8px;border-radius:20px;">
+            ${rulesMeta.usingFallback ? '⚠️ 使用內建規則庫（JSON 載入失敗）' : '✅ AI 分析 + 動態規則庫雙引擎'}
+          </span>
         </summary>
         <div style="margin-top:var(--sp-2);padding:var(--sp-3) var(--sp-4);background:var(--c-bg);border-radius:var(--r-md);border:1px solid var(--c-border-light);">
           <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:var(--sp-3);">
