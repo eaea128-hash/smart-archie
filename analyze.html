@@ -1694,6 +1694,52 @@ function renderResult(r, style) {
         ${exec.prerequisites.map(p => `<div class="exec-prereq-item"><span class="exec-prereq-dot">◆</span>${p}</div>`).join('')}
       </div>` : ''}
     </div>
+
+    <!-- 商業價值摘要（Executive ROI Card）-->
+    ${(() => {
+      const annualCloud  = (cost.mid || 0) * 12;
+      // Rough on-prem estimate: cloud cost + infrastructure premium by system size
+      const vmCount = parseInt(r.inputs?.vmCount) || 20;
+      const onPremMultiplier = vmCount > 100 ? 2.4 : vmCount > 50 ? 2.1 : vmCount > 20 ? 1.9 : 1.7;
+      const annualOnPrem = Math.round(annualCloud * onPremMultiplier);
+      const annualSaving = annualOnPrem - annualCloud;
+      const savingPct    = Math.round((annualSaving / annualOnPrem) * 100);
+      const roiMonths    = cost.migrationCost ? Math.ceil(cost.migrationCost / (annualSaving / 12)) : null;
+      // Strategy distribution for mini donut
+      const strategies   = window.AnalyzeEngine
+        ? window.AnalyzeEngine.compareStrategies(r.inputs).sort((a,b) => b.readiness - a.readiness)
+        : [];
+      const topStrat     = strategies[0];
+      const stratColors  = { rehost:'#4ade80', replatform:'#38bdf8', refactor:'#a78bfa', retain:'#fbbf24' };
+      // Mini donut SVG — strategy distribution
+      const isFinancial  = (r.inputs?.industry || '').toLowerCase().match(/financial|banking|insurance|金融|銀行|保險/);
+      const migratable   = strategies.filter(s => s.strategy !== 'retain').length;
+      const migratePct   = Math.round((migratable / Math.max(strategies.length, 1)) * 100);
+
+      return `
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;">
+        <!-- ROI 節省 -->
+        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
+          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">首年預估節省</div>
+          <div style="font-size:20px;font-weight:800;color:#4ade80;">${annualSaving > 0 ? 'US$' + (annualSaving >= 1000 ? Math.round(annualSaving/1000) + 'K' : annualSaving.toLocaleString()) : '—'}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">vs 現有基礎設施 -${savingPct > 0 ? savingPct : '~30'}%</div>
+        </div>
+        <!-- 回本時間 -->
+        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
+          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">預估 ROI 回本</div>
+          <div style="font-size:20px;font-weight:800;color:#38bdf8;">${roiMonths ? roiMonths + ' 個月' : exec.timing?.match(/\d+–?\d*\s*(個月|月)/)?.[0] || '12–18 個月'}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">含一次性遷移投資回收</div>
+        </div>
+        <!-- 可遷移比率 -->
+        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
+          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">${isFinancial ? '批次工作負載可雲化' : '系統可遷移率'}</div>
+          <div style="font-size:20px;font-weight:800;color:#fbbf24;">${isFinancial ? '~65%' : migratePct + '%'}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">${isFinancial ? '預估可降低 MIPS/MSU 授權 ~40%' : '建議遷移路徑覆蓋率'}</div>
+        </div>
+      </div>`;
+    })()}
+  </div>
+
   </div>`;
 
   // ── 2. KPI Scores ──

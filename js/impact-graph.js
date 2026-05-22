@@ -374,11 +374,38 @@ const ImpactGraph = (() => {
       3: { label: 'Phase 3 — 核心收尾',    desc: '高耦合・最後切換・前置條件最嚴', color: '#ef4444' },
     };
 
+    // Build risk-sorted view (for filter mode)
+    const riskOrder = { critical:0, high:1, medium:2, low:3 };
+    const sortedByRisk = [...clusters].sort((a,b) => (riskOrder[a.risk]||2) - (riskOrder[b.risk]||2));
+    const highCouplingIds = new Set(clusters.filter(c => c.couplingScore >= 70).map(c => c.id));
+
     container.innerHTML = `
+      <!-- Filter Controls -->
+      <div id="ig-filter-bar" style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+        <span style="font-size:10px;color:var(--c-text-muted);font-weight:600;">視圖切換：</span>
+        <button class="ig-filter-btn ig-filter-active" onclick="ImpactGraph.setView('phase',this)"
+          style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--c-accent-teal);background:var(--c-accent-teal);color:white;cursor:pointer;">
+          📋 按遷移波次
+        </button>
+        <button class="ig-filter-btn" onclick="ImpactGraph.setView('risk',this)"
+          style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);cursor:pointer;">
+          🎯 按風險等級
+        </button>
+        <button class="ig-filter-btn" onclick="ImpactGraph.setView('coupling',this)"
+          style="font-size:11px;padding:4px 12px;border-radius:20px;border:1px solid var(--c-border);background:var(--c-surface);color:var(--c-text);cursor:pointer;">
+          ⚠️ 高耦合偵測
+        </button>
+        <span style="margin-left:auto;font-size:10px;color:var(--c-text-muted);">
+          共 ${clusters.length} 個邊界群組・${highCouplingIds.size} 個高耦合警示
+        </span>
+      </div>
+
       <div id="ig-layout">
         <!-- Left: Phase columns + SVG overlay -->
         <div id="ig-left">
-          <div id="ig-phases">
+
+          <!-- Phase View (default) -->
+          <div id="ig-phases" class="ig-view-active">
             ${[1,2,3].map(ph => `
               <div class="ig-phase-col" id="ig-col-${ph}">
                 <div class="ig-phase-header" style="border-color:${phaseLabels[ph].color}">
@@ -388,10 +415,45 @@ const ImpactGraph = (() => {
                   <span style="font-size:10px;color:var(--c-text-muted);">${phaseLabels[ph].desc}</span>
                 </div>
                 <div class="ig-clusters">
-                  ${(byPhase[ph] || []).map(c => _clusterCard(c)).join('')}
+                  ${(byPhase[ph] || []).map(c => _clusterCard(c, highCouplingIds.has(c.id))).join('')}
                 </div>
               </div>`).join('')}
           </div>
+
+          <!-- Risk View (hidden by default) -->
+          <div id="ig-risk-view" style="display:none;">
+            ${['critical','high','medium','low'].map(r => {
+              const rClusters = clusters.filter(c => c.risk === r);
+              if (!rClusters.length) return '';
+              const col = RISK_COLORS[r];
+              return `
+              <div style="margin-bottom:12px;">
+                <div style="font-size:11px;font-weight:700;color:${col.badge};background:${col.badgeBg};
+                  padding:4px 12px;border-radius:20px;display:inline-block;margin-bottom:8px;border:1px solid ${col.border};">
+                  ${col.label}（${rClusters.length} 個群組）
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                  ${rClusters.map(c => _clusterCard(c, highCouplingIds.has(c.id))).join('')}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+
+          <!-- Coupling View (hidden by default) -->
+          <div id="ig-coupling-view" style="display:none;">
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:#b91c1c;line-height:1.6;">
+              ⚠️ <strong>高耦合警示（耦合度 ≥ 70%）</strong>：以下模組為核心技術債，建議列為最後遷移階段，需優先建立 Rollback 計畫與完整 DR 演練。
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+              ${clusters.filter(c => highCouplingIds.has(c.id)).map(c => _clusterCard(c, true, true)).join('')}
+            </div>
+            ${clusters.some(c => !highCouplingIds.has(c.id)) ? `
+            <div style="font-size:11px;font-weight:600;color:var(--c-text-muted);margin-bottom:8px;">其他群組（低耦合，可優先遷移）：</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;opacity:0.55;">
+              ${clusters.filter(c => !highCouplingIds.has(c.id)).map(c => _clusterCard(c, false)).join('')}
+            </div>` : ''}
+          </div>
+
           <svg id="ig-svg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:visible;"></svg>
         </div>
 
@@ -498,16 +560,21 @@ const ImpactGraph = (() => {
     requestAnimationFrame(() => _drawArrows(graphData, container));
   }
 
-  function _clusterCard(c) {
+  function _clusterCard(c, isHighCoupling = false, pulse = false) {
     const col = RISK_COLORS[c.risk] || RISK_COLORS.medium;
+    const alertBorder = isHighCoupling ? '2px solid #ef4444' : `1px solid ${col.border}`;
+    const alertGlow   = pulse ? 'box-shadow:0 0 0 3px rgba(239,68,68,0.25);' : '';
     return `
       <div class="ig-cluster" id="igc-${c.id}"
-        data-id="${c.id}"
-        style="background:${col.bg};border-color:${col.border};"
+        data-id="${c.id}" data-risk="${c.risk}" data-coupling="${c.couplingScore}"
+        style="background:${col.bg};border:${alertBorder};${alertGlow}"
         onclick="ImpactGraph.selectCluster('${c.id}')">
         <div class="igc-header">
           <span class="igc-name">${c.name}</span>
-          <span class="igc-badge" style="background:${col.badgeBg};color:${col.badge};">${col.label}</span>
+          <div style="display:flex;gap:4px;align-items:center;">
+            ${isHighCoupling ? `<span style="font-size:9px;background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:1px 6px;border-radius:10px;font-weight:700;">⚠️ 高耦合</span>` : ''}
+            <span class="igc-badge" style="background:${col.badgeBg};color:${col.badge};">${col.label}</span>
+          </div>
         </div>
         <div class="igc-modules">
           ${c.modules.slice(0, 3).map(m => `<span class="igc-module-tag">${m}</span>`).join('')}
@@ -516,9 +583,9 @@ const ImpactGraph = (() => {
         <div class="igc-coupling">
           <span style="color:var(--c-text-muted);font-size:10px;">耦合度</span>
           <div class="igc-coupling-bar">
-            <div class="igc-coupling-fill" style="width:${c.couplingScore}%;background:${col.border};"></div>
+            <div class="igc-coupling-fill" style="width:${c.couplingScore}%;background:${isHighCoupling?'#ef4444':col.border};"></div>
           </div>
-          <span style="font-size:10px;font-weight:600;color:${col.badge};">${c.couplingScore}%</span>
+          <span style="font-size:10px;font-weight:600;color:${isHighCoupling?'#b91c1c':col.badge};">${c.couplingScore}%</span>
         </div>
         ${c.hasExternalDep ? '<div class="igc-ext-badge">🌐 外部依賴</div>' : ''}
       </div>`;
@@ -803,8 +870,38 @@ const ImpactGraph = (() => {
     el.innerHTML = `<div style="background:${bg};color:${cl};border-radius:var(--r-md);padding:8px 10px;font-size:11px;line-height:1.6;">${msg}</div>`;
   }
 
+  // ── Filter / View toggle ──────────────────────────────────
+  function setView(mode, btn) {
+    // Update button styles
+    document.querySelectorAll('.ig-filter-btn').forEach(b => {
+      b.style.background    = 'var(--c-surface)';
+      b.style.color         = 'var(--c-text)';
+      b.style.borderColor   = 'var(--c-border)';
+    });
+    if (btn) {
+      btn.style.background  = 'var(--c-accent-teal)';
+      btn.style.color       = 'white';
+      btn.style.borderColor = 'var(--c-accent-teal)';
+    }
+
+    const phaseView    = document.getElementById('ig-phases');
+    const riskView     = document.getElementById('ig-risk-view');
+    const couplingView = document.getElementById('ig-coupling-view');
+    const svg          = document.getElementById('ig-svg');
+
+    if (!phaseView) return;
+    phaseView.style.display    = 'none';
+    if (riskView)     riskView.style.display     = 'none';
+    if (couplingView) couplingView.style.display  = 'none';
+    if (svg) svg.style.display = mode === 'phase' ? '' : 'none';  // arrows only in phase view
+
+    if (mode === 'phase')    { phaseView.style.display    = ''; }
+    if (mode === 'risk')     { if (riskView)     riskView.style.display     = 'flex'; riskView.style.flexDirection='column'; }
+    if (mode === 'coupling') { if (couplingView) couplingView.style.display = 'block'; }
+  }
+
   // ── Public API ────────────────────────────────────────────
-  return { buildGraph, render, selectCluster, setFormat, loadExample, handleFileUpload, parseAndRender };
+  return { buildGraph, render, selectCluster, setFormat, loadExample, handleFileUpload, parseAndRender, setView };
 
 })();
 

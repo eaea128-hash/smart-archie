@@ -784,6 +784,15 @@ const AnalyzeEngine = (() => {
     return { notActingCost, coreDecisions, mvpMust };
   }
 
+  // ── Readiness helper — risk-adjusted ─────────────────────
+  // Readiness 必須反映風險：高風險策略不可能高度就緒
+  // riskScore: 0–100；lzReadiness: 0–100
+  function calcReadiness(lzReadiness, riskScore) {
+    const penalty = riskScore >= 80 ? 42 : riskScore >= 65 ? 26 : riskScore >= 50 ? 14 : 0;
+    const cap     = riskScore >= 80 ? 52 : riskScore >= 65 ? 70 : riskScore >= 50 ? 84 : 96;
+    return Math.min(cap, Math.max(10, Math.round(lzReadiness - penalty)));
+  }
+
   // ── What-If Scenario Engine ───────────────────────────────
   // Synchronous (instant, no API call) — for real-time slider updates
 
@@ -856,7 +865,7 @@ const AnalyzeEngine = (() => {
       cost: { ...cost, mid: monthlyMid, low: cost.low + (inputs._dbOnPremPremium || 0) * 0.85, high: cost.high + (inputs._dbOnPremPremium || 0) * 1.1 },
       risk,
       kpi,
-      readiness:  Math.min(98, Math.max(10, kpi.lzReadiness)),
+      readiness:  calcReadiness(kpi.lzReadiness, risk.overall),
       riskScore:  risk.overall,
       timelineWks: estimateTimelineWeeks(inputs, strategy6R.primary),
       dbNote:     inputs._dbOnPremNote || null,
@@ -875,7 +884,7 @@ const AnalyzeEngine = (() => {
         strategy: strat, ...meta,
         monthlyCost: cost,
         riskScore:   risk,
-        readiness:   Math.min(98, Math.max(10, kpi.lzReadiness)),
+        readiness:   calcReadiness(kpi.lzReadiness, risk),   // risk-adjusted!
         timelineWks: wks,
         isRecommended: strat === base.strategy6R.primary,
       };
