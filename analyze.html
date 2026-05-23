@@ -620,6 +620,43 @@
     }
     .bdb-score-chip-val { font-size: var(--fs-md); font-weight: 800; color: var(--c-primary); }
     .bdb-score-chip-label { font-size: 9px; color: var(--c-text-muted); text-align: center; }
+    /* ── Confidence Score Panel ───────────────────────────────── */
+    .conf-panel {
+      background: var(--c-surface-1);
+      border: 1.5px solid var(--c-border-light);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+      margin-bottom: var(--sp-5);
+      display: flex; align-items: center; gap: var(--sp-6); flex-wrap: wrap;
+    }
+    .conf-panel-gauge {
+      flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: var(--sp-1);
+    }
+    .conf-panel-ring { position: relative; width: 110px; height: 110px; }
+    .conf-panel-ring svg { width: 110px; height: 110px; transform: rotate(-90deg); }
+    .conf-panel-ring-num {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .conf-panel-ring-val { font-size: 28px; font-weight: 900; line-height: 1; }
+    .conf-panel-ring-max { font-size: 10px; color: var(--c-text-muted); }
+    .conf-panel-badge {
+      font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: var(--r-full);
+    }
+    .conf-panel-body { flex: 1; min-width: 200px; }
+    .conf-panel-title {
+      font-size: var(--fs-sm); font-weight: 700; color: var(--c-primary);
+      text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: var(--sp-3);
+    }
+    .conf-dim-row {
+      display: flex; align-items: center; gap: var(--sp-3); margin-bottom: var(--sp-2);
+    }
+    .conf-dim-label { font-size: 11px; font-weight: 600; width: 90px; flex-shrink: 0; color: var(--c-text-secondary); }
+    .conf-dim-bar-wrap { flex: 1; height: 7px; background: var(--c-border-light); border-radius: 4px; overflow: hidden; }
+    .conf-dim-bar { height: 100%; border-radius: 4px; transition: width 0.9s cubic-bezier(.4,0,.2,1); }
+    .conf-dim-val { font-size: 11px; font-weight: 700; width: 38px; text-align: right; flex-shrink: 0; }
+    .conf-dim-weight { font-size: 9px; color: var(--c-text-muted); width: 30px; flex-shrink: 0; text-align: right; }
+    .conf-formula { font-size: 10px; color: var(--c-text-muted); margin-top: var(--sp-3); line-height: 1.6; }
     /* Compliance rules */
     .bdb-comp-item { padding: var(--sp-2) var(--sp-3); border-radius: var(--r-md);
       margin-bottom: 4px; border: 1px solid; font-size: 11px; display: flex; gap: var(--sp-2); align-items: flex-start; }
@@ -2420,6 +2457,60 @@ function renderDecisionBoard(result) {
   const { governance: gov, compliance, antiPatterns, skillGap, strategyDistribution, goNoGo, mvpMust, scores, rulesMeta } = rb;
   const isFinancialBoard = (inputs.industry || '').toLowerCase().match(/financial|banking|insurance|finance|金融|銀行|保險/);
 
+  // ── Confidence Score Computation ──
+  const csReadiness   = strategy6R?.readiness ?? scores.bizReadiness ?? 50;
+  const csRisk        = result.riskRadar?.overall ?? 50;
+  const csGoNoGoBonus = goNoGo.decision === 'go' ? 20 : goNoGo.decision === 'conditional' ? 12 : 0;
+  const csScore       = Math.min(100, Math.round(csReadiness * 0.40 + (100 - csRisk) * 0.40 + csGoNoGoBonus));
+  const csColor  = csScore >= 70 ? '#16a34a' : csScore >= 50 ? '#d97706' : '#dc2626';
+  const csBg     = csScore >= 70 ? '#f0fdf4' : csScore >= 50 ? '#fffbeb' : '#fef2f2';
+  const csLabel  = csScore >= 70 ? '高信心 ✅' : csScore >= 50 ? '中等信心 ⚠️' : '需謹慎評估 🔴';
+  const csCirc   = 2 * Math.PI * 45;
+  const csFill   = (csScore / 100) * csCirc;
+  const gngLabel = goNoGo.decision === 'go' ? '✅ 通過' : goNoGo.decision === 'conditional' ? '⚠️ 條件通過' : '🔴 暫緩';
+  const gngColor = goNoGo.decision === 'go' ? '#16a34a' : goNoGo.decision === 'conditional' ? '#d97706' : '#dc2626';
+
+  const confPanel = `
+    <div class="conf-panel" style="border-color:${csColor}30;background:${csBg};">
+      <div class="conf-panel-gauge">
+        <div class="conf-panel-ring">
+          <svg viewBox="0 0 110 110">
+            <circle cx="55" cy="55" r="45" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+            <circle cx="55" cy="55" r="45" fill="none" stroke="${csColor}" stroke-width="10"
+              stroke-dasharray="${csFill} ${csCirc}" stroke-linecap="round"
+              style="transition:stroke-dasharray 1s ease"/>
+          </svg>
+          <div class="conf-panel-ring-num">
+            <span class="conf-panel-ring-val" style="color:${csColor}">${csScore}</span>
+            <span class="conf-panel-ring-max">/100</span>
+          </div>
+        </div>
+        <span class="conf-panel-badge" style="background:${csColor}18;color:${csColor}">${csLabel}</span>
+      </div>
+      <div class="conf-panel-body">
+        <div class="conf-panel-title">決策信心指標</div>
+        <div class="conf-dim-row">
+          <span class="conf-dim-label">就緒度</span>
+          <div class="conf-dim-bar-wrap"><div class="conf-dim-bar" style="width:${csReadiness}%;background:${csReadiness>=70?'#4ade80':csReadiness>=50?'#fbbf24':'#f87171'}"></div></div>
+          <span class="conf-dim-val" style="color:${csReadiness>=70?'#16a34a':csReadiness>=50?'#d97706':'#dc2626'}">${csReadiness}%</span>
+          <span class="conf-dim-weight">×40%</span>
+        </div>
+        <div class="conf-dim-row">
+          <span class="conf-dim-label">風險 (反向)</span>
+          <div class="conf-dim-bar-wrap"><div class="conf-dim-bar" style="width:${100-csRisk}%;background:${csRisk<=30?'#4ade80':csRisk<=60?'#fbbf24':'#f87171'}"></div></div>
+          <span class="conf-dim-val" style="color:${csRisk<=30?'#16a34a':csRisk<=60?'#d97706':'#dc2626'}">${100-csRisk}%</span>
+          <span class="conf-dim-weight">×40%</span>
+        </div>
+        <div class="conf-dim-row">
+          <span class="conf-dim-label">GoNoGo</span>
+          <div class="conf-dim-bar-wrap"><div class="conf-dim-bar" style="width:${csGoNoGoBonus/20*100}%;background:${gngColor}"></div></div>
+          <span class="conf-dim-val" style="color:${gngColor};font-size:10px;width:auto">${gngLabel}</span>
+          <span class="conf-dim-weight">×20%</span>
+        </div>
+        <div class="conf-formula">信心分數 = 就緒度×40% + (100−風險)×40% + GoNoGo加成×20%　　= ${csReadiness}×0.4 + ${100-csRisk}×0.4 + ${csGoNoGoBonus} = <strong>${csScore}</strong></div>
+      </div>
+    </div>`;
+
   // ── Go/NoGo Banner ──
   const gonogoBanner = `
     <div class="bdb-gonogo" style="background:${goNoGo.bgColor};border:2px solid ${goNoGo.color};">
@@ -2558,6 +2649,8 @@ function renderDecisionBoard(result) {
           由 Rule/Knowledge Base 驅動 — ${gov.totalGov} 條治理規則 ・ ${skillGap.length} 項技能評估
         </span>
       </div>
+
+      ${confPanel}
 
       ${gonogoBanner}
 
