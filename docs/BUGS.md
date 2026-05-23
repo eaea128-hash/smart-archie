@@ -23,13 +23,18 @@
 
 ### ARCH-001: Deployment Target Drift
 
-- Status: active
+- Status: fixed
 - Found: 2026-05-14
+- Fixed: 2026-05-23
 - Area: GitHub Actions, Netlify, Cloudflare Pages
 - Symptom: project memory says production is Cloudflare Pages, but GitHub deploy
   workflow still deploys Netlify and references `smartarchie.ai`.
-- Recommendation: keep Cloudflare Pages as production, make Netlify workflow
-  manual-only legacy, and align CI with `functions/api`.
+- Fix:
+  - `deploy.yml` converted to `workflow_dispatch`-only legacy Netlify workflow
+  - `ci.yml` now triggers on `push: [main, develop]` — gates every Cloudflare Pages deploy
+  - `lint` script scoped to `functions/api` + `js` only (removed netlify/functions from ESLint)
+  - `package.json` dev script changed to `wrangler pages dev .`; added `wrangler` to devDependencies
+  - `dev:legacy` retained for Netlify local dev if needed
 
 ### ARCH-002: Dual API Trees
 

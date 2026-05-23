@@ -4,9 +4,10 @@
   "description": "AI Cloud Strategy Advisor — Services as Software",
   "private": true,
   "scripts": {
-    "dev": "netlify dev",
+    "dev": "wrangler pages dev .",
+    "dev:legacy": "netlify dev",
     "build": "npm install --omit=dev",
-    "lint": "eslint netlify/functions --ext .js",
+    "lint": "eslint functions/api js --ext .js",
     "test": "jest --passWithNoTests",
     "format": "prettier --write '**/*.{js,json,css,html,md}' --ignore-path .gitignore"
   },
@@ -19,7 +20,8 @@
     "eslint": "^8.57.0",
     "jest": "^29.7.0",
     "netlify-cli": "^17.0.0",
-    "prettier": "^3.3.0"
+    "prettier": "^3.3.0",
+    "wrangler": "^3.0.0"
   },
   "engines": {
     "node": ">=20.0.0"

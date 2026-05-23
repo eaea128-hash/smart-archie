@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, develop]
   push:
-    branches: [develop]
+    branches: [main, develop]  # main = Cloudflare Pages production; CI must gate every push
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,12 +28,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Lint Netlify Functions
+      - name: Lint production and legacy JavaScript
         run: npm run lint
         continue-on-error: false
 
       - name: Check formatting (Prettier)
-        run: npx prettier --check 'netlify/functions/**/*.js' 'js/*.js'
+        run: npx prettier --check 'functions/api/**/*.js' 'netlify/functions/**/*.js' 'js/*.js'
         continue-on-error: true  # Warning only — don't fail CI on formatting
 
   # ── 2. Function Tests ──────────────────────────────────────────────────────
