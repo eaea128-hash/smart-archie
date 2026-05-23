@@ -115,15 +115,15 @@ const RuleBase = (() => {
   };
 
   const FALLBACK_AP = [
-    { id:'AP-001', risk:'critical', name:'Big Bang 全量遷移',            desc:'一次性遷移所有核心系統，停機風險極高，且難以快速 Rollback',                                                                               recommendation:'採 Strangler Fig 策略：切割功能模組，逐波次遷移；保留舊系統平行運行 ≥ 1 個月；切換前完成 DR 演練' },
-    { id:'AP-002', risk:'high',     name:'Lift & Shift 套用至超高齡系統', desc:'將 15+ 年 Monolith 直接 Rehost，忽略授權、硬體依賴、編碼問題',                                                                           recommendation:'先執行系統體檢（授權清單、硬體依賴、字元集相容性）；部分組件可能需先 Replatform 後才能 Rehost' },
-    { id:'AP-003', risk:'critical', name:'缺乏 Landing Zone 直接部署應用', desc:'未建立帳號隔離、IAM 基線、VPC 架構，直接在 Root 帳號部署工作負載',                                                                       recommendation:'先完成 Day 0 治理建置（6–10 週）：Landing Zone + IAM + VPC + 監控基線，再進行 Day 1 應用遷移' },
-    { id:'AP-004', risk:'high',     name:'雲端能力不成熟時強推 Refactor',  desc:'組織雲端能力低，強行推動微服務重構，反增技術債與維運複雜度',                                                                             recommendation:'建議 Rehost → Replatform 的漸進路徑；先建立 COE（雲端卓越中心），累積雲端能力後再評估 Refactor' },
-    { id:'AP-005', risk:'critical', name:'無 BCP/DR 計畫上線核心系統',    desc:'核心業務系統在未制訂 BCP/Runbook、未完成 DR 演練的情況下正式遷移上線',                                                                   recommendation:'遷移前必要條件：Multi-AZ 部署確認、DR 演練通過（RTO 達標）、Runbook 評審完成、Rollback 演練' },
-    { id:'AP-006', risk:'high',     name:'忽略資料庫遷移複雜度',           desc:'遷移評估未考量資料庫異質轉換（Oracle → Aurora / SQL Server → PostgreSQL）的工時與風險',                                                recommendation:'使用 AWS SCT/DMS 或 Azure Database Migration Service 進行相容性評估；建議先行小規模 PoC' },
-    { id:'AP-007', risk:'critical', name:'金融機構未完成主管機關外包通知', desc:'受 MAS/FSC/HKMA 監管的金融機構，在雲端服務達到「重大委外」門檻時，須於上線前向主管機關完成書面通知/申請',                             recommendation:'依 MAS 外包準則第 5.3 條，重大委外需完成書面通知；建議提早 3–6 個月與法遵部門協作；準備 CSP 盡職調查報告' },
-    { id:'AP-008', risk:'critical', name:'客戶個資/金融資料境外儲存未評估', desc:'含客戶個資或金融交易資料的系統，未確認資料主權/落地要求即選定雲端 Region',                                                           recommendation:'優先使用境內 Region（AWS 台灣/新加坡、Azure East Asia）；設定 Config Rule「restricted-to-approved-regions」' },
-    { id:'AP-009', risk:'high',     name:'MVP Pilot 跳過，直接遷移核心業務', desc:'未先以非核心系統完成 MVP Pilot 驗證技術可行性，即直接啟動核心系統遷移，導致問題發現時已影響業務',                                  recommendation:'金融業建議 MVP Pilot 優先：選定內部分析、報表或 HR 系統先行遷移（4–8 週）；驗證後再啟動核心系統遷移波次' },
+    { id:'AP-001', type:'arch',       risk:'critical', name:'Big Bang 全量遷移',            desc:'一次性遷移所有核心系統，停機風險極高，且難以快速 Rollback',                                                                               recommendation:'採 Strangler Fig 策略：切割功能模組，逐波次遷移；保留舊系統平行運行 ≥ 1 個月；切換前完成 DR 演練' },
+    { id:'AP-002', type:'arch',       risk:'high',     name:'Lift & Shift 套用至超高齡系統', desc:'將 15+ 年 Monolith 直接 Rehost，忽略授權、硬體依賴、編碼問題',                                                                           recommendation:'先執行系統體檢（授權清單、硬體依賴、字元集相容性）；部分組件可能需先 Replatform 後才能 Rehost' },
+    { id:'AP-003', type:'arch',       risk:'critical', name:'缺乏 Landing Zone 直接部署應用', desc:'未建立帳號隔離、IAM 基線、VPC 架構，直接在 Root 帳號部署工作負載',                                                                       recommendation:'先完成 Day 0 治理建置（6–10 週）：Landing Zone + IAM + VPC + 監控基線，再進行 Day 1 應用遷移' },
+    { id:'AP-004', type:'arch',       risk:'high',     name:'雲端能力不成熟時強推 Refactor',  desc:'組織雲端能力低，強行推動微服務重構，反增技術債與維運複雜度',                                                                             recommendation:'建議 Rehost → Replatform 的漸進路徑；先建立 COE（雲端卓越中心），累積雲端能力後再評估 Refactor' },
+    { id:'AP-005', type:'arch',       risk:'critical', name:'無 BCP/DR 計畫上線核心系統',    desc:'核心業務系統在未制訂 BCP/Runbook、未完成 DR 演練的情況下正式遷移上線',                                                                   recommendation:'遷移前必要條件：Multi-AZ 部署確認、DR 演練通過（RTO 達標）、Runbook 評審完成、Rollback 演練' },
+    { id:'AP-006', type:'arch',       risk:'high',     name:'忽略資料庫遷移複雜度',           desc:'遷移評估未考量資料庫異質轉換（Oracle → Aurora / SQL Server → PostgreSQL）的工時與風險',                                                recommendation:'使用 AWS SCT/DMS 或 Azure Database Migration Service 進行相容性評估；建議先行小規模 PoC' },
+    { id:'AP-007', type:'compliance', risk:'critical', name:'金融機構未完成主管機關外包通知', desc:'受 MAS/FSC/HKMA 監管的金融機構，在雲端服務達到「重大委外」門檻時，須於上線前向主管機關完成書面通知/申請',                             recommendation:'依 MAS 外包準則第 5.3 條，重大委外需完成書面通知；建議提早 3–6 個月與法遵部門協作；準備 CSP 盡職調查報告' },
+    { id:'AP-008', type:'compliance', risk:'critical', name:'客戶個資/金融資料境外儲存未評估', desc:'含客戶個資或金融交易資料的系統，未確認資料主權/落地要求即選定雲端 Region',                                                           recommendation:'優先使用境內 Region（AWS 台灣/新加坡、Azure East Asia）；設定 Config Rule「restricted-to-approved-regions」' },
+    { id:'AP-009', type:'compliance', risk:'high',     name:'MVP Pilot 跳過，直接遷移核心業務', desc:'未先以非核心系統完成 MVP Pilot 驗證技術可行性，即直接啟動核心系統遷移，導致問題發現時已影響業務',                                  recommendation:'金融業建議 MVP Pilot 優先：選定內部分析、報表或 HR 系統先行遷移（4–8 週）；驗證後再啟動核心系統遷移波次' },
   ];
 
   const FALLBACK_META = {
@@ -305,14 +305,16 @@ const RuleBase = (() => {
 
   // 架構性關鍵反模式（技術根本問題）vs 法遵性（流程待完成）
   // No-Go 只由「技術根基崩潰」觸發，法遵流程問題 → Conditional Go
-  const ARCH_CRITICAL_AP = ['AP-001', 'AP-003', 'AP-005'];
+  // 優先讀 ap.type 欄位（來自 JSON rules-config.json）；無欄位時 fallback 到 ID 清單
+  const ARCH_CRITICAL_AP_FALLBACK = ['AP-001', 'AP-003', 'AP-005'];
+  const isArchAP = ap => ap.type ? ap.type === 'arch' : ARCH_CRITICAL_AP_FALLBACK.includes(ap.id);
 
   function determineGoNoGo(govResults, antiPatterns, skillGap, inputs) {
     const criticalGovFails = govResults.filter(r => !r.passed && r.severity === 'critical').length;
     const highGovFails     = govResults.filter(r => !r.passed && r.severity === 'high').length;
     const criticalAP       = antiPatterns.filter(ap => ap.risk === 'critical').length;
     const highAP           = antiPatterns.filter(ap => ap.risk === 'high').length;
-    const archCriticalAP   = antiPatterns.filter(ap => ap.risk === 'critical' && ARCH_CRITICAL_AP.includes(ap.id)).length;
+    const archCriticalAP   = antiPatterns.filter(ap => ap.risk === 'critical' && isArchAP(ap)).length;
     const criticalSkillGap = skillGap.filter(s => s.status === 'critical').length;
     const majorSkillGap    = skillGap.filter(s => s.status === 'major').length;
 
@@ -326,7 +328,7 @@ const RuleBase = (() => {
         .filter(r => !r.passed && r.severity === 'critical')
         .forEach(r => noGoConditions.push(`【${r.id}】${r.title} — 補救：${r.remedy}`));
       antiPatterns
-        .filter(ap => ap.risk === 'critical' && ARCH_CRITICAL_AP.includes(ap.id))
+        .filter(ap => ap.risk === 'critical' && isArchAP(ap))
         .forEach(ap => noGoConditions.push(`【${ap.id}】${ap.name} — 建議：${ap.recommendation}`));
       noGoConditions.push('完成以上項目後，重新評估即可轉為可行。評估結果的策略方向仍供後續規劃參考。');
       return {
