@@ -426,7 +426,7 @@ const AnalyzeEngine = (() => {
     if (timelineRisk > 60) mitigations.push('時程壓力大，建議縮小 MVP 範圍，採取 Rehost 快速遷移策略');
     if (dataRisk > 60)     mitigations.push('個資 / 金流系統須完成 DLP 策略與加密設計再行遷移');
     if (bizRisk > 60)      mitigations.push('核心系統需要完整 BCP 計畫，DR 與 Runbook 須在遷移前就緒');
-    if (mitigations.length === 0) mitigations.push('整體風險可控，依建議 6R 策略逐步推進');
+    if (mitigations.length === 0) mitigations.push('整體風險可控，依建議 7R 遷移策略逐步推進');
 
     return { compRisk, techRisk, opRisk, timelineRisk, dataRisk, bizRisk, overall, mitigations, factors };
   }

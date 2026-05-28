@@ -514,7 +514,7 @@
         <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">🤖 AI 引擎設定</div>
         <div style="padding:var(--sp-4) var(--sp-5);display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);">
           <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">模型</div><div style="font-weight:600;font-size:var(--fs-sm);">claude-opus-4-6</div></div>
-          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">分析框架</div><div style="font-weight:600;font-size:var(--fs-sm);">6R + Landing Zone</div></div>
+          <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">分析框架</div><div style="font-weight:600;font-size:var(--fs-sm);">7R + Landing Zone</div></div>
           <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">RAG 向量搜尋</div><div style="font-weight:600;font-size:var(--fs-sm);" id="ragStatus">檢查中…</div></div>
           <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">知識庫來源</div><div style="font-weight:600;font-size:var(--fs-sm);">pgvector (Supabase)</div></div>
           <div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">報告版本</div><div style="font-weight:600;font-size:var(--fs-sm);">exec / techpm / full</div></div>
@@ -549,7 +549,7 @@
           <div style="padding:var(--sp-4) var(--sp-5);border-bottom:1px solid var(--c-border-light);font-weight:var(--fw-semi);font-size:var(--fs-sm);">📌 目前設定</div>
           <div style="padding:var(--sp-4) var(--sp-5);">
             <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">分析引擎</span><span style="font-size:var(--fs-sm);font-weight:600;">Claude Opus 4.6 (API)</span></div>
-            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">分析維度</span><span style="font-size:var(--fs-sm);font-weight:600;">6R × Landing Zone × 成本 × 風險</span></div>
+            <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">分析維度</span><span style="font-size:var(--fs-sm);font-weight:600;">7R × Landing Zone × 成本 × 風險</span></div>
             <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">報告格式</span><span style="font-size:var(--fs-sm);font-weight:600;">高層版 / 技術PM版 / 完整版</span></div>
             <div class="prog-row" style="margin-bottom:var(--sp-3);"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">語言</span><span style="font-size:var(--fs-sm);font-weight:600;">繁體中文（回覆）</span></div>
             <div class="prog-row"><span style="font-size:var(--fs-xs);color:var(--c-text-muted);">JSON 結構化輸出</span><span style="font-size:var(--fs-sm);font-weight:600;">✓ 強制解析</span></div>
@@ -560,7 +560,7 @@
           <div style="padding:var(--sp-4) var(--sp-5);">
             <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:var(--sp-3);">每次分析包含以下模組：</div>
             <div style="display:flex;flex-direction:column;gap:6px;">
-              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">① 6R 策略評估（Rehost/Replatform/Refactor/Retain/Retire）</div>
+              <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">① 7R 遷移策略評估（Retire/Retain/Rehost/Relocate/Repurchase/Replatform/Refactor）</div>
               <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">② Landing Zone 架構建議</div>
               <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">③ 成本估算（Low / Mid / High 三區間）</div>
               <div style="font-size:var(--fs-xs);padding:4px 8px;background:rgba(26,155,181,0.08);border-radius:4px;">④ 風險評估（合規/技術/營運/時程/資料/業務）</div>
@@ -575,7 +575,7 @@
         <table class="admin-table" style="width:100%;">
           <thead><tr><th>版本</th><th>更新日期</th><th>主要變更</th><th>狀態</th></tr></thead>
           <tbody>
-            <tr><td><code>v1.0</code></td><td>2026-03-01</td><td>初始版本：6R 基本分析</td><td><span class="badge badge-primary">歷史</span></td></tr>
+            <tr><td><code>v1.0</code></td><td>2026-03-01</td><td>初始版本：6R 基本分析（已升級為 7R 遷移策略框架）</td><td><span class="badge badge-primary">歷史</span></td></tr>
             <tr><td><code>v1.5</code></td><td>2026-04-01</td><td>新增 Landing Zone + 成本三區間</td><td><span class="badge badge-primary">歷史</span></td></tr>
             <tr><td><code>v2.0</code></td><td>2026-04-22</td><td>RAG 注入 + 三種報告版本 + JSON 強制</td><td><span class="badge badge-teal">目前</span></td></tr>
           </tbody>

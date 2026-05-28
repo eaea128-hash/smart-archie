@@ -1549,13 +1549,13 @@ async function runAnalysis() {
   btnText.textContent = '分析中，請稍候…';
   btnSpinner.style.display = 'inline-block';
 
-  SA.Loading.show('AI 雲端顧問分析中…', '正在評估 6R 策略、Landing Zone、成本與風險');
+  SA.Loading.show('AI 雲端顧問分析中…', '正在評估 7R 遷移策略、Landing Zone、成本與風險');
 
   // Progress messages — cycle while waiting
   const msgs = [
     ['連線至 Claude AI 引擎…',      '啟動 claude-opus-4-6 with Adaptive Thinking'],
     ['深度分析系統架構與技術債…',    '評估系統年齡、架構類型、合規要求與遷移風險'],
-    ['計算 6R 策略可行性…',          '比對 Rehost / Replatform / Refactor 適合度'],
+    ['計算 7R 遷移策略可行性…',       '比對 Rehost / Relocate / Repurchase / Replatform / Refactor 適合度'],
     ['對照國際框架…',               '整合 AWS Well-Architected、MAS TRM、HKMA ORMiC'],
     ['規劃 Landing Zone 架構…',      '依合規等級生成帳號結構與 Guardrails'],
     ['估算雲端成本（3 情境）…',      '保守、建議、積極三種費用預測'],
@@ -2829,7 +2829,7 @@ function renderDecisionBoard(result) {
         <div class="bdb-card">
           <div class="bdb-card-title">📊 策略建議比重分析</div>
           <div style="font-size:11px;color:var(--c-text-muted);margin-bottom:var(--sp-3);">
-            依 6R 評分換算各策略比重，供資源分配參考
+            依 7R 評分換算各策略比重，供資源分配參考
           </div>
           ${stratDistHtml}
           <div style="font-size:10px;color:var(--c-text-muted);margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--c-border-light);">
