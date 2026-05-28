@@ -1859,8 +1859,7 @@ function renderResult(r, style) {
       <div class="strategy-desc">${strategyJustifications[strategy6R.primary]}</div>
       <div class="strategy-confidence" title="策略建議確定度：算法對此策略優於其他選項的確定程度（非成功機率）。分數差距越大代表策略越明確。">
         <span class="conf-label">策略確定度 ℹ️</span>
-        <div class="conf-bar"><div class="conf-fill" data-width="${strategy6R.confidence}%" style="--target:${strategy6R.confidence}%"></div></div>
-        <span class="conf-val">${strategy6R.confidence}%</span>
+        ${ (() => { const adjConf = Math.max(40, strategy6R.confidence - Math.floor(risk.overall * 0.28)); return `<div class="conf-bar"><div class="conf-fill" data-width="${adjConf}%" style="--target:${adjConf}%"></div></div><span class="conf-val">${adjConf}%</span>`; })() }
       </div>
       <div style="margin-top:var(--sp-2);font-size:11px;color:var(--c-text-muted);background:var(--c-surface-2);border-radius:var(--r-md);padding:6px 10px;line-height:1.5;">
         ℹ️ <strong>策略確定度</strong> 代表算法對「${stratLabels[strategy6R.primary]} 優於其他選項」的確定程度，與「是否已具備執行條件」無關。請參閱下方主管決策儀表板的 <strong>決策信心指標</strong> 及 GoNoGo 評估。
