@@ -98,7 +98,7 @@ export async function onRequest(context) {
         return new Response(JSON.stringify({ error: updateErr.message }), { status: 500, headers: corsH });
       }
 
-      const baseUrl  = env.URL || 'https://unique-jelly-da79b4.netlify.app';
+      const baseUrl  = env.URL || 'https://cloudframe.pages.dev';
       const shareUrl = `${baseUrl}/share.html?token=${shareToken}`;
       return new Response(
         JSON.stringify({ success: true, shareToken, shareUrl }),

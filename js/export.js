@@ -54,6 +54,7 @@
       if (!el) throw new Error('找不到報告容器');
 
       // 截圖
+      // ignoreElements: 排除 loading-overlay（position:fixed 會被 html2canvas 截入，導致 PDF 全白/遮蓋）
       const canvas = await window.html2canvas(el, {
         scale:           2,
         useCORS:         true,
@@ -61,6 +62,7 @@
         backgroundColor: '#F5F7FA',
         logging:         false,
         windowWidth:     1200,
+        ignoreElements:  (node) => node.classList && node.classList.contains('loading-overlay'),
       });
 
       const { jsPDF } = window.jspdf;
