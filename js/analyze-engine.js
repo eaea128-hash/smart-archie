@@ -9,9 +9,9 @@
 
 const AnalyzeEngine = (() => {
 
-  // ── 6R Strategy Determination ─────────────────────────────
+  // ── 6R/7R Strategy Determination ─────────────────────────────
   function determine6R(inputs) {
-    const scores = { rehost: 0, replatform: 0, refactor: 0, retain: 0, retire: 0 };
+    const scores = { rehost: 0, relocate: 0, repurchase: 0, replatform: 0, refactor: 0, retain: 0, retire: 0 };
 
     const age = parseInt(inputs.systemAge) || 5;
     const isCoreSystem    = inputs.isCoreSystem === 'yes';
@@ -27,6 +27,9 @@ const AnalyzeEngine = (() => {
     const downtimeTolerance = inputs.downtimeTolerance || 'medium';
     const cloudGoal       = inputs.cloudGoal || 'cost';
     const hasLandingZone  = inputs.hasLandingZone === 'yes';
+    const hasVMwareInfra  = inputs.hasVMwareInfra === 'yes';
+    const customizationLevel = inputs.customizationLevel || 'medium';
+    const hasSaasAlternative = inputs.hasSaasAlternative === 'yes';
 
     // ── Age scoring ──
     if (age > 15)      { scores.retain += 3; scores.rehost += 1; }
@@ -90,6 +93,23 @@ const AnalyzeEngine = (() => {
     if (downtimeTolerance === 'low')     { scores.rehost += 1; }
     if (downtimeTolerance === 'high')    { scores.refactor += 1; }
 
+    // ── Relocate（平台搬遷）: VMware/Hyper-V 環境搬到 VMware Cloud on AWS/Azure VMware Solution ──
+    if (isVirtualized && (hasVMwareInfra || archType === 'monolith')) {
+      scores.relocate += 3;
+    }
+    if (techDebt === 'low' || techDebt === 'medium') scores.relocate += 1;
+    if (timeline === 'urgent' && isVirtualized) scores.relocate += 2;
+    // Relocate is only meaningful when virtualized; suppress otherwise
+    if (!isVirtualized) scores.relocate = 0;
+
+    // ── Repurchase（SaaS 替換）: 標準化系統可用 SaaS 替代 ──
+    if (age >= 10 && customizationLevel === 'low' && hasSaasAlternative) {
+      scores.repurchase += 5;
+    } else if (age >= 8 && customizationLevel === 'low') {
+      scores.repurchase += 2;
+    }
+    if (cloudGoal === 'cost' && hasSaasAlternative) scores.repurchase += 1;
+
     // Normalize (min 0)
     Object.keys(scores).forEach(k => { if (scores[k] < 0) scores[k] = 0; });
 
@@ -151,9 +171,13 @@ const AnalyzeEngine = (() => {
     // 虛擬化
     if (isVirtualized) reasons.push({ icon:'📦', factor:'已虛擬化', detail:'已虛擬化：VM 可直接 Lift & Shift，降低 Rehost 風險（Rehost 加分）' });
 
+    // ── Relocate / Repurchase reasons ──
+    if (isVirtualized && hasVMwareInfra) reasons.push({ icon:'🔄', factor:'虛擬化平台', detail:'已有 VMware/Hyper-V 環境：可搬遷至 VMware Cloud on AWS 或 Azure VMware Solution（Relocate 加分）' });
+    if (age >= 10 && customizationLevel === 'low' && hasSaasAlternative) reasons.push({ icon:'🛒', factor:'SaaS 替換可行性', detail:`系統 ${age} 年且客製化程度低、已知有 SaaS 替代方案：Repurchase 可大幅降低維運負擔（Repurchase 強加分）` });
+
     // 為什麼不選其他策略
     const rejected = [];
-    const stratNames = { rehost:'直接遷移(Rehost)', replatform:'平台調整(Replatform)', refactor:'架構重構(Refactor)', retain:'暫緩保留(Retain)', retire:'下線退場(Retire)' };
+    const stratNames = { rehost:'直接遷移(Rehost)', relocate:'平台搬遷(Relocate)', repurchase:'SaaS替換(Repurchase)', replatform:'平台調整(Replatform)', refactor:'架構重構(Refactor)', retain:'暫緩保留(Retain)', retire:'下線退場(Retire)' };
     sorted.slice(1, 4).forEach(([s, score]) => {
       if (score < sorted[0][1] - 2) {
         const gap = sorted[0][1] - score;
@@ -475,12 +499,14 @@ const AnalyzeEngine = (() => {
     const compliance = inputs.complianceLevel || 'medium';
     const isCoreSystem = inputs.isCoreSystem === 'yes';
 
-    const stratName = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
+    const stratName = { rehost:'直接遷移 (Rehost)', relocate:'平台搬遷 (Relocate)', repurchase:'SaaS 替換 (Repurchase)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
     const goalName  = { cost:'降低維運成本', speed:'提升交付速度', api:'API 化轉型', elastic:'彈性擴展', ai:'AI 應用落地', compliance:'法規合規' };
     const compName  = { low:'一般', medium:'中等合規', high:'高度合規 (金融/法遵)' };
 
     const strategyJustification = {
       rehost: `系統評估顯示現有架構穩定，虛擬化程度可支援直接遷移，且在有限時程與預算約束下，Rehost 可快速完成基礎上雲目標，建立後續 Replatform 的基礎。`,
+      relocate: `系統已在 VMware/Hyper-V 環境運行，具備搬遷至 VMware Cloud on AWS 或 Azure VMware Solution 的條件。Relocate 可在不修改程式碼的前提下，將整個虛擬化環境平移至雲端，降低遷移風險並保留現有營運模式。`,
+      repurchase: `系統年齡較高且客製化需求低，市場已存在成熟的 SaaS 替代方案。Repurchase 可大幅降低維護技術債的長期成本，團隊得以專注於核心業務，而非基礎設施維運。`,
       replatform: `評估結果顯示系統具備一定的技術基礎，但需要在容器化、受管理資料庫或負載均衡層面進行調整，以充分發揮雲端彈性與效率，Replatform 能在合理成本內取得最大化效益。`,
       refactor: `系統架構具備重構潛力，雲端能力成熟度與目標需求 (${goalName[goal]}) 均支援雲原生化，建議透過服務拆解與 API 設計，實現更高彈性與未來 AI 整合能力。`,
       retain: `鑑於系統複雜度、合規要求 (${compName[compliance]}) 或技術風險，現階段建議暫緩整體遷移，優先完成 Landing Zone 建置、IAM 基線，與核心風險降低工作，再評估分階段遷移路徑。`,
@@ -488,11 +514,13 @@ const AnalyzeEngine = (() => {
     };
 
     const timing = {
-      rehost:    '建議於 3–6 個月內啟動 PoC，確認基礎設施遷移可行性後，啟動第一波遷移',
-      replatform:'建議先完成 Landing Zone 建置（4–8 週），再進行 8–16 週 Replatform PoC',
-      refactor:  '建議分 3 個 Sprint 進行架構評估與拆解，再啟動 12–24 個月的重構計畫',
-      retain:    '建議 6 個月內完成 Landing Zone 與安全基線，再重新評估遷移成熟度',
-      retire:    '建議 3 個月內評估替代 SaaS 方案，制訂退場時程與資料遷移計畫',
+      rehost:     '建議於 3–6 個月內啟動 PoC，確認基礎設施遷移可行性後，啟動第一波遷移',
+      relocate:   '建議先確認 VMware Cloud on AWS / Azure VMware Solution 可用性（2–4 週），再進行 8–16 週搬遷 PoC',
+      repurchase: '建議 4–8 週完成 SaaS 功能覆蓋率評估，確認法規許可後，制訂 12–16 週切換計畫',
+      replatform: '建議先完成 Landing Zone 建置（4–8 週），再進行 8–16 週 Replatform PoC',
+      refactor:   '建議分 3 個 Sprint 進行架構評估與拆解，再啟動 12–24 個月的重構計畫',
+      retain:     '建議 6 個月內完成 Landing Zone 與安全基線，再重新評估遷移成熟度',
+      retire:     '建議 3 個月內評估替代 SaaS 方案，制訂退場時程與資料遷移計畫',
     };
 
     const riskLevel = risk.overall >= 70 ? '高度' : risk.overall >= 50 ? '中等' : '相對可控';
@@ -520,7 +548,7 @@ const AnalyzeEngine = (() => {
   function buildPresentation(inputs, strategy6R, lz, cost, risk) {
     const pName = inputs.projectName || '雲端轉型專案';
     const strat = strategy6R.primary;
-    const stratName = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
+    const stratName = { rehost:'直接遷移 (Rehost)', relocate:'平台搬遷 (Relocate)', repurchase:'SaaS 替換 (Repurchase)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
 
     return [
       {
@@ -586,6 +614,16 @@ const AnalyzeEngine = (() => {
       .includes((inputs.industry || '').toLowerCase());
 
     const phases = {
+      relocate: [
+        { phase: 'Phase 0 (0–4W)', name: '平台評估', items: ['確認 VMware vSphere 版本相容性（vSphere 6.5+）', '盤點 VM 規格與授權（CPU、記憶體、Storage Policy）', '評估 VMware Cloud on AWS / Azure VMware Solution 可用區域', 'DirectConnect / ExpressRoute 網路規劃（延遲實測）'] },
+        { phase: 'Phase 1 (4–12W)', name: 'Pilot 搬遷', items: ['選定 2–3 個非核心 VM 進行 HCX（Hybrid Cloud Extension）試驗', '驗證 L2 網路延伸、Storage vMotion 可行性', '確認 License 攜帶（BYOL vs 全新授權）', '建立 Runbook 與 HCX 回滾程序'] },
+        { phase: 'Phase 2 (12–24W)', name: '批量搬遷', items: ['分波次遷移（依業務優先序）', '核心 VM 採計畫維護視窗切換', '驗證效能基線（vSAN / NFS 儲存 IOPS）', '移交雲端 VMware 維運並建立監控儀表板'] },
+      ],
+      repurchase: [
+        { phase: 'Phase 0 (0–4W)', name: 'SaaS 評估', items: ['市場 SaaS 功能覆蓋率評估（需求 vs 功能矩陣）', 'TCO 比較：自建總擁有成本 vs SaaS 年費', '資料格式與遷移可行性評估（CSV/API Export）', '確認法規允許使用 SaaS（資料落地、個資條款）'] },
+        { phase: 'Phase 1 (4–12W)', name: 'SaaS 導入', items: ['SaaS 供應商盡職調查（SOC 2 Type II / ISO 27001）', '簽署 DPA（資料處理協議）與 SLA 合約', '資料清洗、格式轉換與試遷移', 'UAT 與使用者培訓（至少 2 週）'] },
+        { phase: 'Phase 2 (12–20W)', name: '切換退場', items: ['平行運行期（4 週）：新舊系統同時運作', '驗證資料完整性（雙向比對）', '切換 DNS / SSO 整合', '舊系統關機前資料封存'] },
+      ],
       rehost: [
         { phase: 'Phase 0 (0–4W)', name: '環境準備', items: ['開通 AWS 帳號與 Landing Zone（CT + SCP）', '規劃 VPC 架構（CIDR / Subnet / AZ）', '確認 DirectConnect 或 VPN 連線方案', '盤點所有 VM 規格與依賴關係（Application Dependency Mapping）'] },
         { phase: 'Phase 1 (4–12W)', name: 'PoC 遷移', items: ['選定 2–3 個非核心服務做 Lift & Shift 驗證', '使用 AWS Application Migration Service (MGN)', '驗證效能基線與連線正確性', '建立 Runbook 與回滾程序'] },
@@ -616,6 +654,14 @@ const AnalyzeEngine = (() => {
     // pocScope = CANDIDATE SELECTION CRITERIA + ENTRY CONDITIONS + SUCCESS GATES
     // (NOT what to do — that belongs in phases)
     const pocScope = {
+      relocate:
+        '【候選系統條件】已在 vSphere 上運行的非核心 VM；無強依賴本地硬體（GPU/FPGA）；授權可攜帶。' +
+        '\n【進入門檻】HCX 環境建置完成；DirectConnect / ExpressRoute 端對端實測延遲 < 30ms；vSAN 儲存政策確認。' +
+        '\n【成功標準（Go/No-Go）】VM 搬遷後功能驗收 100%、效能 ≥ 原環境 95%、HCX 回滾時間 < 2 小時、0 個 Sev-1 問題。',
+      repurchase:
+        '【候選系統條件】SaaS 功能覆蓋率 > 80%；現有資料可依法規完整匯出；現行系統非交易核心。' +
+        '\n【進入門檻】法規允許使用 SaaS（書面確認）；DPA 草案完成法務審查；資料分類報告確認可遷移欄位。' +
+        '\n【成功標準（Go/No-Go）】資料遷移完整性驗證 100%；關鍵使用者 UAT 通過率 ≥ 95%；使用者培訓完成率 ≥ 90%；SaaS SLA ≥ 99.9%。',
       rehost:
         '【候選系統條件】批次作業或報表服務：無即時交易壓力、外部依賴少、授權明確可移轉。' +
         '\n【進入門檻】Landing Zone 建置驗收完成；DirectConnect / VPN 端對端連線延遲 < 30ms 實測通過。' +
@@ -798,32 +844,53 @@ const AnalyzeEngine = (() => {
 
   const STRATEGY_META = {
     rehost: {
-      label: '直接遷移 (Rehost)', icon: '🔄', color: '#3b82f6',
+      label: '直接遷移 (Rehost)', icon: '🚚', color: '#3b82f6',
       costMult: 1.00, riskDelta: -5,  timelineMult: 0.6,
       advantage: '速度最快、初期投入最低，6 個月可見效',
       tradeoff:  '雲端最佳化效益有限，長期維護成本不減',
       roiNote:   '約 12–18 個月回本',
     },
+    relocate: {
+      label: '平台搬遷 (Relocate)', icon: '🔄', color: '#0ea5e9',
+      costMult: 1.05, riskDelta: -8, timelineMult: 0.7,
+      advantage: '保留 VMware 操作習慣，無需修改程式碼，搬遷風險低',
+      tradeoff:  '需要 VMware Cloud 授權費用，長期 TCO 高於原生雲',
+      roiNote:   '約 18–24 個月回本（含 VMware 授權調整）',
+    },
+    repurchase: {
+      label: 'SaaS 替換 (Repurchase)', icon: '🛒', color: '#06b6d4',
+      costMult: 0.70, riskDelta: -5, timelineMult: 0.5,
+      advantage: '無基礎設施維護負擔，快速取得新功能，降低技術債',
+      tradeoff:  '客製化能力受限，資料遷移需仔細規劃，SaaS 廠商鎖定風險',
+      roiNote:   '約 12–24 個月回本（視現有系統維護成本）',
+    },
     replatform: {
-      label: '平台調整 (Replatform)', icon: '⚡', color: '#10b981',
+      label: '平台調整 (Replatform)', icon: '⚙️', color: '#10b981',
       costMult: 1.25, riskDelta: 0,  timelineMult: 1.0,
       advantage: '兼顧速度與最佳化，RDS/容器化後成本下降 20–35%',
       tradeoff:  '需要中等工程投入，部分模組需重新測試',
       roiNote:   '約 18–26 個月回本',
     },
     refactor: {
-      label: '架構重構 (Refactor)', icon: '🏗️', color: '#8b5cf6',
+      label: '架構重構 (Refactor)', icon: '🔬', color: '#8b5cf6',
       costMult: 1.80, riskDelta: +18, timelineMult: 2.2,
       advantage: '長期 TCO 最低，雲原生彈性最高，AI/ML 整合最佳',
       tradeoff:  '時程最長（12–24 個月），短期成本最高，人力需求大',
       roiNote:   '約 36–48 個月回本',
     },
     retain: {
-      label: '暫緩保留 (Retain)', icon: '🔒', color: '#f59e0b',
+      label: '暫緩保留 (Retain)', icon: '⏸️', color: '#f59e0b',
       costMult: 0.50, riskDelta: -12, timelineMult: 0.3,
       advantage: '短期成本最低，遷移風險規避，可先建 Landing Zone',
       tradeoff:  '錯失上雲效益，技術債持續累積，市場競爭力下滑',
       roiNote:   '未計算（保留策略無遷移 ROI）',
+    },
+    retire: {
+      label: '下線退場 (Retire)', icon: '🗑️', color: '#ef4444',
+      costMult: 0.10, riskDelta: -15, timelineMult: 0.4,
+      advantage: '徹底消除維護負擔，最佳化整體系統組合',
+      tradeoff:  '需處理資料歸檔與使用者遷移，確認功能真的不再需要',
+      roiNote:   '立即節省維護成本',
     },
   };
 
@@ -837,9 +904,25 @@ const AnalyzeEngine = (() => {
     };
   }
 
+  // calcTimeline: sum phase weeks → total months
+  function calcTimeline(phases) {
+    const totalWeeks  = phases.reduce((sum, p) => {
+      // parse "Phase X (0–4W)" → extract last number before W
+      const m = (p.phase || '').match(/(\d+)W\)?$/);
+      return sum + (m ? parseInt(m[1]) : (p.weeks || 4));
+    }, 0);
+    const totalMonths = Math.round(totalWeeks / 4.3);
+    return {
+      phases,
+      totalWeeks,
+      totalMonths,
+      displayString: `約 ${totalMonths} 個月（${totalWeeks} 週）`,
+    };
+  }
+
   // Compute timeline estimate in weeks from inputs + strategy
   function estimateTimelineWeeks(inputs, strategy) {
-    const base = { rehost: 20, replatform: 32, refactor: 56, retain: 10 };
+    const base = { rehost: 24, relocate: 24, repurchase: 20, replatform: 32, refactor: 56, retain: 20, retire: 20 };
     let weeks = base[strategy] || 28;
     if (inputs.cloudMaturity === 'low')    weeks = Math.round(weeks * 1.3);
     if (inputs.cloudMaturity === 'high')   weeks = Math.round(weeks * 0.8);
@@ -891,6 +974,146 @@ const AnalyzeEngine = (() => {
     });
   }
 
+  // ── Compliance Framework Filter ──────────────────────────
+  const COMPLIANCE_MAP = {
+    'tw-financial':  ['金管會雲端委外規範', '金融機構作業委託他人處理辦法', '金融資安規範', '個人資料保護法', 'ISO 27001', 'ISO 27017'],
+    'tw-general':    ['個人資料保護法', 'ISO 27001'],
+    'sg-financial':  ['MAS TRM', 'MAS TRMG', 'PDPA'],
+    'hk-financial':  ['HKMA ORMIC', 'PDPO'],
+    'eu-general':    ['GDPR', 'DORA（如為金融機構）'],
+    'generic':       ['ISO 27001', 'SOC 2 Type II（供應商參考用）'],
+  };
+
+  function getComplianceFramework(inputs) {
+    const region   = (inputs.region || '').toLowerCase();
+    const industry = (inputs.industry || '').toLowerCase();
+    const isFinancial = ['financial', 'banking', 'insurance', 'finance', '銀行', '金融', '保險'].some(k => industry.includes(k));
+    const isTW = region.includes('tw') || region.includes('台灣') || region.includes('taiwan') || !region;
+    const isSG = region.includes('sg') || region.includes('singapore') || region.includes('新加坡');
+    const isHK = region.includes('hk') || region.includes('hong kong') || region.includes('香港');
+    const isEU = region.includes('eu') || region.includes('europe') || region.includes('歐洲');
+
+    if (isFinancial && isTW)  return { key: 'tw-financial',  frameworks: COMPLIANCE_MAP['tw-financial'],  crossBorderNote: null };
+    if (isFinancial && isSG)  return { key: 'sg-financial',  frameworks: COMPLIANCE_MAP['sg-financial'],  crossBorderNote: null };
+    if (isFinancial && isHK)  return { key: 'hk-financial',  frameworks: COMPLIANCE_MAP['hk-financial'],  crossBorderNote: null };
+    if (isTW)                 return { key: 'tw-general',    frameworks: COMPLIANCE_MAP['tw-general'],    crossBorderNote: null };
+    if (isEU)                 return { key: 'eu-general',    frameworks: COMPLIANCE_MAP['eu-general'],    crossBorderNote: null };
+    return                           { key: 'generic',       frameworks: COMPLIANCE_MAP['generic'],       crossBorderNote: null };
+  }
+
+  // ── ESG / Carbon Region Recommendation ───────────────────
+  function getEsgRecommendation(inputs) {
+    const industry = (inputs.industry || '').toLowerCase();
+    const isFinancial = ['financial', 'banking', 'insurance', 'finance', '銀行', '金融', '保險'].some(k => industry.includes(k));
+    const isHighCompliance = inputs.complianceLevel === 'high';
+
+    if (isFinancial || isHighCompliance) {
+      return {
+        crossRegionMigration: false,
+        primaryApproach: '節能架構優先',
+        recommendation: '優先使用企業核准之雲端區域，以節能架構（Rightsizing、Auto Scaling、儲存生命週期管理）降低碳排，不建議以跨國搬遷作為主要減碳手段',
+        architectureActions: [
+          'Rightsizing：定期分析 CPU/Memory 使用率，消除過度配置',
+          'Auto Scaling：配合業務流量自動縮減，避免閒置資源浪費',
+          '儲存生命週期管理：冷資料轉 S3 Glacier，降低儲存碳足跡',
+          '服務整合：合併低使用率工作負載，提高資源密度',
+        ],
+        lowCarbonRegionNote: '低碳區域（如 eu-north-1 Stockholm）僅供非核心、非敏感工作負載參考，需確認資料落地與跨境傳輸規範後方可採用',
+        carbonReductionEstimate: '10–25%（透過架構優化，不含跨境搬遷）',
+      };
+    }
+
+    // General case — can recommend low-carbon regions
+    return {
+      crossRegionMigration: true,
+      primaryApproach: '低碳區域 + 架構優化',
+      recommendation: '建議優先選用低碳強度雲端區域，並搭配節能架構設計，達到最大化減碳效果',
+      architectureActions: [
+        '選用低碳強度 Region（eu-north-1 Stockholm: ~8 gCO₂/kWh）',
+        'Rightsizing + Auto Scaling 消除閒置資源',
+        '儲存生命週期管理降低冷資料碳足跡',
+        '使用 Carbon Footprint Tool（AWS / Azure）定期監控',
+      ],
+      lowCarbonRegionNote: null,
+      carbonReductionEstimate: '20–40%（低碳 Region + 架構優化）',
+    };
+  }
+
+  // ── Domain Classifier + Bounded Context Templates ────────
+  const DOMAIN_CONTEXTS = {
+    banking:    ['Customer', 'Account', 'Ledger', 'Transaction', 'Payment', 'Settlement', 'Batch', 'Reporting', 'Interface', 'Risk', 'Auth', 'Audit'],
+    insurance:  ['Policy', 'Claim', 'Premium', 'Underwriting', 'Customer', 'Agent', 'Reinsurance', 'Compliance'],
+    healthcare: ['Patient', 'Appointment', 'EMR', 'Billing', 'Pharmacy', 'Lab', 'Compliance'],
+    retail:     ['Order', 'Inventory', 'Price', 'Customer', 'CRM', 'Logistics', 'Payment'],
+    generic:    ['AppCore', 'Auth', 'Notification', 'Reporting', 'DataStore', 'Integration', 'Admin'],
+  };
+
+  function classifyDomain(inputs) {
+    const industry = (inputs.industry || '').toLowerCase();
+    const sysName  = (inputs.systemName || inputs.projectName || '').toLowerCase();
+    if (industry.includes('financial') || industry.includes('banking') || industry.includes('finance') ||
+        sysName.includes('帳務') || sysName.includes('銀行') || sysName.includes('金融')) return 'banking';
+    if (industry.includes('insurance') || sysName.includes('保險')) return 'insurance';
+    if (industry.includes('healthcare') || industry.includes('medical') || sysName.includes('醫療') || sysName.includes('病歷')) return 'healthcare';
+    if (industry.includes('retail') || industry.includes('ecommerce') || sysName.includes('零售') || sysName.includes('電商')) return 'retail';
+    return 'generic';
+  }
+
+  // ── Report Validation ────────────────────────────────────
+  function validateReport(result) {
+    const issues = [];
+
+    // 1. Primary strategy matches highest score
+    const scoresEntries = Object.entries(result.strategy6R?.scores || {}).sort((a, b) => b[1] - a[1]);
+    if (scoresEntries.length && result.strategy6R?.primary !== scoresEntries[0]?.[0]) {
+      issues.push({ severity: 'error', code: 'STRAT-001', message: `Primary strategy (${result.strategy6R?.primary}) does not match highest score (${scoresEntries[0]?.[0]})`, section: 'strategy' });
+    }
+
+    // 2. All 7R present
+    const REQUIRED_7R = ['rehost', 'relocate', 'repurchase', 'replatform', 'refactor', 'retain', 'retire'];
+    REQUIRED_7R.forEach(k => {
+      if (!(k in (result.strategy6R?.scores || {}))) {
+        issues.push({ severity: 'warning', code: 'STRAT-002', message: `Missing strategy score: ${k}`, section: 'strategy' });
+      }
+    });
+
+    // 3. Cost consistency — saving shown without baseline
+    if (result.costEstimate?.monthlySavingMedian != null && !result.inputs?.currentMonthlyCost) {
+      issues.push({ severity: 'error', code: 'COST-001', message: '月節省金額顯示時未輸入現行成本基準', section: 'cost' });
+    }
+
+    // 4. ROI without baseline
+    if (result.costEstimate?.roiMonths != null && !result.inputs?.currentMonthlyCost) {
+      issues.push({ severity: 'error', code: 'COST-002', message: 'ROI 回本月數計算時未輸入現行成本基準', section: 'cost' });
+    }
+
+    // 5. Timeline consistency
+    if (result.techPM?.phases) {
+      const weekSum = result.techPM.phases.reduce((s, p) => {
+        const m = (p.phase || '').match(/(\d+)W\)?$/);
+        return s + (m ? parseInt(m[1]) : 4);
+      }, 0);
+      const expectedMonths = Math.round(weekSum / 4.3);
+      if (result.costEstimate && Math.abs(expectedMonths - Math.round(weekSum / 4.3)) > 1) {
+        // self-consistent check — warn if displayed totalMonths differs
+      }
+      if (weekSum > 0) {
+        const displayedMonths = result._timelineMonths || 0;
+        if (displayedMonths > 0 && Math.abs(displayedMonths - expectedMonths) > 1) {
+          issues.push({ severity: 'warning', code: 'TIME-001', message: `Timeline months (${displayedMonths}) inconsistent with phase week sum (${weekSum} wks ≈ ${expectedMonths} mo)`, section: 'timeline' });
+        }
+      }
+    }
+
+    // 6. ESG region check for banking
+    const domain = result._domain || classifyDomain(result.inputs || {});
+    if (result.sustainability?.recommended_region === 'eu-north-1' && domain === 'banking') {
+      issues.push({ severity: 'error', code: 'ESG-001', message: 'Stockholm (eu-north-1) 被推薦給銀行系統 — 違反資料落地要求', section: 'esg' });
+    }
+
+    return issues;
+  }
+
   // ── Main Analysis Entry Point ─────────────────────────────
   async function analyze(inputs) {
     // Simulate AI processing delay
@@ -906,6 +1129,38 @@ const AnalyzeEngine = (() => {
     const techPM     = buildTechPM(inputs, strategy6R, lz, risk);
     const nextSteps  = buildNextSteps(inputs, strategy6R, risk);
     const decisions  = buildDecisionPoints(inputs, strategy6R, cost, risk);
+    const domain     = classifyDomain(inputs);
+    const boundedContexts = DOMAIN_CONTEXTS[domain] || DOMAIN_CONTEXTS.generic;
+    const esgRec     = getEsgRecommendation(inputs);
+    const complianceFramework = getComplianceFramework(inputs);
+
+    // Build unified cost model — only show saving/ROI when baseline provided
+    const currentMonthlyCost = parseFloat(inputs.currentMonthlyCost) || null;
+    const monthlySavingMedian = currentMonthlyCost ? Math.round(currentMonthlyCost - cost.mid) : null;
+    const oneTimeMedian = Math.round((cost.migrationLow + cost.migrationHigh) / 2);
+    const roiMonths = (currentMonthlyCost && monthlySavingMedian > 0)
+      ? Math.ceil(oneTimeMedian / monthlySavingMedian)
+      : null;
+    const costModel = {
+      ...cost,
+      monthlyCloudLow:    cost.low,
+      monthlyCloudMedian: cost.mid,
+      monthlyCloudHigh:   cost.high,
+      oneTimeLow:         cost.migrationLow,
+      oneTimeHigh:        cost.migrationHigh,
+      oneTimeMedian,
+      currentMonthlyCost,
+      monthlySavingMedian,
+      roiMonths,
+      limitations: [
+        'ROM 估算：±30–50% 精度，不適合作為正式採購預算',
+        '不含授權費（OS/DB/中介軟體）、跨境網路費、合規工具',
+        ...(currentMonthlyCost ? [] : ['未輸入現行成本：節省金額與 ROI 無法計算']),
+      ],
+    };
+
+    // Build timeline from phases
+    const timelineObj = calcTimeline(techPM.phases);
 
     const result = {
       id: `analysis_${Date.now()}`,
@@ -913,15 +1168,24 @@ const AnalyzeEngine = (() => {
       inputs,
       strategy6R,
       landingZone: lz,
-      costEstimate: cost,
+      costEstimate: costModel,
       riskRadar: risk,
       kpi,
       executiveSummary: exec,
       presentation: slides,
-      techPM,
+      techPM: { ...techPM, timeline: timelineObj },
       nextSteps,
       decisions,
+      domain,
+      boundedContexts,
+      esgRecommendation: esgRec,
+      complianceFramework,
+      _domain: domain,
+      _timelineMonths: timelineObj.totalMonths,
     };
+
+    // Validate and attach issues
+    result._validationIssues = validateReport(result);
 
     return result;
   }
@@ -931,6 +1195,9 @@ const AnalyzeEngine = (() => {
     determine6R, determineLandingZone, estimateCost, assessRisk, calcKPIs,
     // What-If scenario engine
     runScenario, compareStrategies, applyDbOnPremOverride, STRATEGY_META,
+    // New 7R / compliance / ESG / domain
+    getComplianceFramework, getEsgRecommendation, classifyDomain,
+    DOMAIN_CONTEXTS, COMPLIANCE_MAP, calcTimeline, validateReport,
   };
 
 })();

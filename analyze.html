@@ -1181,7 +1181,7 @@
             <span id="btnGenerateText">🚀 生成 AI 雲端分析報告</span>
             <span id="btnGenerateSpinner" class="spinner" style="display:none;"></span>
           </button>
-          <div class="text-center mt-2 text-xs text-muted">分析約需 30–60 秒，結果可儲存至歷史紀錄</div>
+          <div class="text-center mt-2 text-xs text-muted">分析約需 30–60 秒；登入後可儲存至歷史紀錄，未登入僅暫存於本次瀏覽</div>
         </div>
 
       </div><!-- /input-panel-body -->
@@ -1621,8 +1621,16 @@ function _buildAPIInputs(inputs) {
 
   const complianceFrameworks = [];
   if (complianceLevel === 'high') {
-    complianceFrameworks.push('MAS TRM', 'HKMA ORMiC', 'AWS FSBP');
-    if (inputs.isMajorOutsource === 'yes') complianceFrameworks.push('DORA');
+    const _ind = (inputs.industry || '').toLowerCase();
+    const _isFin = ['financial','banking','insurance','finance'].some(k => _ind.includes(k));
+    if (_isFin) {
+      // Region-specific: default to TW-financial; API call will refine
+      complianceFrameworks.push('金管會雲端委外規範', '個人資料保護法', 'ISO 27001', 'ISO 27017');
+    } else {
+      complianceFrameworks.push('ISO 27001', 'SOC 2 Type II');
+    }
+    complianceFrameworks.push('AWS FSBP');
+    if (inputs.isMajorOutsource === 'yes') complianceFrameworks.push('DORA（如為 EU 業務）');
   }
 
   const timelineMonthsMap = { urgent: 6, medium: 12, flexible: 24 };
@@ -1692,8 +1700,30 @@ function renderResult(r, style) {
   const showExec   = style === 'executive' || style === 'full';
   const showTechPM = style === 'techpm'    || style === 'full';
 
-  const stratLabels = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
-  const stratIcons  = { rehost:'🔄', replatform:'⚡', refactor:'🏗️', retain:'🔒', retire:'🗑️' };
+  // ── Report Validation Gate ──
+  const validationIssues = (typeof AnalyzeEngine !== 'undefined' && typeof AnalyzeEngine.validateReport === 'function')
+    ? AnalyzeEngine.validateReport(r)
+    : (r._validationIssues || []);
+  const hasErrors = validationIssues.some(i => i.severity === 'error');
+
+  const stratLabels = {
+    rehost:     '直接遷移 (Rehost)',
+    relocate:   '平台搬遷 (Relocate)',
+    repurchase: 'SaaS 替換 (Repurchase)',
+    replatform: '平台調整 (Replatform)',
+    refactor:   '架構重構 (Refactor)',
+    retain:     '暫緩保留 (Retain)',
+    retire:     '下線退場 (Retire)',
+  };
+  const stratIcons  = {
+    rehost:     '🚚',
+    relocate:   '🔄',
+    repurchase: '🛒',
+    replatform: '⚙️',
+    refactor:   '🔬',
+    retain:     '⏸️',
+    retire:     '🗑️',
+  };
 
   const { executiveSummary: exec, strategy6R, kpi, landingZone: lz, costEstimate: cost, riskRadar: risk, presentation, techPM, nextSteps, decisions } = r;
 
@@ -1705,7 +1735,7 @@ function renderResult(r, style) {
       <div class="result-ts" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span>分析時間：${SA.fmt.datetime(r.timestamp)}</span>
         <span>・</span>
-        <span>策略：${stratLabels[strategy6R.primary]}</span>
+        <span>策略：${stratLabels[strategy6R.primary] || strategy6R.primary}</span>
         <span class="badge ${style==='executive'?'badge-gold':style==='techpm'?'badge-teal':'badge-primary'}" style="font-size:10px;">${style==='executive'?'高層決策版':style==='techpm'?'技術 PM 版':'完整版'}</span>
       </div>
     </div>
@@ -1716,7 +1746,12 @@ function renderResult(r, style) {
       <button class="btn btn-outline btn-sm" id="shareBtn" onclick="shareAnalysis()" style="display:none;">🔗 分享報告</button>
       <button class="btn btn-primary btn-sm" onclick="window.location.href='dashboard.html'">💾 查看歷史</button>
     </div>
-  </div>`;
+  </div>
+  ${hasErrors ? `
+  <div style="margin-bottom:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:#fffbeb;border:1px solid #d97706;border-radius:var(--r-md);font-size:12px;color:#78350f;line-height:1.6;">
+    <div style="font-weight:700;margin-bottom:4px;">⚠️ 報告資料一致性警示</div>
+    ${validationIssues.filter(i => i.severity === 'error').map(i => `<div>• [${i.code}] ${i.message}</div>`).join('')}
+  </div>` : ''}`;
 
   // ── 1. Executive Summary ──
   html += `
@@ -1740,39 +1775,40 @@ function renderResult(r, style) {
 
     <!-- 商業價值摘要（Executive ROI Card）-->
     ${(() => {
-      const annualCloud  = (cost.mid || 0) * 12;
-      // Rough on-prem estimate: cloud cost + infrastructure premium by system size
-      const vmCount = parseInt(r.inputs?.vmCount) || 20;
-      const onPremMultiplier = vmCount > 100 ? 2.4 : vmCount > 50 ? 2.1 : vmCount > 20 ? 1.9 : 1.7;
-      const annualOnPrem = Math.round(annualCloud * onPremMultiplier);
-      const annualSaving = annualOnPrem - annualCloud;
-      const savingPct    = Math.round((annualSaving / annualOnPrem) * 100);
-      const roiMonths    = cost.migrationCost ? Math.ceil(cost.migrationCost / (annualSaving / 12)) : null;
-      // Strategy distribution for mini donut
-      const strategies   = window.AnalyzeEngine
+      const roiCardStyle  = 'background:linear-gradient(135deg,rgba(0,0,0,0.35),rgba(0,0,0,0.2));border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(4px);';
+      const roiLabelStyle = 'font-size:9px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;';
+      const roiSubStyle   = 'font-size:10px;color:rgba(255,255,255,0.7);margin-top:3px;';
+      const naStyle       = 'font-size:12px;font-weight:600;color:rgba(255,255,255,0.45);font-style:italic;';
+
+      // Use structured cost model from engine (monthlySavingMedian / roiMonths only when baseline provided)
+      const cmSaving   = cost.monthlySavingMedian;        // null if no baseline
+      const cmRoi      = cost.roiMonths;                  // null if no baseline
+      const annualSave = cmSaving != null ? cmSaving * 12 : null;
+      const savingStr  = annualSave != null && annualSave > 0
+        ? 'US$' + (annualSave >= 1000 ? Math.round(annualSave/1000) + 'K' : annualSave.toLocaleString())
+        : null;
+
+      const isFinancial = (r.inputs?.industry || '').toLowerCase().match(/financial|banking|insurance|金融|銀行|保險/);
+      // Strategy distribution for migration rate
+      const strategies  = window.AnalyzeEngine
         ? window.AnalyzeEngine.compareStrategies(r.inputs).sort((a,b) => b.readiness - a.readiness)
         : [];
-      const topStrat     = strategies[0];
-      const stratColors  = { rehost:'#4ade80', replatform:'#38bdf8', refactor:'#a78bfa', retain:'#fbbf24' };
-      // Mini donut SVG — strategy distribution
-      const isFinancial  = (r.inputs?.industry || '').toLowerCase().match(/financial|banking|insurance|金融|銀行|保險/);
-      const migratable   = strategies.filter(s => s.strategy !== 'retain').length;
-      const migratePct   = Math.round((migratable / Math.max(strategies.length, 1)) * 100);
+      const migratable  = strategies.filter(s => s.strategy !== 'retain' && s.strategy !== 'retire').length;
+      const migratePct  = Math.round((migratable / Math.max(strategies.length, 1)) * 100);
 
-      const roiCardStyle = 'background:linear-gradient(135deg,rgba(0,0,0,0.35),rgba(0,0,0,0.2));border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(4px);';
-      const roiLabelStyle = 'font-size:9px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;';
-      const roiSubStyle = 'font-size:10px;color:rgba(255,255,255,0.7);margin-top:3px;';
       return `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;">
         <div style="${roiCardStyle}">
           <div style="${roiLabelStyle}">首年預估節省</div>
-          <div style="font-size:20px;font-weight:800;color:#4ade80;">${annualSaving > 0 ? 'US$' + (annualSaving >= 1000 ? Math.round(annualSaving/1000) + 'K' : annualSaving.toLocaleString()) : '—'}</div>
-          <div style="${roiSubStyle}">vs 現有基礎設施 -${savingPct > 0 ? savingPct : '~30'}%</div>
+          ${savingStr
+            ? `<div style="font-size:20px;font-weight:800;color:#4ade80;">${savingStr}</div><div style="${roiSubStyle}">vs 輸入之現行月費基準</div>`
+            : `<div style="${naStyle}">需輸入現行成本<br>方可計算</div><div style="${roiSubStyle}">請於表單填入現行月費</div>`}
         </div>
         <div style="${roiCardStyle}">
           <div style="${roiLabelStyle}">預估 ROI 回本</div>
-          <div style="font-size:20px;font-weight:800;color:#38bdf8;">${roiMonths ? roiMonths + ' 個月' : exec.timing?.match(/\d+–?\d*\s*(個月|月)/)?.[0] || '12–18 個月'}</div>
-          <div style="${roiSubStyle}">含一次性遷移投資回收</div>
+          ${cmRoi != null
+            ? `<div style="font-size:20px;font-weight:800;color:#38bdf8;">${cmRoi} 個月</div><div style="${roiSubStyle}">含一次性遷移投資回收</div>`
+            : `<div style="${naStyle}">資料不足</div><div style="${roiSubStyle}">需提供現行月費後計算</div>`}
         </div>
         <div style="${roiCardStyle}">
           <div style="${roiLabelStyle}">${isFinancial ? '批次工作負載可雲化' : '系統可遷移率'}</div>
@@ -1825,21 +1861,26 @@ function renderResult(r, style) {
 
   // ── 3. 6R Strategy ──
   const strategyJustifications = {
-    rehost:    '系統具備直接遷移條件，虛擬化程度高、技術債可控，在有限時程內以 Lift & Shift 方式快速建立雲端基礎，為後續 Replatform 奠定基礎。',
-    replatform:'現有架構已具備平台化潛力，透過資料庫受管服務化、容器化等中度改造，可在不動核心程式邏輯的前提下，顯著提升效能與可維運性。',
-    refactor:  '系統具備架構重構條件，雲原生化可大幅提升彈性、API 能力與未來擴充性，建議搭配 Strangler Fig 策略逐步重構，降低切換風險。',
-    retain:    '現階段評估顯示多項前提條件尚未達標（Landing Zone、IAM、合規基線），建議先完善治理基礎設施，後續再評估分批遷移路徑。',
-    retire:    '此系統功能已可由 SaaS 解決方案替代，退場可降低維運負擔，建議制訂資料遷移計畫後逐步退場。',
+    rehost:     '系統具備直接遷移條件，虛擬化程度高、技術債可控，在有限時程內以 Lift & Shift 方式快速建立雲端基礎，為後續 Replatform 奠定基礎。',
+    relocate:   '系統已在 VMware/Hyper-V 環境運行，具備搬遷至 VMware Cloud on AWS 或 Azure VMware Solution 的條件，可在不修改程式碼的前提下平移整個虛擬化環境至雲端。',
+    repurchase: '系統功能標準化程度高、客製化需求低，市場有成熟 SaaS 替代方案。Repurchase 可大幅降低技術債與長期維護成本，建議完成功能覆蓋率評估後啟動替換計畫。',
+    replatform: '現有架構已具備平台化潛力，透過資料庫受管服務化、容器化等中度改造，可在不動核心程式邏輯的前提下，顯著提升效能與可維運性。',
+    refactor:   '系統具備架構重構條件，雲原生化可大幅提升彈性、API 能力與未來擴充性，建議搭配 Strangler Fig 策略逐步重構，降低切換風險。',
+    retain:     '現階段評估顯示多項前提條件尚未達標（Landing Zone、IAM、合規基線），建議先完善治理基礎設施，後續再評估分批遷移路徑。',
+    retire:     '此系統功能已可由 SaaS 解決方案替代，退場可降低維運負擔，建議制訂資料遷移計畫後逐步退場。',
   };
 
-  const allStrategies = [
-    { key: 'rehost', icon: '🔄', label: 'Rehost' },
-    { key: 'replatform', icon: '⚡', label: 'Replatform' },
-    { key: 'refactor', icon: '🏗️', label: 'Refactor' },
-    { key: 'retain', icon: '🔒', label: 'Retain' },
-    { key: 'retire', icon: '🗑️', label: 'Retire' },
-  ];
-  const maxScore = Math.max(...allStrategies.map(s => strategy6R.scores[s.key] || 0)) || 1;
+  // Build strategy pills sorted: primary first, secondary second, rest by score
+  const allStrategies = Object.entries(strategy6R.scores || {})
+    .sort((a, b) => {
+      if (a[0] === strategy6R.primary)   return -1;
+      if (b[0] === strategy6R.primary)   return  1;
+      if (a[0] === strategy6R.secondary) return -1;
+      if (b[0] === strategy6R.secondary) return  1;
+      return b[1] - a[1];
+    })
+    .map(([key]) => ({ key, icon: stratIcons[key] || '📦', label: key.charAt(0).toUpperCase() + key.slice(1) }));
+  const maxScore = Math.max(...Object.values(strategy6R.scores || {}).map(v => v || 0)) || 1;
 
   html += `
   <div class="result-section animate-up">
@@ -1852,11 +1893,13 @@ function renderResult(r, style) {
       <div class="strategy-name">${stratIcons[strategy6R.primary]} ${stratLabels[strategy6R.primary]}</div>
       <div style="margin-top:4px;margin-bottom:8px;">
         ${{
-          rehost:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">直接搬移上雲，不改程式邏輯 — Lift &amp; Shift</span>',
-          replatform:'<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">中度改造：換用受管服務 / 容器化，不動核心商業邏輯</span>',
-          refactor:  '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">深度重構：雲原生化、微服務化、API 優先</span>',
-          retain:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">暫不遷移：完善治理基礎後再評估</span>',
-          retire:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">退場下線：以 SaaS 替代或停用</span>',
+          rehost:     '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">直接搬移上雲，不改程式邏輯 — Lift &amp; Shift</span>',
+          relocate:   '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">VMware 環境平移至雲端 — 不修改程式碼</span>',
+          repurchase: '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">以成熟 SaaS 替代自建系統 — 降低維護技術債</span>',
+          replatform: '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">中度改造：換用受管服務 / 容器化，不動核心商業邏輯</span>',
+          refactor:   '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">深度重構：雲原生化、微服務化、API 優先</span>',
+          retain:     '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">暫不遷移：完善治理基礎後再評估</span>',
+          retire:     '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">退場下線：以 SaaS 替代或停用</span>',
         }[strategy6R.primary] || ''}
       </div>
       <div class="strategy-desc">${strategyJustifications[strategy6R.primary]}</div>
@@ -1881,8 +1924,15 @@ function renderResult(r, style) {
         }).join('')}
       </div>
       <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-accent-teal-lt);border-radius:var(--r-md);border:1px solid rgba(26,155,181,0.2);">
-        <div style="font-size:11px;color:var(--c-accent-teal);font-weight:600;margin-bottom:6px;">次選策略：${stratLabels[strategy6R.secondary]}</div>
-        <div style="font-size:12px;color:var(--c-text-muted);line-height:1.6;">${strategy6R.secondary === 'replatform' ? '可作為 Rehost 完成後的演進方向' : strategy6R.secondary === 'refactor' ? '長期可向雲原生架構演進' : '作為備選方案或後期階段策略'}</div>
+        <div style="font-size:11px;color:var(--c-accent-teal);font-weight:600;margin-bottom:6px;">次選策略：${stratLabels[strategy6R.secondary] || strategy6R.secondary}</div>
+        <div style="font-size:12px;color:var(--c-text-muted);line-height:1.6;">${{
+          replatform: '可作為 Rehost/Relocate 完成後的演進方向',
+          refactor:   '長期可向雲原生架構演進',
+          relocate:   '適用於 VMware 環境存在時的快速搬遷路徑',
+          repurchase: '標準化程度高的模組可優先以 SaaS 替代',
+          retain:     '作為高風險模組的暫緩保留路徑',
+          retire:     '功能重疊或低使用率模組可考慮下線',
+        }[strategy6R.secondary] || '作為備選方案或後期階段策略'}</div>
       </div>
     </div>
 
@@ -2386,49 +2436,81 @@ function renderResult(r, style) {
   <!-- Sustainability Card（永遠顯示，無論是否填選填欄位）-->
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">🌱</span>永續發展與碳排影響</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4);" class="carbon-grid">
-      <div class="card" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.04);">
-        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:32px;font-weight:800;color:#16a34a;">${r.sustainability?.carbon_reduction_pct ?? '–'}${r.sustainability?.carbon_reduction_pct != null ? '%' : ''}</div>
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">預估碳排降低</div>
+    ${(() => {
+      // Use local engine ESG recommendation when available
+      const esgRec = r.esgRecommendation || null;
+      const isFinancialOrHighComp = esgRec ? !esgRec.crossRegionMigration : false;
+
+      if (esgRec && !esgRec.crossRegionMigration) {
+        // Financial / high-compliance: show architecture-first approach, suppress Stockholm
+        return `
+        <div style="margin-bottom:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:#f0fdf4;border:1px solid rgba(34,197,94,0.25);border-radius:var(--r-md);font-size:12px;color:#166534;line-height:1.7;">
+          <div style="font-weight:700;margin-bottom:4px;">🌿 ESG 減碳策略：節能架構優先</div>
+          <div>${esgRec.recommendation}</div>
+        </div>
+        <div style="margin-bottom:var(--sp-4);">
+          <div style="font-size:12px;font-weight:600;color:var(--c-primary);margin-bottom:var(--sp-2);">建議節能架構措施：</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${(esgRec.architectureActions || []).map(a => `<div style="display:flex;gap:8px;font-size:12px;color:var(--c-text-muted);padding:6px 10px;background:var(--c-surface);border-radius:var(--r-md);"><span style="color:#16a34a;flex-shrink:0;">•</span><span>${a}</span></div>`).join('')}
+          </div>
+        </div>
+        <div style="padding:var(--sp-3) var(--sp-4);background:#fffbeb;border:1px solid #d97706;border-radius:var(--r-md);font-size:11px;color:#78350f;line-height:1.6;">
+          ⚠️ ${esgRec.lowCarbonRegionNote}
+        </div>
+        <div style="margin-top:var(--sp-3);display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+          <div class="card"><div class="card-body" style="text-align:center;">
+            <div style="font-size:22px;font-weight:800;color:#16a34a;">${esgRec.carbonReductionEstimate}</div>
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">預估節能效果（架構優化）</div>
+          </div></div>
+          <div class="card"><div class="card-body" style="text-align:center;">
+            <div style="font-size:15px;font-weight:700;color:var(--c-primary);">企業核准區域</div>
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">優先使用已核准之雲端區域</div>
+          </div></div>
+        </div>`;
+      }
+
+      // General case: show full sustainability data
+      return `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);margin-bottom:var(--sp-4);" class="carbon-grid">
+        <div class="card" style="border-color:rgba(34,197,94,0.3);background:rgba(34,197,94,0.04);">
+          <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+            <div style="font-size:32px;font-weight:800;color:#16a34a;">${r.sustainability?.carbon_reduction_pct ?? (esgRec?.carbonReductionEstimate ? esgRec.carbonReductionEstimate.split('（')[0] : '–')}</div>
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">預估碳排降低</div>
+          </div>
+        </div>
+        <div class="card" style="border-color:rgba(26,155,181,0.3);">
+          <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+            <div style="font-size:32px;font-weight:800;color:var(--c-accent-teal);">${r.sustainability?.annual_co2_reduction_tonnes ?? '–'}</div>
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">噸 CO₂/年 減少</div>
+          </div>
+        </div>
+        <div class="card" style="border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.04);">
+          <div class="card-body" style="text-align:center;padding:var(--sp-5);">
+            <div style="font-size:13px;font-weight:700;color:var(--c-primary);margin-top:4px;">${r.sustainability?.recommended_region || (esgRec?.crossRegionMigration ? 'eu-north-1 (Stockholm)' : '–')}</div>
+            <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">建議低碳 Region</div>
+            ${r.sustainability?.recommended_region_intensity ? `<div style="font-size:11px;color:#16a34a;margin-top:2px;">${r.sustainability.recommended_region_intensity} gCO₂/kWh</div>` : ''}
+          </div>
         </div>
       </div>
-      <div class="card" style="border-color:rgba(26,155,181,0.3);">
-        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:32px;font-weight:800;color:var(--c-accent-teal);">${r.sustainability?.annual_co2_reduction_tonnes ?? '–'}</div>
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">噸 CO₂/年 減少</div>
+      ${r.sustainability?.rationale ? `
+      <div class="card" style="margin-bottom:var(--sp-4);border-left:3px solid #16a34a;">
+        <div class="card-body">
+          <div style="font-size:var(--fs-xs);font-weight:var(--fw-semi);color:#16a34a;margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.5px;">碳排計算說明</div>
+          <p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.7;margin:0;">${r.sustainability.rationale}</p>
         </div>
-      </div>
-      <div class="card" style="border-color:rgba(201,168,76,0.3);background:rgba(201,168,76,0.04);">
-        <div class="card-body" style="text-align:center;padding:var(--sp-5);">
-          <div style="font-size:13px;font-weight:700;color:var(--c-primary);margin-top:4px;">${r.sustainability?.recommended_region || '–'}</div>
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:4px;">最低碳強度 Region</div>
-          ${r.sustainability?.recommended_region_intensity ? `<div style="font-size:11px;color:#16a34a;margin-top:2px;">${r.sustainability.recommended_region_intensity} gCO₂/kWh</div>` : ''}
+      </div>` : ''}
+      ${esgRec?.architectureActions?.length ? `
+      <div class="card" style="margin-bottom:var(--sp-4);">
+        <div class="card-body">
+          <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);margin-bottom:var(--sp-2);">🌿 節能架構建議</div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            ${esgRec.architectureActions.map(a => `<div style="display:flex;gap:8px;font-size:12px;color:var(--c-text-muted);"><span style="color:#16a34a;flex-shrink:0;">•</span><span>${a}</span></div>`).join('')}
+          </div>
         </div>
-      </div>
-    </div>
-    ${r.sustainability?.rationale ? `
-    <div class="card" style="margin-bottom:var(--sp-4);border-left:3px solid #16a34a;">
-      <div class="card-body">
-        <div style="font-size:var(--fs-xs);font-weight:var(--fw-semi);color:#16a34a;margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.5px;">碳排計算說明</div>
-        <p style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.7;margin:0;">${r.sustainability.rationale}</p>
-      </div>
-    </div>` : ''}
-    ${(r.sustainability?.esg_guidance || []).length ? `
-    <div class="card" style="margin-bottom:var(--sp-4);">
-      <div class="card-body">
-        <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);color:var(--c-primary);margin-bottom:var(--sp-3);">📋 ESG 合規行動建議</div>
-        <div style="display:grid;gap:var(--sp-2);">
-          ${r.sustainability.esg_guidance.map((g,i) => `
-          <div style="display:flex;gap:var(--sp-3);align-items:flex-start;padding:var(--sp-3);background:var(--c-surface-2);border-radius:var(--r-md);">
-            <span style="background:#16a34a;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${i+1}</span>
-            <span style="font-size:var(--fs-sm);color:var(--c-text-muted);line-height:1.5;">${g}</span>
-          </div>`).join('')}
-        </div>
-      </div>
-    </div>` : ''}
+      </div>` : ''}`;
+    })()}
     ${r.sustainability?.provider_commitment ? `
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-top:var(--sp-3);">
       <div class="card"><div class="card-body">
         <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">☁️ 雲端供應商承諾</div>
         <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">${r.sustainability.provider_commitment}</div>
@@ -2437,11 +2519,6 @@ function renderResult(r, style) {
         <div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-bottom:4px;">📊 碳排監控工具</div>
         <div style="font-size:var(--fs-sm);font-weight:var(--fw-semi);">${r.sustainability.monitoring_tool}</div>
       </div></div>` : ''}
-    </div>` : ''}
-    ${!r.sustainability || (r.sustainability.carbon_reduction_pct == null && !r.sustainability.recommended_region) ? `
-    <div style="text-align:center;padding:var(--sp-6);background:rgba(34,197,94,0.04);border-radius:var(--r-lg);border:1px dashed rgba(34,197,94,0.3);">
-      <div style="font-size:28px;margin-bottom:var(--sp-2);">🌿</div>
-      <div style="font-size:var(--fs-sm);color:var(--c-text-muted);">此記錄建立時未包含碳排計算，請在左側填寫表單後執行新分析以取得碳排數據</div>
     </div>` : ''}
   </div>
 
@@ -2763,11 +2840,26 @@ function renderDecisionBoard(result) {
           compliance.jurisdiction === 'healthcare' ? '醫療行業' :
           compliance.jurisdiction === 'government' ? '政府機關' : '製造業'
         }）</div>
+        ${(() => {
+          // Show compliance framework from engine if available
+          const cf = result?.complianceFramework;
+          if (cf && (cf.key === 'tw-financial' || cf.key === 'sg-financial' || cf.key === 'hk-financial')) {
+            const regionLabel = cf.key === 'tw-financial' ? '台灣金管會' : cf.key === 'sg-financial' ? 'MAS（新加坡）' : 'HKMA（香港）';
+            const crossBorderDisclaimer = cf.key === 'tw-financial'
+              ? '海外框架（如 MAS TRM、HKMA ORMiC）僅供架構對標參考，不代表本案直接適用。'
+              : '';
+            return `<div style="margin-bottom:var(--sp-3);padding:6px 10px;background:rgba(26,107,175,0.06);border-radius:var(--r-md);border-left:3px solid var(--c-accent-teal);font-size:11px;color:var(--c-text-muted);">
+              <strong>主要合規框架（${regionLabel}）：</strong> ${cf.frameworks.join('、')}
+              ${crossBorderDisclaimer ? `<div style="margin-top:4px;color:#b45309;">ℹ️ ${crossBorderDisclaimer}</div>` : ''}
+            </div>`;
+          }
+          return '';
+        })()}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
           ${compHtml}
         </div>
         <div style="font-size:10px;color:#92400e;background:#fff8e1;border-radius:var(--r-sm);padding:6px 10px;margin-top:var(--sp-2);border:1px solid #f59e0b;">
-          ⚠️ 以上為前期盤點參考，最終需由資安、法遵、架構師確認後方可作為正式依據
+          ⚠️ 以上為前期盤點參考，不代表已符合法規或可通過稽核。最終需由資安、法遵、架構師依主管機關最新函釋確認。
         </div>
       </div>` : ''}
 
@@ -2932,7 +3024,7 @@ function _buildWhatIfHTML(result) {
 
     <!-- Strategy Comparison -->
     <div style="font-size:var(--fs-xs);font-weight:700;color:var(--c-primary);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:var(--sp-3);">
-      四大策略並排比較（基於相同輸入條件）
+      7R 策略並排比較（基於相同輸入條件）
     </div>
     <div class="strategy-cards">${cardsHtml}</div>
 

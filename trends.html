@@ -631,6 +631,25 @@ function toggleReq(btn) {
 function renderStaticFallback() {
   const grid = document.getElementById('trendsGrid');
   grid.innerHTML = buildTrendCard({
+    title:       '台灣金管會 — 金融機構雲端委外規範（110 年修訂）',
+    source:      '金融監督管理委員會',
+    source_logo: '🇹🇼',
+    category:    'regulatory',
+    region:      'Taiwan',
+    date:        '2023-07-01',
+    impact:      'critical',
+    tags:        ['金管會', '台灣', '雲端委外', '金融機構', '資安'],
+    summary:     '金管會依據「金融機構作業委託他人處理內部作業制度及程序辦法」要求，金融機構委託雲端業者處理業務時，須完成資訊安全評估、資料保護、業務連續性計畫、稽核與退場機制等要求。重要業務系統上雲須報主管機關核准。',
+    key_requirements: [
+      '委外風險評估：須完成供應商盡職調查（含 ISO 27001、SOC 2 Type II）',
+      '資料主權：客戶個資及重要業務資料不得儲存於未經核准之境外地點',
+      '業務連續性計畫：須定期演練，RTO/RPO 須符合主管機關要求',
+      '稽核權：合約須保留金管會及金融機構對雲端業者之稽核權',
+      '退場計畫：須完整規劃服務終止時的資料遷移方案'
+    ],
+    action_for_archie: '台灣金融機構雲端評估必須以此規範為首要合規依據，海外框架（MAS/HKMA/GDPR）僅供參考。',
+    reference_url: 'https://www.fsc.gov.tw'
+  }) + buildTrendCard({
     title:       'EU DORA — 數位運營韌性法案（已生效）',
     source:      'European Banking Authority',
     source_logo: '🇪🇺',
