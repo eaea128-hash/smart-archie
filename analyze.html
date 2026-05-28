@@ -1727,7 +1727,7 @@ function renderResult(r, style) {
       <div class="exec-subtitle">${exec.strategyTitle}</div>
       <div class="exec-desc">${exec.conclusion}</div>
       <div class="exec-meta">
-        <div class="exec-meta-item">🎯 策略信心度：<span class="exec-meta-val">${strategy6R.confidence}%</span></div>
+        <div class="exec-meta-item" title="策略建議確定度：算法對「此策略優於其他選項」的確定程度，非成功機率。受風險程度調整。">🎯 策略確定度：<span class="exec-meta-val">${Math.max(40, strategy6R.confidence - Math.floor(risk.overall * 0.28))}%</span></div>
         <div class="exec-meta-item">⚡ 整體風險：<span class="exec-meta-val">${risk.overall >= 70 ? '🔴 高' : risk.overall >= 50 ? '🟡 中' : '🟢 低'}（${risk.overall}%）</span></div>
         <div class="exec-meta-item">🗓️ 建議時程：<span class="exec-meta-val">${exec.timing.split('，')[0]}</span></div>
       </div>
@@ -1759,25 +1759,25 @@ function renderResult(r, style) {
       const migratable   = strategies.filter(s => s.strategy !== 'retain').length;
       const migratePct   = Math.round((migratable / Math.max(strategies.length, 1)) * 100);
 
+      const roiCardStyle = 'background:linear-gradient(135deg,rgba(0,0,0,0.35),rgba(0,0,0,0.2));border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.18);backdrop-filter:blur(4px);';
+      const roiLabelStyle = 'font-size:9px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;';
+      const roiSubStyle = 'font-size:10px;color:rgba(255,255,255,0.7);margin-top:3px;';
       return `
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;">
-        <!-- ROI 節省 -->
-        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
-          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">首年預估節省</div>
+        <div style="${roiCardStyle}">
+          <div style="${roiLabelStyle}">首年預估節省</div>
           <div style="font-size:20px;font-weight:800;color:#4ade80;">${annualSaving > 0 ? 'US$' + (annualSaving >= 1000 ? Math.round(annualSaving/1000) + 'K' : annualSaving.toLocaleString()) : '—'}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">vs 現有基礎設施 -${savingPct > 0 ? savingPct : '~30'}%</div>
+          <div style="${roiSubStyle}">vs 現有基礎設施 -${savingPct > 0 ? savingPct : '~30'}%</div>
         </div>
-        <!-- 回本時間 -->
-        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
-          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">預估 ROI 回本</div>
+        <div style="${roiCardStyle}">
+          <div style="${roiLabelStyle}">預估 ROI 回本</div>
           <div style="font-size:20px;font-weight:800;color:#38bdf8;">${roiMonths ? roiMonths + ' 個月' : exec.timing?.match(/\d+–?\d*\s*(個月|月)/)?.[0] || '12–18 個月'}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">含一次性遷移投資回收</div>
+          <div style="${roiSubStyle}">含一次性遷移投資回收</div>
         </div>
-        <!-- 可遷移比率 -->
-        <div style="background:rgba(255,255,255,0.08);border-radius:10px;padding:12px 14px;border:1px solid rgba(255,255,255,0.12);">
-          <div style="font-size:9px;color:rgba(255,255,255,0.5);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:6px;">${isFinancial ? '批次工作負載可雲化' : '系統可遷移率'}</div>
+        <div style="${roiCardStyle}">
+          <div style="${roiLabelStyle}">${isFinancial ? '批次工作負載可雲化' : '系統可遷移率'}</div>
           <div style="font-size:20px;font-weight:800;color:#fbbf24;">${isFinancial ? '~65%' : migratePct + '%'}</div>
-          <div style="font-size:10px;color:rgba(255,255,255,0.55);margin-top:3px;">${isFinancial ? '預估可降低 MIPS/MSU 授權 ~40%' : '建議遷移路徑覆蓋率'}</div>
+          <div style="${roiSubStyle}">${isFinancial ? '預估可降低 MIPS/MSU 授權 ~40%' : '建議遷移路徑覆蓋率'}</div>
         </div>
       </div>`;
     })()}
@@ -1847,11 +1847,23 @@ function renderResult(r, style) {
     <div class="strategy-banner">
       <div class="strategy-rec-badge">⭐ AI 建議策略</div>
       <div class="strategy-name">${stratIcons[strategy6R.primary]} ${stratLabels[strategy6R.primary]}</div>
+      <div style="margin-top:4px;margin-bottom:8px;">
+        ${{
+          rehost:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">直接搬移上雲，不改程式邏輯 — Lift &amp; Shift</span>',
+          replatform:'<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">中度改造：換用受管服務 / 容器化，不動核心商業邏輯</span>',
+          refactor:  '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">深度重構：雲原生化、微服務化、API 優先</span>',
+          retain:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">暫不遷移：完善治理基礎後再評估</span>',
+          retire:    '<span style="display:inline-flex;align-items:center;gap:6px;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.08);border-radius:20px;padding:3px 10px;">退場下線：以 SaaS 替代或停用</span>',
+        }[strategy6R.primary] || ''}
+      </div>
       <div class="strategy-desc">${strategyJustifications[strategy6R.primary]}</div>
-      <div class="strategy-confidence">
-        <span class="conf-label">策略信心度</span>
+      <div class="strategy-confidence" title="策略建議確定度：算法對此策略優於其他選項的確定程度（非成功機率）。分數差距越大代表策略越明確。">
+        <span class="conf-label">策略確定度 ℹ️</span>
         <div class="conf-bar"><div class="conf-fill" data-width="${strategy6R.confidence}%" style="--target:${strategy6R.confidence}%"></div></div>
         <span class="conf-val">${strategy6R.confidence}%</span>
+      </div>
+      <div style="margin-top:var(--sp-2);font-size:11px;color:var(--c-text-muted);background:var(--c-surface-2);border-radius:var(--r-md);padding:6px 10px;line-height:1.5;">
+        ℹ️ <strong>策略確定度</strong> 代表算法對「${stratLabels[strategy6R.primary]} 優於其他選項」的確定程度，與「是否已具備執行條件」無關。請參閱下方主管決策儀表板的 <strong>決策信心指標</strong> 及 GoNoGo 評估。
       </div>
       <div class="strategy-compare" style="margin-top:var(--sp-4);">
         ${allStrategies.map(s => {
@@ -2669,6 +2681,18 @@ function renderDecisionBoard(result) {
       ${confPanel}
 
       ${gonogoBanner}
+
+      ${(goNoGo.decision === 'no-go' && strategy6R.primary !== 'retain') ? `
+      <div style="margin-top:var(--sp-3);padding:var(--sp-3) var(--sp-4);background:#fffbeb;border:1px solid #d97706;border-radius:var(--r-md);display:flex;gap:10px;align-items:flex-start;">
+        <span style="font-size:18px;flex-shrink:0;">💡</span>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:#92400e;margin-bottom:4px;">策略方向 ≠ 立即可執行</div>
+          <div style="font-size:11px;color:#78350f;line-height:1.7;">
+            <strong>${stratLabels[strategy6R.primary]}</strong> 是根據您現有架構條件所建議的<em>最適遷移方向</em>，而 <strong>No-Go</strong> 代表目前尚欠缺技術前提條件（如：Landing Zone、IAM 體系、DR 演練）。<br>
+            兩者並不衝突：請先完成前提條件，再按此方向推進遷移。
+          </div>
+        </div>
+      </div>` : ''}
 
       ${readinessRing}
 

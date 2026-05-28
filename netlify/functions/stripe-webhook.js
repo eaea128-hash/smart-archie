@@ -22,11 +22,6 @@ export const handler = async (event) => {
     return { statusCode: 400, body: `Webhook Error: ${err.message}` };
   }
 
-  const planMap = {
-    // map Stripe price IDs to plan names
-    [process.env.STRIPE_PRICE_PRO]: 'pro',
-  };
-
   try {
     switch (stripeEvent.type) {
       case 'checkout.session.completed': {
@@ -42,7 +37,7 @@ export const handler = async (event) => {
       case 'customer.subscription.deleted': {
         // Downgrade to free on cancellation
         const sub = stripeEvent.data.object;
-        const { data: profile } = await supabase.from('profiles').select('id').eq('stripe_customer_id', sub.customer).single();
+        const { data: profile } = await supabase.from('profiles').select('id').eq('stripe_customer_id', sub.customer).maybeSingle();
         if (profile) {
           await supabase.from('profiles').update({ plan: 'free' }).eq('id', profile.id);
           console.log(`[stripe-webhook] Customer ${sub.customer} downgraded to free`);

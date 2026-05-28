@@ -653,8 +653,6 @@ export const handler = async (event) => {
     let toolContextMessages = [];
     const hasSustainability = inputs.sustainabilityGoal && inputs.sustainabilityGoal !== 'none';
     const provider = (inputs.targetCloud || 'AWS').toLowerCase();
-    const validProvider = ['aws', 'azure', 'gcp'].includes(provider) ? provider : 'aws';
-
     if (hasSustainability || inputs.esgFramework !== 'none') {
       try {
         const toolPhase = await client.messages.create({
@@ -732,7 +730,7 @@ export const handler = async (event) => {
       if (provData) {
         const serverCount = inputs.systemCount || 20;
         const sorted = Object.entries(provData.regions).sort((a, b) => a[1].intensity - b[1].intensity);
-        const [lowestCode, lowestRegion] = sorted[0];
+        const [, lowestRegion] = sorted[0];
         const kwhPerYear   = serverCount * ANNUAL_SERVER_KWH;
         const onpremCO2    = kwhPerYear * ONPREM_INTENSITY / 1e6;
         const cloudCO2     = kwhPerYear * lowestRegion.intensity / 1e6;

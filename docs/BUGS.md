@@ -5,22 +5,6 @@
 
 ## Active Architectural Issues
 
-### BUG-016: Local Fallback Missing Sustainability Assessment
-
-- Status: fixed
-- Found: 2026-05-14
-- Area: `analyze.html`, `js/api-client.js`
-- Symptom: when the API path failed and `analyze.html` used the direct local
-  fallback, the report could render without computed sustainability fields.
-- Root cause: the fallback called `AnalyzeEngine.analyze(inputs)` directly,
-  bypassing `APIClient._analyzeLocal()`, which is where sustainability data is
-  always injected.
-- Fix: route the fallback through `APIClient.analyze(apiInputs, { forceLocal:
-  true })`, then save/render that normalised result.
-- Verification: local VM simulation returned `sustainability` with concrete
-  values: carbon reduction percentage, annual CO2 reduction, recommended
-  region, ESG guidance, provider commitment, and monitoring tool.
-
 ### ARCH-001: Deployment Target Drift
 
 - Status: fixed

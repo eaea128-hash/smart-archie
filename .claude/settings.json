@@ -77,7 +77,7 @@
         ]
       },
       {
-        "matcher": "Edit(netlify/functions/*.js)",
+        "matcher": "Edit(functions/api/*.js)",
         "hooks": [
           {
             "type": "command",
@@ -86,7 +86,7 @@
         ]
       },
       {
-        "matcher": "Write(netlify/functions/*.js)",
+        "matcher": "Write(functions/api/*.js)",
         "hooks": [
           {
             "type": "command",

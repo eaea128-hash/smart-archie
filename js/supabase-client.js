@@ -64,6 +64,6 @@
   }
 
   // ── Public API ──────────────────────────────────────────────
-  global.SupabaseClient = { getClient, isConfigured };
+  global.SupabaseClient = { getClient, reinit, isConfigured };
 
 })(typeof window !== 'undefined' ? window : globalThis);

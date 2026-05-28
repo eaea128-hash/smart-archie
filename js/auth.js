@@ -8,7 +8,7 @@
 
 'use strict';
 
-const Auth = (() => {
+window.Auth = (() => {
 
   const PLAN_QUOTA = { free: 3, pro: 30, enterprise: 999 };
 

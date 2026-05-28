@@ -28,11 +28,6 @@ export async function onRequest(context) {
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  const planMap = {
-    // map Stripe price IDs to plan names
-    [env.STRIPE_PRICE_PRO]: 'pro',
-  };
-
   try {
     switch (stripeEvent.type) {
       case 'checkout.session.completed': {
