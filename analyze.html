@@ -960,10 +960,10 @@
             <div class="form-group">
               <label class="form-label">預估交易量 / 流量規模</label>
               <select id="txVolume" class="form-select">
-                <option value="low">低（&lt; 1,000 TPS / 小型內部系統）</option>
-                <option value="medium" selected>中（1,000–10,000 TPS）</option>
-                <option value="high">高（10,000–100,000 TPS）</option>
-                <option value="very_high">超高（&gt; 100,000 TPS）</option>
+                <option value="low">低：內部系統 / 批次作業（&lt; 1,000 TPS）</option>
+                <option value="medium" selected>中：一般交易系統（1,000–10,000 TPS）</option>
+                <option value="high">高：高併發交易或對外服務（10,000–100,000 TPS）</option>
+                <option value="very_high">超高：大規模公眾服務（&gt; 100,000 TPS）</option>
               </select>
             </div>
             <div class="form-group">
@@ -1127,7 +1127,7 @@
                 <button class="toggle-btn active" data-value="no">尚未測量</button>
               </div>
             </div>
-            <div class="form-hint">🌏 可作為後續 ESG／碳排盤點欄位的初步參考；實際碳排估算需串接可信碳強度資料來源</div>
+            <div class="form-hint">🌏 可納入碳排評估假設；實際估算需依雲服務商區域碳強度數據與企業碳盤查資料確認</div>
           </div>
         </div>
 
@@ -1165,7 +1165,7 @@
           <label style="display:flex;align-items:flex-start;gap:var(--sp-3);cursor:pointer;">
             <input type="checkbox" id="consentCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--c-primary);">
             <span>
-              我瞭解本次分析輸入將透過 <strong>OpenAI API</strong> 進行 AI 處理，資料不會用於模型訓練。
+              本工具為<strong>個人研究原型</strong>，輸入資料將透過 <strong>OpenAI API</strong> 處理，不用於模型訓練。
               <span style="color:#b45309;font-weight:600;">請勿輸入個資、客戶資料、公司機敏資訊或未經授權之內部系統資訊。</span>
               詳見
               <a href="privacy.html" target="_blank" style="color:var(--c-primary);">隱私政策</a>
@@ -1181,7 +1181,7 @@
             <span id="btnGenerateText">🚀 生成 AI 雲端分析報告</span>
             <span id="btnGenerateSpinner" class="spinner" style="display:none;"></span>
           </button>
-          <div class="text-center mt-2 text-xs text-muted">本地引擎約 3–10 秒，AI 引擎約 30–60 秒，結果可儲存至歷史紀錄</div>
+          <div class="text-center mt-2 text-xs text-muted">分析約需 30–60 秒，結果可儲存至歷史紀錄</div>
         </div>
 
       </div><!-- /input-panel-body -->
@@ -1194,7 +1194,7 @@
       <div id="resultPlaceholder" class="result-placeholder">
         <div class="result-placeholder-icon">☁️</div>
         <div style="text-align:center;">
-          <div class="empty-title">完成左側 4 步驟，取得雲端遷移決策報告</div>
+          <div class="empty-title">完成主要評估欄位，取得雲端遷移初步評估報告</div>
           <div class="empty-desc" style="margin-top:8px;">請先填寫專案背景、系統現況、合規限制與預算條件，再點擊「開始分析」。CloudFrame 會產出可分享的 7R 遷移策略初步判斷、Landing Zone 檢核建議、成本級距推估、風險與永續評估。</div>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
@@ -1223,7 +1223,7 @@
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;">
               <div style="width:24px;height:24px;border-radius:50%;background:var(--c-gold);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
-              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">點擊「開始分析」</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">AI 引擎約 30–60 秒，本地引擎約 3–10 秒</div></div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">點擊「開始分析」</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">約 30–60 秒後取得初步評估報告</div></div>
             </div>
           </div>
           <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-gold-lt);border-radius:var(--r-md);font-size:var(--fs-xs);color:#8B6A1F;">
@@ -1844,6 +1844,9 @@ function renderResult(r, style) {
   html += `
   <div class="result-section animate-up">
     <div class="result-section-title"><span class="rst-icon">🎯</span>6R/7R 遷移策略分析</div>
+    <div style="margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-4);background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-md);font-size:11px;color:var(--c-text-muted);line-height:1.7;">
+      📌 本工具以 <strong>AWS 7R 遷移策略</strong>（Retire、Retain、Rehost、Relocate、Repurchase、Replatform、Refactor）為主要框架，並保留企業內部既有 6R 分類對照。實際策略仍需由架構師依系統依賴、風險與商業價值確認。
+    </div>
     <div class="strategy-banner">
       <div class="strategy-rec-badge">⭐ AI 建議策略</div>
       <div class="strategy-name">${stratIcons[strategy6R.primary]} ${stratLabels[strategy6R.primary]}</div>
