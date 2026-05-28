@@ -94,14 +94,14 @@
         if (yOffset < imgH) pdf.addPage();
       }
 
-      // 頁尾頁碼
+      // 頁尾頁碼（jsPDF helvetica 不支援中文，使用英文）
       const totalPages = pdf.internal.getNumberOfPages();
       for (let i = 2; i <= totalPages; i++) {
         pdf.setPage(i);
         pdf.setFontSize(8);
         pdf.setTextColor(150, 150, 150);
         pdf.text(
-          `CloudFrame AI Cloud Advisory — 第 ${i - 1} / ${totalPages - 1} 頁`,
+          `CloudFrame AI Cloud Advisory — Page ${i - 1} / ${totalPages - 1}`,
           pageW / 2, pageH - 5, { align: 'center' }
         );
       }
@@ -147,16 +147,23 @@
     pdf.setTextColor(201, 168, 76);
     pdf.text('AI Cloud Strategy Advisor', pageW / 2, pageH * 0.42 + 9, { align: 'center' });
 
-    // 報告標題
+    // 報告標題（jsPDF helvetica 不支援中文，偵測到非 ASCII 則改用英文替代）
     pdf.setFontSize(14);
     pdf.setTextColor(255, 255, 255);
-    const cleanTitle = (title || '雲端分析報告').replace(/Smart-Archie-/, '').replace(/-/g, ' ');
+    let cleanTitle = (title || 'Cloud Migration Assessment')
+      .replace(/Smart-Archie-/i, '')
+      .replace(/-/g, ' ')
+      .trim();
+    // 若標題含中文/非 ASCII，改用通用英文標題
+    if (/[^\x00-\x7F]/.test(cleanTitle)) {
+      cleanTitle = 'Cloud Migration Assessment Report';
+    }
     pdf.text(cleanTitle, pageW / 2, pageH * 0.58, { align: 'center' });
 
-    // 日期
+    // 日期（使用 en-US 格式，避免 zh-TW 產生中文字元）
     pdf.setFontSize(9);
     pdf.setTextColor(150, 180, 200);
-    pdf.text(new Date().toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' }),
+    pdf.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
       pageW / 2, pageH * 0.65, { align: 'center' });
 
     // 底部
@@ -194,7 +201,15 @@
     if (!result) { if (typeof SA !== 'undefined') SA.Toast.warning('請先執行分析'); return; }
 
     const r = result;
-    const stratLabels = { rehost:'直接遷移 (Rehost)', replatform:'平台調整 (Replatform)', refactor:'架構重構 (Refactor)', retain:'暫緩保留 (Retain)', retire:'下線退場 (Retire)' };
+    const stratLabels = {
+      rehost:      '直接遷移 (Rehost)',
+      relocate:    '平台搬遷 (Relocate)',
+      repurchase:  '換用 SaaS (Repurchase)',
+      replatform:  '平台調整 (Replatform)',
+      refactor:    '架構重構 (Refactor)',
+      retain:      '暫緩保留 (Retain)',
+      retire:      '下線退場 (Retire)',
+    };
 
     const md = [
       `# CloudFrame 雲端分析報告`,
@@ -219,7 +234,7 @@
       `月費：USD $${(r.costEstimate?.mid || 0).toLocaleString()}（建議方案）`,
       '',
       `---`,
-      `*由 CloudFrame AI 雲端顧問平台生成 · https://unique-jelly-da79b4.netlify.app*`,
+      `*由 CloudFrame AI 雲端顧問平台生成 · https://cloudframe.pages.dev*`,
     ].join('\n');
 
     try {

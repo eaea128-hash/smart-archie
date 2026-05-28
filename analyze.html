@@ -889,6 +889,29 @@
                 <button class="toggle-btn" data-value="no">否（實體機）</button>
               </div>
             </div>
+            <div class="form-group" id="grp-hasVMwareInfra">
+              <label class="form-label">是否使用 VMware / Hyper-V 平台 <span style="font-size:10px;color:var(--c-text-muted);">（Relocate 策略依據）</span></label>
+              <div class="toggle-group" id="hasVMwareInfra">
+                <button class="toggle-btn" data-value="yes">是（VMware vSphere / Hyper-V）</button>
+                <button class="toggle-btn active" data-value="no">否</button>
+              </div>
+              <div class="form-hint">如為 VMware 環境，將評估搬遷至 VMware Cloud on AWS / Azure VMware Solution 的可行性</div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">系統客製化程度 <span style="font-size:10px;color:var(--c-text-muted);">（Repurchase 策略依據）</span></label>
+              <div class="toggle-group" id="customizationLevel">
+                <button class="toggle-btn" data-value="low">低（標準商業邏輯）</button>
+                <button class="toggle-btn active" data-value="medium">中等</button>
+                <button class="toggle-btn" data-value="high">高（深度客製化）</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">是否有可替代的 SaaS 方案 <span style="font-size:10px;color:var(--c-text-muted);">（Repurchase 策略依據）</span></label>
+              <div class="toggle-group" id="hasSaasAlternative">
+                <button class="toggle-btn" data-value="yes">是（已知 SaaS 可替換）</button>
+                <button class="toggle-btn active" data-value="no">否 / 不確定</button>
+              </div>
+            </div>
             <div class="form-group">
               <label class="form-label">是否有外部系統介接</label>
               <div class="toggle-group" id="hasExternalIntegration">
@@ -1060,6 +1083,18 @@
                 <button class="toggle-btn active" data-value="medium">中等合規</button>
                 <button class="toggle-btn" data-value="high">高度法遵（金融/醫療）</button>
               </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">主要監管地區 <span style="font-size:10px;color:var(--c-text-muted);">（決定適用合規框架）</span></label>
+              <select id="complianceRegion" class="form-select">
+                <option value="tw" selected>🇹🇼 台灣（金管會 / 個資法）</option>
+                <option value="sg">🇸🇬 新加坡（MAS TRM / PDPA）</option>
+                <option value="hk">🇭🇰 香港（HKMA ORMIC / PDPO）</option>
+                <option value="eu">🇪🇺 歐盟 / 英國（GDPR / DORA / FCA）</option>
+                <option value="global">🌐 多地區跨境（需個別確認）</option>
+                <option value="generic">其他 / 不確定</option>
+              </select>
+              <div class="form-hint">影響合規區塊顯示的規範框架；選台灣時不預設顯示 MAS/HKMA/GDPR</div>
             </div>
             <div class="form-group">
               <label class="form-label">環境數量需求</label>
@@ -1444,8 +1479,12 @@ function collectInputs() {
     hasLandingZone:        getToggleVal('hasLandingZone'),
     hasIAM:                getToggleVal('hasIAM'),
     hasMultiAccount:       getToggleVal('hasMultiAccount'),
+    hasVMwareInfra:        getToggleVal('hasVMwareInfra'),
+    customizationLevel:    getToggleVal('customizationLevel'),
+    hasSaasAlternative:    getToggleVal('hasSaasAlternative'),
     isMajorOutsource:      getToggleVal('isMajorOutsource'),
     complianceLevel:       getToggleVal('complianceLevel'),
+    complianceRegion:      document.getElementById('complianceRegion')?.value || 'tw',
     envCount:              document.getElementById('envCount').value,
     budget:                getToggleVal('budget'),
     sustainabilityGoal:    document.getElementById('sustainabilityGoal')?.value || 'none',
@@ -1619,18 +1658,28 @@ function _buildAPIInputs(inputs) {
   if (inputs.isMajorOutsource === 'yes') regulatoryReqs.push('Major Outsourcing (MAS/HKMA)');
   if (complianceLevel === 'high')        regulatoryReqs.push('Financial-Grade Compliance');
 
-  const complianceFrameworks = [];
-  if (complianceLevel === 'high') {
+  // Use engine compliance mapping when available
+  const _cfResult = (typeof AnalyzeEngine !== 'undefined' && AnalyzeEngine.getComplianceFramework)
+    ? AnalyzeEngine.getComplianceFramework(inputs)
+    : null;
+  const complianceFrameworks = _cfResult ? [..._cfResult.frameworks] : [];
+  if (complianceLevel === 'high' && complianceFrameworks.length === 0) {
     const _ind = (inputs.industry || '').toLowerCase();
+    const _reg = (inputs.complianceRegion || 'tw');
     const _isFin = ['financial','banking','insurance','finance'].some(k => _ind.includes(k));
-    if (_isFin) {
-      // Region-specific: default to TW-financial; API call will refine
+    if (_reg === 'tw' && _isFin) {
       complianceFrameworks.push('金管會雲端委外規範', '個人資料保護法', 'ISO 27001', 'ISO 27017');
+    } else if (_reg === 'sg') {
+      complianceFrameworks.push('MAS TRM', 'MAS TRMG', 'PDPA (SG)');
+    } else if (_reg === 'hk') {
+      complianceFrameworks.push('HKMA ORMIC', 'PDPO (HK)');
+    } else if (_reg === 'eu') {
+      complianceFrameworks.push('GDPR', 'DORA', 'ISO 27001');
     } else {
       complianceFrameworks.push('ISO 27001', 'SOC 2 Type II');
     }
     complianceFrameworks.push('AWS FSBP');
-    if (inputs.isMajorOutsource === 'yes') complianceFrameworks.push('DORA（如為 EU 業務）');
+    if (inputs.isMajorOutsource === 'yes' && _reg !== 'tw') complianceFrameworks.push('DORA（如為 EU 業務）');
   }
 
   const timelineMonthsMap = { urgent: 6, medium: 12, flexible: 24 };
