@@ -62,7 +62,7 @@
         backgroundColor: '#F5F7FA',
         logging:         false,
         windowWidth:     1200,
-        ignoreElements:  (node) => node.classList && node.classList.contains('loading-overlay'),
+        ignoreElements:  (node) => !!(node.classList && node.classList.contains('loading-overlay')),
       });
 
       const { jsPDF } = window.jspdf;
