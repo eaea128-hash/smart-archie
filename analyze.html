@@ -5,9 +5,9 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>雲端需求分析 | CloudFrame</title>
-  <meta name="description" content="使用 CloudFrame AI 分析引擎，輸入系統條件，立即生成專業雲端遷移評估報告與 6R 策略建議。">
+  <meta name="description" content="使用 CloudFrame AI 分析引擎，輸入系統條件，立即生成初步雲端遷移評估報告與 7R 遷移策略建議。">
   <meta property="og:title" content="雲端需求分析 | CloudFrame">
-  <meta property="og:description" content="輸入系統條件，立即生成專業雲端遷移評估報告與 6R 策略建議。">
+  <meta property="og:description" content="輸入系統條件，立即生成初步雲端遷移評估報告與 7R 遷移策略建議。">
   <meta property="og:site_name" content="CloudFrame">
   <meta name="twitter:card" content="summary">
   <link rel="canonical" href="https://cloudframe.pages.dev/analyze.html">
@@ -1127,7 +1127,7 @@
                 <button class="toggle-btn active" data-value="no">尚未測量</button>
               </div>
             </div>
-            <div class="form-hint">🌏 系統將根據目標雲端平台的區域碳強度數據，計算遷移後碳排降低估算</div>
+            <div class="form-hint">🌏 可作為後續 ESG／碳排盤點欄位的初步參考；實際碳排估算需串接可信碳強度資料來源</div>
           </div>
         </div>
 
@@ -1165,9 +1165,9 @@
           <label style="display:flex;align-items:flex-start;gap:var(--sp-3);cursor:pointer;">
             <input type="checkbox" id="consentCheck" style="margin-top:3px;flex-shrink:0;accent-color:var(--c-primary);">
             <span>
-              我瞭解本次分析輸入（系統規模、預算、合規需求等）將透過
-              <strong>OpenAI API</strong> 進行 AI 處理，不包含個人識別資訊。
-              資料不會用於模型訓練。詳見
+              我瞭解本次分析輸入將透過 <strong>OpenAI API</strong> 進行 AI 處理，資料不會用於模型訓練。
+              <span style="color:#b45309;font-weight:600;">請勿輸入個資、客戶資料、公司機敏資訊或未經授權之內部系統資訊。</span>
+              詳見
               <a href="privacy.html" target="_blank" style="color:var(--c-primary);">隱私政策</a>
               與
               <a href="terms.html" target="_blank" style="color:var(--c-primary);">服務條款</a>。
@@ -1181,7 +1181,7 @@
             <span id="btnGenerateText">🚀 生成 AI 雲端分析報告</span>
             <span id="btnGenerateSpinner" class="spinner" style="display:none;"></span>
           </button>
-          <div class="text-center mt-2 text-xs text-muted">分析需時約 3–5 秒，結果可儲存至歷史紀錄</div>
+          <div class="text-center mt-2 text-xs text-muted">本地引擎約 3–10 秒，AI 引擎約 30–60 秒，結果可儲存至歷史紀錄</div>
         </div>
 
       </div><!-- /input-panel-body -->
@@ -1195,7 +1195,7 @@
         <div class="result-placeholder-icon">☁️</div>
         <div style="text-align:center;">
           <div class="empty-title">完成左側 4 步驟，取得雲端遷移決策報告</div>
-          <div class="empty-desc" style="margin-top:8px;">請先填寫專案背景、系統現況、合規限制與預算條件，再點擊「開始分析」。CloudFrame 會產出可分享的 6R 策略、Landing Zone、成本、風險與永續評估。</div>
+          <div class="empty-desc" style="margin-top:8px;">請先填寫專案背景、系統現況、合規限制與預算條件，再點擊「開始分析」。CloudFrame 會產出可分享的 7R 遷移策略初步判斷、Landing Zone 檢核建議、成本級距推估、風險與永續評估。</div>
         </div>
         <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
           <div class="tag">🎯 6R/7R 策略評估</div>
@@ -1223,7 +1223,7 @@
             </div>
             <div style="display:flex;gap:12px;align-items:flex-start;">
               <div style="width:24px;height:24px;border-radius:50%;background:var(--c-gold);color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;">4</div>
-              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">點擊「開始分析」</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">AI 將在 30–60 秒內生成完整評估報告</div></div>
+              <div><div style="font-size:var(--fs-sm);font-weight:600;color:var(--c-text);">點擊「開始分析」</div><div style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:2px;">AI 引擎約 30–60 秒，本地引擎約 3–10 秒</div></div>
             </div>
           </div>
           <div style="margin-top:var(--sp-4);padding:var(--sp-3) var(--sp-4);background:var(--c-gold-lt);border-radius:var(--r-md);font-size:var(--fs-xs);color:#8B6A1F;">
@@ -1959,9 +1959,9 @@ function renderResult(r, style) {
     // Executive compact cost card
     html += `
   <div class="result-section animate-up">
-    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本級距推估</div>
-    <div style="margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);background:#f8fafc;border:1px solid var(--c-border-light);border-radius:var(--r-md);font-size:11px;color:var(--c-text-muted);line-height:1.5;">
-      ＊ 成本為級距推估，基於輸入假設（VM 數量、規模、區域），不含授權費、網路頻寬、資料傳輸、合規工具等實際費用。正式採購前請向雲端供應商取得正式報價。
+    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本級距推估 (ROM)</div>
+    <div style="margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);background:#fffbeb;border:1px solid #d97706;border-radius:var(--r-md);font-size:11px;color:#78350f;line-height:1.6;">
+      ⚠️ <strong>本數據為 Rough Order of Magnitude（ROM，粗略量級估算）</strong>，僅供前期討論參考。基於輸入假設（VM 數量、規模、區域），不含授權費、網路頻寬、資料傳輸、合規工具等實際費用。<strong>正式預算仍需依 vCPU、Memory、Storage、IOPS、網路流量、備援等細項進行估算，並向雲端供應商取得正式報價。</strong>
     </div>
     <div class="cost-hero">
       <div class="cost-hero-label">每月預估費用 (USD)</div>
@@ -1986,9 +1986,9 @@ function renderResult(r, style) {
   };
   html += `
   <div class="result-section animate-up">
-    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本級距推估</div>
-    <div style="margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);background:#f8fafc;border:1px solid var(--c-border-light);border-radius:var(--r-md);font-size:11px;color:var(--c-text-muted);line-height:1.5;">
-      ＊ 成本為估算假設，不含授權費（OS/DB/中介軟體）、跨區網路費、稽核工具、人力培訓等費用。數字僅供決策參考，正式採購前請向供應商索取正式報價。
+    <div class="result-section-title"><span class="rst-icon">💰</span>雲端成本級距推估 (ROM)</div>
+    <div style="margin-bottom:var(--sp-3);padding:var(--sp-2) var(--sp-3);background:#fffbeb;border:1px solid #d97706;border-radius:var(--r-md);font-size:11px;color:#78350f;line-height:1.6;">
+      ⚠️ <strong>本數據為 Rough Order of Magnitude（ROM，粗略量級估算）</strong>，僅供前期討論參考。不含授權費（OS/DB/中介軟體）、跨區網路費、稽核工具、人力培訓等費用。<strong>正式預算仍需依 vCPU、Memory、Storage、IOPS、網路流量、備援等細項進行估算，並向雲端供應商取得正式報價。</strong>
     </div>
     <div class="cost-hero">
       <div class="cost-hero-label">每月預估費用 (USD)</div>
