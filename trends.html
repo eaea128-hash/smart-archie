@@ -241,7 +241,7 @@
       <div class="trends-meta-badge" id="badge-datasource">⏳ 載入中...</div>
       <div class="trends-meta-badge" id="badge-fetchtime">🔄 更新中</div>
       <div class="trends-meta-badge">🌏 涵蓋 SG · HK · UK · EU · Global</div>
-      <div class="trends-meta-badge">🤖 OpenAI Web Search 即時搜尋</div>
+      <div class="trends-meta-badge">🔄 API 可用時即時搜尋</div>
     </div>
   </div>
 </div>
@@ -259,9 +259,8 @@
 ">
   <span style="font-size:1.1em;flex-shrink:0;">⚠️</span>
   <span>
-    趨勢資料由 <strong>OpenAI Web Search</strong> 即時搜尋整理，內容僅供參考。
+    趨勢資料於每次載入時即時查詢，API 不可用時顯示靜態資料庫，內容僅供參考。
     法規要求請以各監管機構官方公告為準；雲端定價以各雲端原廠官網為準。
-    每 24 小時自動更新。
     <span id="trends-live-indicator" style="margin-left:var(--sp-2);"></span>
   </span>
 </div>
@@ -440,45 +439,51 @@ async function loadTrends(category) {
   try {
     const data = await APIClient.getTrends(category);
     allItems = data.items || [];
-    renderTrends(allItems);
 
     // ── Update meta badges with real data source info ──────────────────────
-    const badgeSrc   = document.getElementById('badge-datasource');
-    const badgeTime  = document.getElementById('badge-fetchtime');
+    const badgeSrc      = document.getElementById('badge-datasource');
+    const badgeTime     = document.getElementById('badge-fetchtime');
+    const liveIndicator = document.getElementById('trends-live-indicator');
+    const isLive        = data.data_source === 'openai-web-search';
+
     if (badgeSrc) {
-      const isLive = data.data_source === 'openai-web-search';
       badgeSrc.textContent = isLive
         ? `🔴 即時 AI 搜尋｜${data.live_count} 筆新資料`
-        : `📦 靜態資料庫｜${data.static_count || 0} 筆`;
+        : `📦 靜態資料庫｜${allItems.length || data.static_count || 0} 筆`;
       badgeSrc.style.background = isLive
         ? 'rgba(16,185,129,0.2)'
         : 'rgba(255,255,255,0.1)';
     }
-    if (badgeTime && data.fetched_at) {
-      const ts  = new Date(data.fetched_at);
-      const ago = Math.round((Date.now() - ts) / 60000);
-      badgeTime.textContent = ago < 2 ? '🕐 剛剛更新' : `🕐 ${ago} 分鐘前更新`;
+    if (badgeTime) {
+      if (data.fetched_at) {
+        const ts  = new Date(data.fetched_at);
+        const ago = Math.round((Date.now() - ts) / 60000);
+        badgeTime.textContent = ago < 2 ? '🕐 剛剛更新' : `🕐 ${ago} 分鐘前更新`;
+      } else {
+        badgeTime.textContent = '🕐 快取資料';
+      }
     }
-    // Update disclaimer indicator
-    const liveIndicator = document.getElementById('trends-live-indicator');
     if (liveIndicator) {
-      const isLive = data.data_source === 'openai-web-search';
       liveIndicator.innerHTML = isLive
         ? `<span style="color:#10b981;font-weight:600;">● 本次為即時搜尋資料（${data.live_count} 筆）</span>`
-        : `<span style="color:#f59e0b;font-weight:600;">● 使用靜態資料庫（OpenAI 不可用）</span>`;
+        : `<span style="color:#f59e0b;font-weight:600;">● 使用靜態資料庫</span>`;
+    }
+
+    // If API returned empty items, fall back to static cards
+    if (allItems.length === 0) {
+      renderStaticFallback();
+    } else {
+      renderTrends(allItems);
     }
   } catch (err) {
-    grid.innerHTML = `
-      <div class="trends-empty">
-        <div class="trends-empty-icon">📡</div>
-        <div style="font-size:var(--fs-md);font-weight:600;color:var(--c-primary);margin-bottom:8px;">
-          無法載入即時趨勢
-        </div>
-        <div style="color:var(--c-text-muted);font-size:var(--fs-sm);">
-          顯示本地快取資料。請確認您的網路連線。
-        </div>
-      </div>`;
-    // Render static fallback
+    // Update badges to reflect static fallback state
+    const badgeSrc      = document.getElementById('badge-datasource');
+    const badgeTime     = document.getElementById('badge-fetchtime');
+    const liveIndicator = document.getElementById('trends-live-indicator');
+    if (badgeSrc) { badgeSrc.textContent = '📦 靜態資料庫｜3 筆'; badgeSrc.style.background = 'rgba(255,255,255,0.1)'; }
+    if (badgeTime) badgeTime.textContent = '🕐 快取資料';
+    if (liveIndicator) liveIndicator.innerHTML = `<span style="color:#f59e0b;font-weight:600;">● 使用靜態資料庫（API 不可用）</span>`;
+    // Render static fallback cards
     renderStaticFallback();
   }
 }
