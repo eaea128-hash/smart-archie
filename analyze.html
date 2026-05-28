@@ -1378,11 +1378,13 @@ async function _showAPIStatusBadge() {
   if (!header) return;
   const health = await APIClient.healthCheck();
   const badge = document.createElement('div');
-  badge.style.cssText = 'font-size:10px;margin-top:4px;opacity:0.75;display:flex;align-items:center;gap:4px;';
+  badge.style.cssText = 'font-size:11px;margin-top:6px;display:flex;align-items:center;gap:5px;padding:3px 8px;border-radius:20px;width:fit-content;';
   if (health.available) {
-    badge.innerHTML = '<span style="color:#4ADE80">●</span> Claude AI 引擎連線中';
+    badge.style.cssText += 'background:rgba(74,222,128,0.15);';
+    badge.innerHTML = '<span style="color:#4ADE80;font-size:9px;">●</span><span style="color:#86efac;font-weight:500;">AI 引擎連線中</span>';
   } else {
-    badge.innerHTML = '<span style="color:#FCD34D">●</span> 本地分析引擎（API 未連線）';
+    badge.style.cssText += 'background:rgba(251,191,36,0.15);';
+    badge.innerHTML = '<span style="color:#FCD34D;font-size:9px;">●</span><span style="color:#FDE68A;font-weight:500;">本地引擎模式（離線可用）</span>';
   }
   header.appendChild(badge);
 }

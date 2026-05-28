@@ -960,8 +960,11 @@
   async function healthCheck() {
     if (!isAPIAvailable()) return { available: false, reason: 'file:// protocol' };
     try {
-      const res = await fetchWithTimeout(`${API_BASE}/trends?category=cloud`, {}, 5_000);
-      return { available: res.ok, status: res.status };
+      // Use dedicated lightweight health endpoint (no external API calls, <100ms)
+      const res = await fetchWithTimeout(`${API_BASE}/health`, {}, 4_000);
+      if (!res.ok) return { available: false, status: res.status };
+      const body = await res.json().catch(() => ({}));
+      return { available: body.ai === true, engine: body.engine || 'unknown', status: res.status };
     } catch {
       return { available: false, reason: 'network error' };
     }
