@@ -102,8 +102,8 @@
 <!-- Error -->
 <div id="errorState" class="error-state" style="display:none;">
   <div style="font-size:56px;margin-bottom:var(--sp-4);">🔒</div>
-  <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">報告不存在或已停止分享</div>
-  <div style="color:var(--c-text-muted);margin-bottom:var(--sp-6);">此連結可能已過期，或分享者已取消分享</div>
+  <div data-err-title style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">報告不存在或已停止分享</div>
+  <div data-err-desc style="color:var(--c-text-muted);margin-bottom:var(--sp-6);">此連結可能已過期，或分享者已取消分享</div>
   <a href="analyze.html" class="btn btn-primary">建立自己的分析報告</a>
 </div>
 
@@ -149,7 +149,7 @@
       為您的企業建立專屬分析報告
     </div>
     <div style="color:rgba(255,255,255,0.7);font-size:var(--fs-sm);margin-bottom:var(--sp-5);max-width:500px;margin-left:auto;margin-right:auto;">
-      CloudFrame 雲端遷移評估工具，參考 AWS Well-Architected、MAS TRM、HKMA ORMiC 等框架，生成 7R 遷移策略初步建議供架構師覆核討論
+      CloudFrame 雲端需求分析原型，參考雲端遷移、Landing Zone、金融合規與風險檢核框架，生成前期分析資料，供架構師、資安與法遵覆核討論。
     </div>
     <div style="display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap;">
       <a href="register.html" class="btn" style="background:var(--c-gold);color:var(--c-primary);font-weight:700;padding:12px 28px;">免費開始使用</a>
@@ -177,9 +177,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const res  = await fetch(`/api/share?token=${token}`);
     const data = await res.json();
-    if (!res.ok || !data.success) { showError(); return; }
-    renderReport(data.analysis);
-  } catch {
+    // Only a genuine 404 / disabled / missing-data response means "report not found"
+    if (!res.ok || !data.success || !data.analysis) { showError(); return; }
+    // Data IS valid → render inside its own boundary so a display/Chart
+    // failure (e.g. CDN-blocked Chart.js) never masquerades as "報告不存在"
+    try {
+      renderReport(data.analysis);
+    } catch (e) {
+      console.error('[share] render failed (data was valid):', e);
+      showRenderError();
+    }
+  } catch (e) {
+    console.error('[share] fetch failed:', e);
     showError();
   }
 });
@@ -187,6 +196,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 function showError() {
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('errorState').style.display   = 'block';
+}
+
+// Report exists but rendering hit an error — show a distinct, non-misleading state
+function showRenderError() {
+  document.getElementById('loadingState').style.display = 'none';
+  const err = document.getElementById('errorState');
+  const titleEl = err.querySelector('[data-err-title]');
+  const descEl  = err.querySelector('[data-err-desc]');
+  if (titleEl) titleEl.textContent = '報告載入時發生顯示錯誤';
+  if (descEl)  descEl.textContent  = '報告資料正常，但畫面渲染失敗，請重新整理頁面再試一次';
+  err.style.display = 'block';
 }
 
 function renderReport(analysis) {
@@ -225,20 +245,29 @@ function renderReport(analysis) {
     <div class="strategy-pill-share">${stratIcons[stratKey] || '🎯'} ${stratLabels[stratKey] || stratKey}</div>
     ${r.executiveSummary?.conclusion ? `<div style="font-size:var(--fs-sm);color:var(--c-text);line-height:1.7;">${r.executiveSummary.conclusion}</div>` : ''}`;
 
-  // Risk Radar
+  // Risk Radar — isolated: a Chart.js failure (CDN blocked / not loaded)
+  // must NOT abort the whole report render
   const risk = r.riskRadar || {};
-  new Chart(document.getElementById('shareRadarChart'), {
-    type: 'radar',
-    data: {
-      labels: ['合規風險','技術風險','營運風險','時程風險','資料風險','業務風險'],
-      datasets: [{
-        data: [risk.compRisk||0, risk.techRisk||0, risk.opRisk||0, risk.timelineRisk||0, risk.dataRisk||0, risk.bizRisk||0],
-        backgroundColor: 'rgba(201,168,76,0.15)', borderColor: 'rgba(201,168,76,0.8)',
-        pointBackgroundColor: 'rgba(201,168,76,1)', borderWidth: 2, pointRadius: 4,
-      }],
-    },
-    options: { responsive:true, plugins:{legend:{display:false}}, scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:10}},grid:{color:'rgba(209,220,232,0.6)'},pointLabels:{font:{size:11}}}} },
-  });
+  try {
+    const radarCanvas = document.getElementById('shareRadarChart');
+    if (typeof Chart === 'undefined') throw new Error('Chart.js not loaded');
+    if (radarCanvas) new Chart(radarCanvas, {
+      type: 'radar',
+      data: {
+        labels: ['合規風險','技術風險','營運風險','時程風險','資料風險','業務風險'],
+        datasets: [{
+          data: [risk.compRisk||0, risk.techRisk||0, risk.opRisk||0, risk.timelineRisk||0, risk.dataRisk||0, risk.bizRisk||0],
+          backgroundColor: 'rgba(201,168,76,0.15)', borderColor: 'rgba(201,168,76,0.8)',
+          pointBackgroundColor: 'rgba(201,168,76,1)', borderWidth: 2, pointRadius: 4,
+        }],
+      },
+      options: { responsive:true, plugins:{legend:{display:false}}, scales:{r:{min:0,max:100,ticks:{stepSize:25,font:{size:10}},grid:{color:'rgba(209,220,232,0.6)'},pointLabels:{font:{size:11}}}} },
+    });
+  } catch (e) {
+    console.warn('[share] radar chart unavailable, hiding canvas:', e.message);
+    const c = document.getElementById('shareRadarChart');
+    if (c && c.parentElement) c.parentElement.style.display = 'none';
+  }
 
   const riskItems = [
     { name:'合規風險', val: risk.compRisk    || 0, icon:'🛡️' },
