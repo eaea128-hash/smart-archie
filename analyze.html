@@ -2997,18 +2997,18 @@ function renderGanttRoadmap(result) {
   document.getElementById('ganttSection')?.remove();
 
   const phases      = result.techPM.phases;
-  const totalWeeks  = result.techPM.timeline?.totalWeeks  || 24;
-  const totalMonths = result.techPM.timeline?.totalMonths || 6;
   const strategy    = result.strategy6R?.primary || 'rehost';
   const isFinancial = /financial|banking|insurance|finance|金融|銀行|保險/i.test(result.inputs?.industry || '')
                    || result.inputs?.complianceLevel === 'high';
 
   // ── Parse week ranges from "Phase X (A–BW)" strings ──────────
+  // Open-ended ranges "(NW+)" are flagged and resolved after the
+  // closed ranges are known (see span computation below).
   function parseWeeks(phaseStr) {
     const m = phaseStr.match(/\((\d+)[–\-–](\d+)W\)/);
     if (m) return { start: parseInt(m[1]), end: parseInt(m[2]) };
     const m2 = phaseStr.match(/\((\d+)W\+\)/);
-    if (m2) return { start: parseInt(m2[1]), end: totalWeeks };
+    if (m2) return { start: parseInt(m2[1]), end: null, openEnded: true };
     return null;
   }
 
@@ -3016,27 +3016,41 @@ function renderGanttRoadmap(result) {
   const PHASE_COLORS = ['#1a6baf', '#0ea5a5', '#16a34a', '#9333ea', '#d97706'];
   const PHASE_LABELS = ['基礎準備', '試點驗證', '批量推進', '規模優化', '持續改善'];
 
-  // Build bar data
+  // Build bar data (closed ranges first; open-ended end resolved after)
   const bars = phases.map((p, i) => {
     const wk = parseWeeks(p.phase || '');
     return {
-      name:    p.name || PHASE_LABELS[i] || `Phase ${i}`,
-      phaseId: p.phase || `Phase ${i}`,
-      start:   wk ? wk.start : i * 4,
-      end:     wk ? wk.end   : (i + 1) * 4,
-      color:   PHASE_COLORS[i % PHASE_COLORS.length],
-      items:   p.items || [],
+      name:      p.name || PHASE_LABELS[i] || `Phase ${i}`,
+      phaseId:   p.phase || `Phase ${i}`,
+      start:     wk ? wk.start : i * 4,
+      end:       wk && !wk.openEnded ? wk.end : null,
+      openEnded: !!(wk && wk.openEnded),
+      color:     PHASE_COLORS[i % PHASE_COLORS.length],
+      items:     p.items || [],
     };
   });
 
+  // ── Derive timeline span from ACTUAL phase end-weeks ──────────
+  // BUG fix: the engine's timeline.totalWeeks SUMS cumulative range
+  // ends as if they were durations, inflating the span and leaving
+  // dead space on the chart. Use the real maximum end-week instead.
+  const maxClosedEnd = bars.reduce((mx, b) => (b.end != null && b.end > mx ? b.end : mx), 0);
+  const maxStart     = bars.reduce((mx, b) => (b.start > mx ? b.start : mx), 0);
+  // Open-ended phases extend ~8W beyond the latest known point.
+  bars.forEach((b) => {
+    if (b.end == null) b.end = Math.max(maxClosedEnd, b.start) + 8;
+  });
+  const spanWeeks  = Math.max(...bars.map((b) => b.end), maxStart + 1, 1);
+  const spanMonths = Math.max(1, Math.round(spanWeeks / 4.3));
+
   // Financial compliance milestones (shown as diamond markers)
   const milestones = isFinancial ? [
-    { week: Math.round(totalWeeks * 0.15), label: '法遵差距分析完成', color: '#d97706' },
-    { week: Math.round(totalWeeks * 0.50), label: 'UAT + 稽核軌跡驗收', color: '#d97706' },
-    { week: Math.round(totalWeeks * 0.85), label: 'DR 演練 & 監管報告', color: '#d97706' },
+    { week: Math.round(spanWeeks * 0.15), label: '法遵差距分析完成', color: '#d97706' },
+    { week: Math.round(spanWeeks * 0.50), label: 'UAT + 稽核軌跡驗收', color: '#d97706' },
+    { week: Math.round(spanWeeks * 0.85), label: 'DR 演練 & 監管報告', color: '#d97706' },
   ] : [
-    { week: Math.round(totalWeeks * 0.33), label: 'PoC Go/No-Go', color: '#6b7280' },
-    { week: Math.round(totalWeeks * 0.75), label: '批量遷移完成', color: '#6b7280' },
+    { week: Math.round(spanWeeks * 0.33), label: 'PoC Go/No-Go', color: '#6b7280' },
+    { week: Math.round(spanWeeks * 0.75), label: '批量遷移完成', color: '#6b7280' },
   ];
 
   // ── SVG layout constants ──────────────────────────────────────
@@ -3051,17 +3065,17 @@ function renderGanttRoadmap(result) {
   const ROWS    = bars.length;
   const SVG_H   = HEAD_H + ROWS * ROW_H + MILE_H + 8;
 
-  const xScale = (week) => LABEL_W + (week / totalWeeks) * CHART_W;
+  const xScale = (week) => LABEL_W + (week / spanWeeks) * CHART_W;
 
   // ── Month grid lines ──────────────────────────────────────────
-  const weeksPerMonth = totalWeeks / totalMonths;
-  const monthGridLines = Array.from({ length: totalMonths + 1 }, (_, i) => {
+  const weeksPerMonth = spanWeeks / spanMonths;
+  const monthGridLines = Array.from({ length: spanMonths + 1 }, (_, i) => {
     const x = xScale(i * weeksPerMonth);
     return `<line x1="${x}" y1="${HEAD_H}" x2="${x}" y2="${HEAD_H + ROWS * ROW_H}" stroke="#e5e7eb" stroke-width="1"/>`;
   }).join('');
 
   // Month labels in header
-  const monthLabels = Array.from({ length: totalMonths }, (_, i) => {
+  const monthLabels = Array.from({ length: spanMonths }, (_, i) => {
     const x = xScale((i + 0.5) * weeksPerMonth);
     return `<text x="${x}" y="${HEAD_H - 8}" text-anchor="middle" font-size="9" fill="#9ca3af">M${i+1}</text>`;
   }).join('');
@@ -3107,7 +3121,7 @@ function renderGanttRoadmap(result) {
   // ── Total duration label ──────────────────────────────────────
   const durationLabel = `
     <text x="${SVG_W - 10}" y="${HEAD_H - 8}" text-anchor="end" font-size="10" fill="#1a6baf" font-weight="700">
-      總計 ~${totalMonths} 個月
+      總計 ~${spanMonths} 個月
     </text>
   `;
 
@@ -3156,7 +3170,7 @@ function renderGanttRoadmap(result) {
     <div class="result-section-title">
       <span class="rst-icon">📅</span>遷移甘特時程圖（${strategyLabels[strategy] || strategy}）
       <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
-        ${isFinancial ? '⚖️ 含金融法遵里程碑　' : ''}總計約 ${totalMonths} 個月
+        ${isFinancial ? '⚖️ 含金融法遵里程碑　' : ''}總計約 ${spanMonths} 個月
       </span>
     </div>
 
@@ -3208,36 +3222,36 @@ function renderPortfolioAnalysis(result) {
   // Each system: { name, team, criticality (1-5), readiness (1-5), depKeys[], strategy, note }
   const PORTFOLIO_TEMPLATES = {
     financial: [
-      { name: '核心銀行系統', team: '核心技術', criticality: 5, readiness: 1, depKeys: ['IAM', 'DB'], strategy: 'retain', note: 'S1核心，最後遷移' },
-      { name: '網路銀行前台', team: '數位通路', criticality: 4, readiness: 3, depKeys: ['API', '核心銀行系統'], strategy: 'replatform', note: '客戶直接使用' },
-      { name: 'API Gateway', team: '平台', criticality: 4, readiness: 4, depKeys: ['IAM'], strategy: 'replatform', note: '所有通路依賴' },
+      { name: '核心銀行系統', team: '核心技術', criticality: 5, readiness: 1, depKeys: ['IAM / 身份中心', '資料庫叢集'], strategy: 'retain', note: 'S1核心，最後遷移' },
+      { name: '網路銀行前台', team: '數位通路', criticality: 4, readiness: 3, depKeys: ['API Gateway', '核心銀行系統'], strategy: 'replatform', note: '客戶直接使用' },
+      { name: 'API Gateway', team: '平台', criticality: 4, readiness: 4, depKeys: ['IAM / 身份中心'], strategy: 'replatform', note: '所有通路依賴' },
       { name: 'IAM / 身份中心', team: '資安', criticality: 5, readiness: 2, depKeys: [], strategy: 'rehost', note: '最優先建立' },
-      { name: '報表 / BI 平台', team: '資料', criticality: 3, readiness: 5, depKeys: ['DB'], strategy: 'rehost', note: '低風險快速遷移' },
-      { name: '批次處理系統', team: '核心技術', criticality: 3, readiness: 4, depKeys: ['DB', '核心銀行系統'], strategy: 'rehost', note: '夜間作業' },
+      { name: '報表 / BI 平台', team: '資料', criticality: 3, readiness: 5, depKeys: ['資料庫叢集'], strategy: 'rehost', note: '低風險快速遷移' },
+      { name: '批次處理系統', team: '核心技術', criticality: 3, readiness: 4, depKeys: ['資料庫叢集', '核心銀行系統'], strategy: 'rehost', note: '夜間作業' },
       { name: '資料庫叢集', team: '基礎架構', criticality: 5, readiness: 2, depKeys: [], strategy: strategy === 'refactor' ? 'replatform' : 'rehost', note: 'DR/高可用需求' },
-      { name: '風控 / AML 引擎', team: '合規', criticality: 5, readiness: 2, depKeys: ['DB', '核心銀行系統'], strategy: 'retain', note: '監管審查必須' },
+      { name: '風控 / AML 引擎', team: '合規', criticality: 5, readiness: 2, depKeys: ['資料庫叢集', '核心銀行系統'], strategy: 'retain', note: '監管審查必須' },
       { name: 'DevOps / CI/CD', team: '平台', criticality: 2, readiness: 5, depKeys: [], strategy: 'replatform', note: '優先現代化' },
-      { name: '客服 CRM', team: '數位通路', criticality: 3, readiness: 4, depKeys: ['API'], strategy: 'repurchase', note: '可評估 SaaS' },
+      { name: '客服 CRM', team: '數位通路', criticality: 3, readiness: 4, depKeys: ['API Gateway'], strategy: 'repurchase', note: '可評估 SaaS' },
     ],
     healthcare: [
-      { name: 'EMR / 電子病歷', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['DB'], strategy: 'retain', note: '個資法規限制' },
+      { name: 'EMR / 電子病歷', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['儲存 / 封存平台'], strategy: 'retain', note: '個資法規限制' },
       { name: '掛號 / 預約系統', team: '數位服務', criticality: 4, readiness: 4, depKeys: ['EMR / 電子病歷'], strategy: 'replatform', note: '患者直接使用' },
-      { name: '醫療影像 PACS', team: '放射科', criticality: 4, readiness: 2, depKeys: ['儲存'], strategy: 'rehost', note: '大量儲存需求' },
+      { name: '醫療影像 PACS', team: '放射科', criticality: 4, readiness: 2, depKeys: ['儲存 / 封存平台'], strategy: 'rehost', note: '大量儲存需求' },
       { name: '儲存 / 封存平台', team: '基礎架構', criticality: 3, readiness: 5, depKeys: [], strategy: 'rehost', note: '物件儲存遷移' },
-      { name: 'HIS 醫院資訊系統', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['DB', 'EMR / 電子病歷'], strategy: 'retain', note: '核心業務' },
+      { name: 'HIS 醫院資訊系統', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['儲存 / 封存平台', 'EMR / 電子病歷'], strategy: 'retain', note: '核心業務' },
       { name: '藥局管理系統', team: '藥事', criticality: 4, readiness: 3, depKeys: ['HIS 醫院資訊系統'], strategy: 'replatform', note: '用藥安全關鍵' },
       { name: '行政 / 財務系統', team: '行政', criticality: 2, readiness: 5, depKeys: [], strategy: 'repurchase', note: 'SaaS 替換' },
       { name: 'API / 整合層', team: '平台', criticality: 4, readiness: 4, depKeys: [], strategy: 'replatform', note: 'HL7 FHIR 整合' },
     ],
     default: [
-      { name: '主要 Web 應用', team: '產品', criticality: 4, readiness: 4, depKeys: ['API層', '資料庫'], strategy: strategy, note: '核心產品' },
+      { name: '主要 Web 應用', team: '產品', criticality: 4, readiness: 4, depKeys: ['API 層', '資料庫'], strategy: strategy, note: '核心產品' },
       { name: 'API 層', team: '平台', criticality: 4, readiness: 4, depKeys: ['資料庫'], strategy: 'replatform', note: '服務整合' },
       { name: '資料庫', team: '基礎架構', criticality: 5, readiness: 2, depKeys: [], strategy: 'replatform', note: 'Managed DB' },
       { name: '批次 / 排程', team: '後端', criticality: 2, readiness: 5, depKeys: ['資料庫'], strategy: 'rehost', note: '最易遷移' },
       { name: '靜態前端 / CDN', team: '前端', criticality: 2, readiness: 5, depKeys: [], strategy: 'rehost', note: 'S3 / CloudFront' },
       { name: '監控 / 日誌', team: '維運', criticality: 3, readiness: 5, depKeys: [], strategy: 'replatform', note: 'CloudWatch' },
       { name: '身份驗證', team: '資安', criticality: 5, readiness: 3, depKeys: [], strategy: 'replatform', note: 'SSO / MFA' },
-      { name: '郵件 / 通知服務', team: '產品', criticality: 2, readiness: 5, depKeys: ['API層'], strategy: 'repurchase', note: 'SES / SaaS' },
+      { name: '郵件 / 通知服務', team: '產品', criticality: 2, readiness: 5, depKeys: ['API 層'], strategy: 'repurchase', note: 'SES / SaaS' },
       { name: '搜尋服務', team: '後端', criticality: 3, readiness: 4, depKeys: ['資料庫'], strategy: 'replatform', note: 'OpenSearch' },
       { name: '舊版報表系統', team: '資料', criticality: 2, readiness: 3, depKeys: ['資料庫'], strategy: 'retire', note: '評估退場' },
     ],
@@ -3341,23 +3355,29 @@ function renderPortfolioAnalysis(result) {
   }).join('');
 
   // ── Dependency summary ────────────────────────────────────────
-  const hasDeps = systems.some(s => s.depKeys?.length > 0);
-  const depHtml = hasDeps ? `
+  // Only show deps whose target is in the displayed (sliced) system set,
+  // otherwise users would see arrows to systems not in the list.
+  const displayedNames = new Set(systems.map(s => s.name));
+  const depPairs = [];
+  systems.forEach(s => {
+    (s.depKeys || []).forEach(dep => {
+      if (displayedNames.has(dep)) depPairs.push({ from: s.name, to: dep });
+    });
+  });
+  const depHtml = depPairs.length ? `
     <div style="margin-top:var(--sp-3);padding:var(--sp-3);background:var(--c-surface);
       border:1px solid var(--c-border-light);border-radius:var(--r-md);">
       <div style="font-size:11px;font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">
         🔗 關鍵相依關係
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${systems.filter(s => s.depKeys?.length).map(s =>
-          s.depKeys.map(dep => `
+        ${depPairs.map(d => `
             <div style="font-size:10px;padding:3px 8px;border-radius:20px;background:white;
               border:1px solid #e5e7eb;color:var(--c-text);">
-              <span style="font-weight:600;">${s.name}</span>
+              <span style="font-weight:600;">${d.from}</span>
               <span style="color:var(--c-text-muted);margin:0 4px;">→</span>
-              <span style="color:#1a6baf;">${dep}</span>
-            </div>`).join('')
-        ).join('')}
+              <span style="color:#1a6baf;">${d.to}</span>
+            </div>`).join('')}
       </div>
       <div style="margin-top:var(--sp-2);font-size:10px;color:var(--c-text-muted);">
         ⚠️ 相依上游系統需先完成遷移或建立穩定介面層，下游系統才可安全切換
@@ -3371,7 +3391,7 @@ function renderPortfolioAnalysis(result) {
     <div class="result-section-title">
       <span class="rst-icon">🗂️</span>應用程式組合相依分析（Portfolio Analysis）
       <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
-        ${displayCount} 個系統 ・ ${Object.values({1:0,2:0,3:0}).length} 波次規劃
+        ${displayCount} 個系統 ・ ${new Set(systems.map(s => s.wave)).size} 波次規劃
         ${isFinancial ? '・ ⚖️ 金融法遵序' : ''}
       </span>
     </div>
