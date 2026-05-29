@@ -93,6 +93,26 @@
             "command": "bash .claude/hooks/post-function-edit.sh"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys, json\ntry:\n    data = json.load(sys.stdin)\n    f = data.get('tool_input', {}).get('file_path', '')\n    if f.endswith(('.html', '.js')):\n        print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':'[testing-guard required] You modified ' + f + ' — run /testing-guard before reporting this task complete.'}}))\n    else:\n        print('{}')\nexcept:\n    print('{}')\n\"",
+            "statusMessage": "Checking if testing-guard required…"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"systemMessage\":\"\\u26a0\\ufe0f If you edited .html or .js files this turn, confirm /testing-guard has been run before this response ends.\"}'"
+          }
+        ]
       }
     ]
   }

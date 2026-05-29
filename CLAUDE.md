@@ -41,6 +41,7 @@ Cloudflare Pages is the production deployment target.
 1. Before larger feature changes, briefly state the intended change and affected files.
 2. Before bug fixes, identify root cause and check `docs/BUGS.md`.
 3. After fixing a bug, update `docs/BUGS.md`.
+4. After a plan is decided but before implementation, run `/grill-with-docs` to check code/doc consistency.
 4. For schema changes, update `supabase-schema.sql` and include the required SQL migration.
 5. Use `.maybeSingle()` for Supabase single-row reads when zero rows are valid.
 6. Do not use PowerShell bulk replacement for Traditional Chinese text.

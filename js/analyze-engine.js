@@ -1190,6 +1190,129 @@ const AnalyzeEngine = (() => {
     return result;
   }
 
+  // ── Compliance Checklist Engine ───────────────────────────────────────────
+  /**
+   * runComplianceCheck(inputs)
+   * 逐條比對系統特徵與法規要求，回傳 checklist 陣列。
+   * @param {object} inputs  - 分析表單輸入
+   * @returns {Array<{id, framework, title, jurisdiction, status, reason, remedy, authority}>}
+   */
+  function runComplianceCheck(inputs) {
+    const cf = getComplianceFramework(inputs);
+    if (!cf || cf.key === 'generic') return [];
+
+    // 從 RULES_CONFIG 取得適用規則池
+    const allRules = (window.__RULES_CONFIG__ && window.__RULES_CONFIG__.compliance)
+      ? Object.values(window.__RULES_CONFIG__.compliance).flat()
+      : [];
+    if (!allRules.length) return [];
+
+    // jurisdiction → framework key 對應
+    const JURISDICTION_KEY = {
+      'MAS (新加坡金融管理局)':  'sg-financial',
+      'HKMA (香港金融管理局)':   'hk-financial',
+      '台灣 FSC 金管會':          'tw-financial',
+      '台灣 FSC 銀行局':          'tw-financial',
+      '台灣 FSC 保險局':          'tw-financial',
+      '台灣 FSC 證期局':          'tw-financial',
+      'APRA (澳洲審慎監理局)':   'apra-financial',
+      'EU DORA（2025 生效）':     'eu-general',
+    };
+
+    // 篩選與目前 framework 相關的規則
+    const applicableRules = allRules.filter(r => {
+      const rKey = JURISDICTION_KEY[r.jurisdiction];
+      if (!rKey) return false;
+      // 同一 key 完全匹配，或同為 tw-financial 系列
+      return rKey === cf.key || (cf.key === 'tw-financial' && rKey === 'tw-financial');
+    });
+
+    if (!applicableRules.length) return [];
+
+    // 判斷每條規則的符合狀態
+    const sla         = (inputs.slaLevel || '').toLowerCase();
+    const rto         = parseFloat(inputs.rtoHours || '99');
+    const outsource   = inputs.hasMajorOutsource === 'yes' || inputs.outsource === 'yes';
+    const hasPII      = inputs.hasPersonalData === 'yes' || inputs.hasPII === 'yes';
+    const isCore      = inputs.systemCriticality === 'high' || inputs.systemCriticality === 's1';
+    const singleCSP   = !(inputs.multiCloud === 'yes');
+    const crossBorder = inputs.crossBorderData === 'yes' || inputs.hasCrossBorderData === 'yes';
+    const compLevel   = inputs.complianceLevel || 'medium';
+
+    return applicableRules.map(rule => {
+      let status = 'review';   // default: need confirmation
+      let reason = '需人工確認是否已符合本項要求';
+
+      switch (rule.id) {
+        case 'HKMA-001':
+        case 'MAS-001':
+          if (isCore || sla === '24x7' || rto <= 4) {
+            status = 'fail';
+            reason = `系統重要性高（${isCore ? 'S1 核心' : `SLA ${sla}`}），需確認 RTO ≤ 4hr 及年度 DR 演練已規劃`;
+          } else {
+            status = 'review';
+            reason = '系統重要性未明確，建議確認是否落入「重要系統」定義';
+          }
+          break;
+        case 'HKMA-002':
+        case 'MAS-002':
+          if (outsource && singleCSP) {
+            status = 'fail';
+            reason = '存在重大委外且依賴單一 CSP，需建立 Exit Plan 並申報集中度風險';
+          } else if (outsource) {
+            status = 'review';
+            reason = '存在重大委外，需確認是否已向監管機構申報';
+          } else {
+            status = 'pass';
+            reason = '未偵測到需申報的重大委外情境';
+          }
+          break;
+        case 'HKMA-003':
+        case 'MAS-003':
+          if (hasPII && crossBorder) {
+            status = 'fail';
+            reason = '系統含個資且存在跨境傳輸，需確認符合 PDPO/PDPA 跨境傳輸規定';
+          } else if (hasPII) {
+            status = 'review';
+            reason = '系統含個資，建議確認資料儲存地點是否符合境內要求';
+          } else {
+            status = 'pass';
+            reason = '未偵測到個人資料跨境傳輸情境';
+          }
+          break;
+        case 'FSC-001':
+        case 'FSC-BANK-001':
+          if (compLevel === 'high') {
+            status = 'fail';
+            reason = '高度法遵等級，需確認資料主權（境內 Region）及委外稽核契約條款';
+          } else {
+            status = 'review';
+            reason = '建議確認委外合約包含稽核權及資料主權條款';
+          }
+          break;
+        case 'FSC-002':
+          status = 'review';
+          reason = 'CSP 的 SOC 2 Type II 及 ISO 27001 報告需納入年度 TPRM 評核';
+          break;
+        default:
+          status = 'review';
+          reason = '需人工確認是否已符合本項要求';
+      }
+
+      return {
+        id:           rule.id,
+        framework:    rule.jurisdiction,
+        title:        rule.title,
+        jurisdiction: rule.jurisdiction,
+        severity:     rule.severity || 'high',
+        status,
+        reason,
+        remedy:       rule.remedy,
+        authority:    rule.authority,
+      };
+    });
+  }
+
   return {
     analyze,
     determine6R, determineLandingZone, estimateCost, assessRisk, calcKPIs,
@@ -1198,6 +1321,8 @@ const AnalyzeEngine = (() => {
     // New 7R / compliance / ESG / domain
     getComplianceFramework, getEsgRecommendation, classifyDomain,
     DOMAIN_CONTEXTS, COMPLIANCE_MAP, calcTimeline, validateReport,
+    // Compliance Checklist
+    runComplianceCheck,
   };
 
 })();

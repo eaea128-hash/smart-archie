@@ -128,6 +128,46 @@
         "authority": "MAS Circular on TPOR 2023"
       },
       {
+        "id": "HKMA-001",
+        "jurisdiction": "HKMA (香港金融管理局)",
+        "title": "ORMiC — 重要系統定義與業務持續性（BCP）",
+        "desc": "被認定為「重要系統」的雲端化系統：RTO ≤ 4hr、RPO ≤ 2hr，每年須執行 DR 演練並提交報告",
+        "severity": "critical",
+        "remedy": "依 ORMiC Section 4 建立重要系統清冊；設計 Multi-AZ Active/Standby；年度 BCP/DR 演練含雲端場景",
+        "authority": "HKMA ORMiC 2019 Section 4 & 5",
+        "triggerConditions": ["sla_critical", "rto_le_4h", "is_core_system"]
+      },
+      {
+        "id": "HKMA-002",
+        "jurisdiction": "HKMA (香港金融管理局)",
+        "title": "ORMiC — 雲端服務集中度風險管控",
+        "desc": "銀行需評估並管控對單一 CSP 的集中度風險；須向 HKMA 申報重大委外安排；確保 CSP 退出可行性",
+        "severity": "high",
+        "remedy": "準備 CSP 集中度風險評估報告；制訂 Exit Plan（含資料可攜性條款）；每年更新委外登記冊報 HKMA",
+        "authority": "HKMA ORMiC 2019 Section 6 & 附錄",
+        "triggerConditions": ["outsource_major", "single_csp"]
+      },
+      {
+        "id": "HKMA-003",
+        "jurisdiction": "HKMA (香港金融管理局)",
+        "title": "PDPO — 個人資料跨境傳輸控制",
+        "desc": "含客戶個資的系統遷移至境外雲端，須符合香港《個人資料（私隱）條例》（PDPO）跨境傳輸規定",
+        "severity": "high",
+        "remedy": "確認 CSP 香港 Region 可用性（AWS ap-east-1）；或取得客戶同意書及 Data Transfer Agreement；資料分類標籤",
+        "authority": "Hong Kong PDPO Cap. 486 Principle 3",
+        "triggerConditions": ["has_pii", "cross_border_data"]
+      },
+      {
+        "id": "MAS-003",
+        "jurisdiction": "MAS (新加坡金融管理局)",
+        "title": "PDPA — 個人資料保護法（新加坡）",
+        "desc": "含新加坡客戶個資的雲端系統須符合 PDPA；禁止在未取得同意下向境外傳輸個資",
+        "severity": "high",
+        "remedy": "確認 CSP 新加坡 Region（AWS ap-southeast-1）；取得客戶同意或訂立 Data Transfer Agreement；指定 DPO",
+        "authority": "Singapore PDPA 2012 (amended 2021)",
+        "triggerConditions": ["has_pii", "sg_customers"]
+      },
+      {
         "id": "APRA-001",
         "jurisdiction": "APRA (澳洲審慎監理局)",
         "title": "CPS 234 資訊安全 — 第三方控制要求",

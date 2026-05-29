@@ -1307,6 +1307,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.__SA_CONFIG__ = cfg;
   } catch {}
 
+  // Load rules-config for compliance checklist engine
+  try {
+    const rc = await fetch('/data/rules-config.json').then(r => r.json());
+    window.__RULES_CONFIG__ = rc;
+  } catch (e) { console.warn('[init] rules-config load failed:', e); }
+
   Auth.injectNavUser();
 
   // ── Consent checkbox → unlock generate button ──────────────────
@@ -1388,9 +1394,12 @@ document.addEventListener('DOMContentLoaded', async () => {
           currentResult = item.result;
           currentDbId   = item.id;
           renderResult(item.result, style);
-          try { renderDecisionBoard(item.result); } catch(e) { console.warn('[renderDecisionBoard history]', e); }
-          try { renderWhatIf(item.result);        } catch(e) { console.warn('[renderWhatIf history]', e); }
-          try { renderImpactGraph(item.result);   } catch(e) { console.warn('[renderImpactGraph history]', e); }
+          try { renderDecisionBoard(item.result);         } catch(e) { console.warn('[renderDecisionBoard history]', e); }
+          try { renderGanttRoadmap(item.result);          } catch(e) { console.warn('[renderGanttRoadmap history]', e); }
+          try { renderPortfolioAnalysis(item.result);     } catch(e) { console.warn('[renderPortfolioAnalysis history]', e); }
+          try { renderWhatIf(item.result);                } catch(e) { console.warn('[renderWhatIf history]', e); }
+          try { renderImpactGraph(item.result);           } catch(e) { console.warn('[renderImpactGraph history]', e); }
+          try { renderComplianceChecklist(item.result);   } catch(e) { console.warn('[renderComplianceChecklist history]', e); }
           SA.Toast.success('歷史報告', `已載入「${item.projectName || '分析記錄'}」`);
           // Show share button if this record has an ID
           if (item.id) document.getElementById('shareBtn')?.style?.setProperty('display','inline-flex');
@@ -1588,9 +1597,12 @@ async function runAnalysis() {
     renderResult(result, reportStyle);
 
     // Wrap secondary renders individually — errors here are non-fatal and must not hide the main result
-    try { renderDecisionBoard(result); } catch(e) { console.warn('[renderDecisionBoard]', e); }
-    try { renderWhatIf(result);        } catch(e) { console.warn('[renderWhatIf]', e); }
-    try { renderImpactGraph(result);   } catch(e) { console.warn('[renderImpactGraph]', e); }
+    try { renderDecisionBoard(result);          } catch(e) { console.warn('[renderDecisionBoard]', e); }
+    try { renderGanttRoadmap(result);           } catch(e) { console.warn('[renderGanttRoadmap]', e); }
+    try { renderPortfolioAnalysis(result);      } catch(e) { console.warn('[renderPortfolioAnalysis]', e); }
+    try { renderWhatIf(result);                 } catch(e) { console.warn('[renderWhatIf]', e); }
+    try { renderImpactGraph(result);            } catch(e) { console.warn('[renderImpactGraph]', e); }
+    try { renderComplianceChecklist(result);    } catch(e) { console.warn('[renderComplianceChecklist]', e); }
 
     saveToHistory(result);
     saveToDatabase(result);   // async, fire-and-forget; shows Share btn when done
@@ -1612,9 +1624,12 @@ async function runAnalysis() {
         const localResult = await APIClient.analyze(apiInputs, { forceLocal: true });
         currentResult = localResult;
         renderResult(localResult, reportStyle);
-        try { renderDecisionBoard(localResult); } catch(e) { console.warn('[renderDecisionBoard]', e); }
-        try { renderWhatIf(localResult);        } catch(e) { console.warn('[renderWhatIf]', e); }
-        try { renderImpactGraph(localResult);   } catch(e) { console.warn('[renderImpactGraph]', e); }
+        try { renderDecisionBoard(localResult);         } catch(e) { console.warn('[renderDecisionBoard]', e); }
+        try { renderGanttRoadmap(localResult);          } catch(e) { console.warn('[renderGanttRoadmap]', e); }
+        try { renderPortfolioAnalysis(localResult);     } catch(e) { console.warn('[renderPortfolioAnalysis]', e); }
+        try { renderWhatIf(localResult);                } catch(e) { console.warn('[renderWhatIf]', e); }
+        try { renderImpactGraph(localResult);           } catch(e) { console.warn('[renderImpactGraph]', e); }
+        try { renderComplianceChecklist(localResult);   } catch(e) { console.warn('[renderComplianceChecklist]', e); }
         saveToHistory(localResult);
         saveToDatabase(localResult);
         SA.Toast.success('本地分析完成！', '報告已生成');
@@ -2965,6 +2980,551 @@ function renderImpactGraph(result) {
   container.appendChild(section);
 
   ImpactGraph.render('igGraphContainer', graphData);
+}
+
+// ── Migration Gantt Roadmap ───────────────────────────────────
+/**
+ * renderGanttRoadmap(result)
+ * Renders a visual SVG Gantt chart of the migration timeline phases.
+ * Data source: result.techPM.phases + result.techPM.timeline
+ */
+function renderGanttRoadmap(result) {
+  if (!result?.techPM?.phases?.length) return;
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  document.getElementById('ganttSection')?.remove();
+
+  const phases      = result.techPM.phases;
+  const totalWeeks  = result.techPM.timeline?.totalWeeks  || 24;
+  const totalMonths = result.techPM.timeline?.totalMonths || 6;
+  const strategy    = result.strategy6R?.primary || 'rehost';
+  const isFinancial = /financial|banking|insurance|finance|金融|銀行|保險/i.test(result.inputs?.industry || '')
+                   || result.inputs?.complianceLevel === 'high';
+
+  // ── Parse week ranges from "Phase X (A–BW)" strings ──────────
+  function parseWeeks(phaseStr) {
+    const m = phaseStr.match(/\((\d+)[–\-–](\d+)W\)/);
+    if (m) return { start: parseInt(m[1]), end: parseInt(m[2]) };
+    const m2 = phaseStr.match(/\((\d+)W\+\)/);
+    if (m2) return { start: parseInt(m2[1]), end: totalWeeks };
+    return null;
+  }
+
+  // Colour palette per phase index
+  const PHASE_COLORS = ['#1a6baf', '#0ea5a5', '#16a34a', '#9333ea', '#d97706'];
+  const PHASE_LABELS = ['基礎準備', '試點驗證', '批量推進', '規模優化', '持續改善'];
+
+  // Build bar data
+  const bars = phases.map((p, i) => {
+    const wk = parseWeeks(p.phase || '');
+    return {
+      name:    p.name || PHASE_LABELS[i] || `Phase ${i}`,
+      phaseId: p.phase || `Phase ${i}`,
+      start:   wk ? wk.start : i * 4,
+      end:     wk ? wk.end   : (i + 1) * 4,
+      color:   PHASE_COLORS[i % PHASE_COLORS.length],
+      items:   p.items || [],
+    };
+  });
+
+  // Financial compliance milestones (shown as diamond markers)
+  const milestones = isFinancial ? [
+    { week: Math.round(totalWeeks * 0.15), label: '法遵差距分析完成', color: '#d97706' },
+    { week: Math.round(totalWeeks * 0.50), label: 'UAT + 稽核軌跡驗收', color: '#d97706' },
+    { week: Math.round(totalWeeks * 0.85), label: 'DR 演練 & 監管報告', color: '#d97706' },
+  ] : [
+    { week: Math.round(totalWeeks * 0.33), label: 'PoC Go/No-Go', color: '#6b7280' },
+    { week: Math.round(totalWeeks * 0.75), label: '批量遷移完成', color: '#6b7280' },
+  ];
+
+  // ── SVG layout constants ──────────────────────────────────────
+  const SVG_W   = 860;
+  const LABEL_W = 120;   // left label column
+  const CHART_W = SVG_W - LABEL_W - 20;
+  const ROW_H   = 36;
+  const BAR_H   = 20;
+  const BAR_Y   = (ROW_H - BAR_H) / 2;
+  const HEAD_H  = 28;    // header row height
+  const MILE_H  = 24;    // milestone row height
+  const ROWS    = bars.length;
+  const SVG_H   = HEAD_H + ROWS * ROW_H + MILE_H + 8;
+
+  const xScale = (week) => LABEL_W + (week / totalWeeks) * CHART_W;
+
+  // ── Month grid lines ──────────────────────────────────────────
+  const weeksPerMonth = totalWeeks / totalMonths;
+  const monthGridLines = Array.from({ length: totalMonths + 1 }, (_, i) => {
+    const x = xScale(i * weeksPerMonth);
+    return `<line x1="${x}" y1="${HEAD_H}" x2="${x}" y2="${HEAD_H + ROWS * ROW_H}" stroke="#e5e7eb" stroke-width="1"/>`;
+  }).join('');
+
+  // Month labels in header
+  const monthLabels = Array.from({ length: totalMonths }, (_, i) => {
+    const x = xScale((i + 0.5) * weeksPerMonth);
+    return `<text x="${x}" y="${HEAD_H - 8}" text-anchor="middle" font-size="9" fill="#9ca3af">M${i+1}</text>`;
+  }).join('');
+
+  // ── Phase bars ────────────────────────────────────────────────
+  const barSvg = bars.map((bar, i) => {
+    const y   = HEAD_H + i * ROW_H;
+    const x0  = xScale(bar.start);
+    const x1  = xScale(bar.end);
+    const bw  = Math.max(x1 - x0, 6);
+    const labelX = LABEL_W - 6;
+
+    return `
+      <text x="${labelX}" y="${y + ROW_H/2 + 4}" text-anchor="end" font-size="10" font-weight="600" fill="#374151">${bar.name}</text>
+      <rect x="${x0}" y="${y + BAR_Y}" width="${bw}" height="${BAR_H}" rx="4"
+        fill="${bar.color}" opacity="0.85"/>
+      <text x="${x0 + 6}" y="${y + ROW_H/2 + 4}" font-size="9" fill="white" font-weight="500"
+        style="pointer-events:none">${bar.phaseId.split(' (')[0]}</text>
+      <text x="${x0 + bw + 4}" y="${y + ROW_H/2 + 4}" font-size="9" fill="${bar.color}" font-weight="600">${bar.end}W</text>
+    `;
+  }).join('');
+
+  // ── Milestone diamonds ────────────────────────────────────────
+  const mileY = HEAD_H + ROWS * ROW_H + 6;
+  const milestoneSvg = milestones.map(m => {
+    const x   = xScale(m.week);
+    const dm  = 7;  // diamond half-size
+    const pts = `${x},${mileY} ${x+dm},${mileY+dm} ${x},${mileY+2*dm} ${x-dm},${mileY+dm}`;
+    return `
+      <polygon points="${pts}" fill="${m.color}" opacity="0.85"/>
+      <text x="${x}" y="${mileY + 2*dm + 11}" text-anchor="middle" font-size="8.5" fill="${m.color}" font-weight="600">${m.label}</text>
+    `;
+  }).join('');
+
+  // ── Today marker (week 0) ─────────────────────────────────────
+  const todayX = xScale(0);
+  const todayLine = `
+    <line x1="${todayX}" y1="${HEAD_H}" x2="${todayX}" y2="${HEAD_H + ROWS * ROW_H}"
+      stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <text x="${todayX+3}" y="${HEAD_H + 10}" font-size="8" fill="#ef4444">▶ 現在</text>
+  `;
+
+  // ── Total duration label ──────────────────────────────────────
+  const durationLabel = `
+    <text x="${SVG_W - 10}" y="${HEAD_H - 8}" text-anchor="end" font-size="10" fill="#1a6baf" font-weight="700">
+      總計 ~${totalMonths} 個月
+    </text>
+  `;
+
+  const svgContent = `
+    <svg viewBox="0 0 ${SVG_W} ${SVG_H}" style="width:100%;height:auto;overflow:visible;"
+         xmlns="http://www.w3.org/2000/svg" role="img" aria-label="遷移甘特圖">
+      <!-- Background -->
+      <rect width="${SVG_W}" height="${SVG_H}" fill="transparent"/>
+      <!-- Month grid -->
+      ${monthGridLines}
+      ${monthLabels}
+      ${durationLabel}
+      <!-- Phase bars -->
+      ${barSvg}
+      <!-- Milestones -->
+      ${milestoneSvg}
+      <!-- Today marker -->
+      ${todayLine}
+    </svg>`;
+
+  // ── Phase detail cards (below chart) ─────────────────────────
+  const phaseCards = bars.map((bar, i) => `
+    <div style="flex:1;min-width:180px;max-width:280px;padding:var(--sp-3);background:white;
+      border-radius:var(--r-md);border-left:3px solid ${bar.color};border:1px solid #e5e7eb;
+      border-left:3px solid ${bar.color};">
+      <div style="font-size:11px;font-weight:700;color:${bar.color};margin-bottom:var(--sp-2);">
+        ${bar.phaseId.split(' (')[0]} · ${bar.name}
+        <span style="font-size:10px;font-weight:400;color:var(--c-text-muted);margin-left:4px;">${bar.start}–${bar.end}W</span>
+      </div>
+      <ul style="margin:0;padding-left:14px;font-size:10px;color:var(--c-text);line-height:1.7;">
+        ${bar.items.slice(0, 3).map(item => `<li>${item}</li>`).join('')}
+        ${bar.items.length > 3 ? `<li style="color:var(--c-text-muted);">…+${bar.items.length - 3} 項</li>` : ''}
+      </ul>
+    </div>`).join('');
+
+  const strategyLabels = {
+    rehost: 'Lift & Shift', relocate: 'VMware Relocate', repurchase: 'SaaS Replace',
+    replatform: 'Replatform', refactor: 'Refactor / Re-architect',
+    retain: 'Retain (評估先行)', retire: 'Retire',
+  };
+
+  const section = document.createElement('div');
+  section.id        = 'ganttSection';
+  section.className = 'result-section animate-up';
+  section.innerHTML = `
+    <div class="result-section-title">
+      <span class="rst-icon">📅</span>遷移甘特時程圖（${strategyLabels[strategy] || strategy}）
+      <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
+        ${isFinancial ? '⚖️ 含金融法遵里程碑　' : ''}總計約 ${totalMonths} 個月
+      </span>
+    </div>
+
+    <!-- Gantt SVG chart -->
+    <div style="overflow-x:auto;background:var(--c-surface);border:1px solid var(--c-border-light);
+      border-radius:var(--r-md);padding:var(--sp-3) var(--sp-3) var(--sp-4);">
+      ${svgContent}
+    </div>
+
+    <!-- Phase detail cards -->
+    <div style="display:flex;flex-wrap:wrap;gap:var(--sp-2);margin-top:var(--sp-3);">
+      ${phaseCards}
+    </div>
+
+    ${isFinancial ? `
+    <div style="margin-top:var(--sp-3);padding:8px 12px;background:#fffbeb;border:1px solid #f59e0b;
+      border-radius:var(--r-md);font-size:10px;color:#92400e;line-height:1.6;">
+      ⚖️ 金融法遵里程碑（菱形標記）為前期估算，實際時程須依主管機關審查節奏調整。建議在 Phase 0 完成法遵差距分析後確認。
+    </div>` : ''}
+  `;
+  container.appendChild(section);
+}
+
+// ── Portfolio Dependency Analysis ────────────────────────────
+/**
+ * renderPortfolioAnalysis(result)
+ * Generates a representative application portfolio and migration wave plan
+ * based on industry, strategy, system size, and compliance level.
+ * Displays a priority matrix + wave cards + dependency notes.
+ */
+function renderPortfolioAnalysis(result) {
+  if (!result?.strategy6R?.primary) return;
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  document.getElementById('portfolioSection')?.remove();
+
+  const strategy    = result.strategy6R?.primary || 'replatform';
+  const inputs      = result.inputs || {};
+  const isFinancial = /financial|banking|insurance|finance|金融|銀行|保險/i.test(inputs.industry || '')
+                   || inputs.complianceLevel === 'high';
+  const isHealthcare= /health|medical|hospital|醫療|健保/i.test(inputs.industry || '');
+  const sizeName    = inputs.systemSize || 'medium';
+  const sizeCount   = { small: 8, medium: 20, large: 40, enterprise: 80 }[sizeName] || 20;
+  const totalMonths = result.techPM?.timeline?.totalMonths || 12;
+
+  // ── Generate contextual application portfolio ─────────────────
+  // Each system: { name, team, criticality (1-5), readiness (1-5), depKeys[], strategy, note }
+  const PORTFOLIO_TEMPLATES = {
+    financial: [
+      { name: '核心銀行系統', team: '核心技術', criticality: 5, readiness: 1, depKeys: ['IAM', 'DB'], strategy: 'retain', note: 'S1核心，最後遷移' },
+      { name: '網路銀行前台', team: '數位通路', criticality: 4, readiness: 3, depKeys: ['API', '核心銀行系統'], strategy: 'replatform', note: '客戶直接使用' },
+      { name: 'API Gateway', team: '平台', criticality: 4, readiness: 4, depKeys: ['IAM'], strategy: 'replatform', note: '所有通路依賴' },
+      { name: 'IAM / 身份中心', team: '資安', criticality: 5, readiness: 2, depKeys: [], strategy: 'rehost', note: '最優先建立' },
+      { name: '報表 / BI 平台', team: '資料', criticality: 3, readiness: 5, depKeys: ['DB'], strategy: 'rehost', note: '低風險快速遷移' },
+      { name: '批次處理系統', team: '核心技術', criticality: 3, readiness: 4, depKeys: ['DB', '核心銀行系統'], strategy: 'rehost', note: '夜間作業' },
+      { name: '資料庫叢集', team: '基礎架構', criticality: 5, readiness: 2, depKeys: [], strategy: strategy === 'refactor' ? 'replatform' : 'rehost', note: 'DR/高可用需求' },
+      { name: '風控 / AML 引擎', team: '合規', criticality: 5, readiness: 2, depKeys: ['DB', '核心銀行系統'], strategy: 'retain', note: '監管審查必須' },
+      { name: 'DevOps / CI/CD', team: '平台', criticality: 2, readiness: 5, depKeys: [], strategy: 'replatform', note: '優先現代化' },
+      { name: '客服 CRM', team: '數位通路', criticality: 3, readiness: 4, depKeys: ['API'], strategy: 'repurchase', note: '可評估 SaaS' },
+    ],
+    healthcare: [
+      { name: 'EMR / 電子病歷', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['DB'], strategy: 'retain', note: '個資法規限制' },
+      { name: '掛號 / 預約系統', team: '數位服務', criticality: 4, readiness: 4, depKeys: ['EMR / 電子病歷'], strategy: 'replatform', note: '患者直接使用' },
+      { name: '醫療影像 PACS', team: '放射科', criticality: 4, readiness: 2, depKeys: ['儲存'], strategy: 'rehost', note: '大量儲存需求' },
+      { name: '儲存 / 封存平台', team: '基礎架構', criticality: 3, readiness: 5, depKeys: [], strategy: 'rehost', note: '物件儲存遷移' },
+      { name: 'HIS 醫院資訊系統', team: '醫療資訊', criticality: 5, readiness: 1, depKeys: ['DB', 'EMR / 電子病歷'], strategy: 'retain', note: '核心業務' },
+      { name: '藥局管理系統', team: '藥事', criticality: 4, readiness: 3, depKeys: ['HIS 醫院資訊系統'], strategy: 'replatform', note: '用藥安全關鍵' },
+      { name: '行政 / 財務系統', team: '行政', criticality: 2, readiness: 5, depKeys: [], strategy: 'repurchase', note: 'SaaS 替換' },
+      { name: 'API / 整合層', team: '平台', criticality: 4, readiness: 4, depKeys: [], strategy: 'replatform', note: 'HL7 FHIR 整合' },
+    ],
+    default: [
+      { name: '主要 Web 應用', team: '產品', criticality: 4, readiness: 4, depKeys: ['API層', '資料庫'], strategy: strategy, note: '核心產品' },
+      { name: 'API 層', team: '平台', criticality: 4, readiness: 4, depKeys: ['資料庫'], strategy: 'replatform', note: '服務整合' },
+      { name: '資料庫', team: '基礎架構', criticality: 5, readiness: 2, depKeys: [], strategy: 'replatform', note: 'Managed DB' },
+      { name: '批次 / 排程', team: '後端', criticality: 2, readiness: 5, depKeys: ['資料庫'], strategy: 'rehost', note: '最易遷移' },
+      { name: '靜態前端 / CDN', team: '前端', criticality: 2, readiness: 5, depKeys: [], strategy: 'rehost', note: 'S3 / CloudFront' },
+      { name: '監控 / 日誌', team: '維運', criticality: 3, readiness: 5, depKeys: [], strategy: 'replatform', note: 'CloudWatch' },
+      { name: '身份驗證', team: '資安', criticality: 5, readiness: 3, depKeys: [], strategy: 'replatform', note: 'SSO / MFA' },
+      { name: '郵件 / 通知服務', team: '產品', criticality: 2, readiness: 5, depKeys: ['API層'], strategy: 'repurchase', note: 'SES / SaaS' },
+      { name: '搜尋服務', team: '後端', criticality: 3, readiness: 4, depKeys: ['資料庫'], strategy: 'replatform', note: 'OpenSearch' },
+      { name: '舊版報表系統', team: '資料', criticality: 2, readiness: 3, depKeys: ['資料庫'], strategy: 'retire', note: '評估退場' },
+    ],
+  };
+
+  const templateKey = isFinancial ? 'financial' : isHealthcare ? 'healthcare' : 'default';
+  let systems = PORTFOLIO_TEMPLATES[templateKey];
+
+  // Scale count to match system size
+  const displayCount = Math.min(sizeCount <= 8 ? 6 : sizeCount <= 20 ? 8 : 10, systems.length);
+  systems = systems.slice(0, displayCount);
+
+  // ── Assign migration waves based on quadrant ──────────────────
+  // Wave 1 = Quick Wins (low crit OR high readiness), Wave 3 = Complex Last
+  systems.forEach(s => {
+    const isHighCrit = s.criticality >= 4;
+    const isHighReady = s.readiness >= 4;
+    if (!isHighCrit && isHighReady)       s.wave = 1;  // Quick wins
+    else if (isHighCrit && isHighReady)   s.wave = 2;  // Strategic value
+    else if (!isHighCrit && !isHighReady) s.wave = 2;  // Low priority, do mid-wave
+    else                                  s.wave = 3;  // Complex last
+    // Override: IAM / Landing Zone always Wave 1 (foundation)
+    if (/IAM|身份/.test(s.name)) s.wave = 1;
+    // Override: Core financial systems to Wave 3
+    if (s.strategy === 'retain' && isFinancial) s.wave = 3;
+  });
+
+  const waveColors = { 1: '#16a34a', 2: '#1a6baf', 3: '#9333ea' };
+  const waveLabels = { 1: 'Wave 1 — 快速上雲（Quick Wins）', 2: 'Wave 2 — 核心現代化', 3: 'Wave 3 — 複雜系統／法遵核心' };
+  const waveDescs  = {
+    1: `前 ${Math.round(totalMonths * 0.3)} 個月：優先低風險、高就緒度系統，建立雲端運作信心`,
+    2: `${Math.round(totalMonths * 0.3)}–${Math.round(totalMonths * 0.7)} 個月：核心業務系統，需充分測試與切換計畫`,
+    3: `${Math.round(totalMonths * 0.7)}–${totalMonths} 個月：高複雜度或法規限制系統，最後遷移`,
+  };
+
+  // ── Priority Matrix (SVG scatter plot) ───────────────────────
+  const MAT_W = 280, MAT_H = 200, MAT_PAD = 36;
+  const matScaleX = (v) => MAT_PAD + (v - 1) / 4 * (MAT_W - MAT_PAD * 2);
+  const matScaleY = (v) => MAT_H - MAT_PAD - (v - 1) / 4 * (MAT_H - MAT_PAD * 2);
+
+  const dotsSvg = systems.map((s, i) => {
+    const x = matScaleX(s.readiness);
+    const y = matScaleY(s.criticality);
+    const c = waveColors[s.wave];
+    const label = s.name.length > 8 ? s.name.slice(0, 7) + '…' : s.name;
+    return `
+      <circle cx="${x}" cy="${y}" r="6" fill="${c}" opacity="0.85" stroke="white" stroke-width="1.5"/>
+      <text x="${x}" y="${y - 9}" text-anchor="middle" font-size="8" fill="${c}" font-weight="600">${label}</text>`;
+  }).join('');
+
+  const matrixSvg = `
+    <svg viewBox="0 0 ${MAT_W} ${MAT_H}" style="width:100%;max-width:${MAT_W}px;height:auto;" xmlns="http://www.w3.org/2000/svg">
+      <!-- Quadrant backgrounds -->
+      <rect x="${MAT_PAD}" y="${MAT_PAD}" width="${(MAT_W-MAT_PAD*2)/2}" height="${(MAT_H-MAT_PAD*2)/2}" fill="#fef3c7" opacity="0.5"/>
+      <rect x="${MAT_PAD+(MAT_W-MAT_PAD*2)/2}" y="${MAT_PAD}" width="${(MAT_W-MAT_PAD*2)/2}" height="${(MAT_H-MAT_PAD*2)/2}" fill="#fee2e2" opacity="0.5"/>
+      <rect x="${MAT_PAD}" y="${MAT_PAD+(MAT_H-MAT_PAD*2)/2}" width="${(MAT_W-MAT_PAD*2)/2}" height="${(MAT_H-MAT_PAD*2)/2}" fill="#dcfce7" opacity="0.5"/>
+      <rect x="${MAT_PAD+(MAT_W-MAT_PAD*2)/2}" y="${MAT_PAD+(MAT_H-MAT_PAD*2)/2}" width="${(MAT_W-MAT_PAD*2)/2}" height="${(MAT_H-MAT_PAD*2)/2}" fill="#dbeafe" opacity="0.5"/>
+      <!-- Axes -->
+      <line x1="${MAT_PAD}" y1="${MAT_H-MAT_PAD}" x2="${MAT_W-MAT_PAD/2}" y2="${MAT_H-MAT_PAD}" stroke="#9ca3af" stroke-width="1"/>
+      <line x1="${MAT_PAD}" y1="${MAT_PAD/2}" x2="${MAT_PAD}" y2="${MAT_H-MAT_PAD}" stroke="#9ca3af" stroke-width="1"/>
+      <!-- Axis labels -->
+      <text x="${MAT_W/2}" y="${MAT_H-4}" text-anchor="middle" font-size="9" fill="#6b7280">雲端就緒度 →</text>
+      <text x="10" y="${MAT_H/2}" text-anchor="middle" font-size="9" fill="#6b7280" transform="rotate(-90,10,${MAT_H/2})">業務重要性 →</text>
+      <!-- Quadrant labels -->
+      <text x="${MAT_PAD+4}" y="${MAT_H-MAT_PAD-4}" font-size="7.5" fill="#15803d" font-weight="600">⚡ Wave 1</text>
+      <text x="${MAT_PAD+(MAT_W-MAT_PAD*2)/2+4}" y="${MAT_H-MAT_PAD-4}" font-size="7.5" fill="#1a6baf" font-weight="600">🎯 Wave 2</text>
+      <text x="${MAT_PAD+4}" y="${MAT_PAD+12}" font-size="7.5" fill="#9333ea" font-weight="600">🔬 Wave 3</text>
+      <text x="${MAT_PAD+(MAT_W-MAT_PAD*2)/2+4}" y="${MAT_PAD+12}" font-size="7.5" fill="#9333ea" font-weight="600">🔴 最後</text>
+      <!-- Data points -->
+      ${dotsSvg}
+    </svg>`;
+
+  // ── Wave cards ────────────────────────────────────────────────
+  const waveCardsHtml = [1, 2, 3].map(w => {
+    const waveSystems = systems.filter(s => s.wave === w);
+    if (!waveSystems.length) return '';
+    const stratBadges = [...new Set(waveSystems.map(s => s.strategy))];
+    const stratColors = { rehost:'#6b7280', replatform:'#1a6baf', refactor:'#9333ea', retain:'#d97706', repurchase:'#16a34a', retire:'#ef4444', relocate:'#0ea5a5' };
+    return `
+      <div style="flex:1;min-width:200px;padding:var(--sp-3);background:white;border-radius:var(--r-md);
+        border-top:3px solid ${waveColors[w]};border:1px solid #e5e7eb;border-top:3px solid ${waveColors[w]};">
+        <div style="font-size:12px;font-weight:700;color:${waveColors[w]};margin-bottom:4px;">${waveLabels[w]}</div>
+        <div style="font-size:10px;color:var(--c-text-muted);margin-bottom:var(--sp-2);">${waveDescs[w]}</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:var(--sp-2);">
+          ${stratBadges.map(st => `<span style="font-size:9px;padding:1px 6px;border-radius:20px;background:${stratColors[st]}22;color:${stratColors[st]};font-weight:600;">${st}</span>`).join('')}
+        </div>
+        ${waveSystems.map(s => `
+          <div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid #f3f4f6;">
+            <span style="font-size:10px;font-weight:600;color:var(--c-text);flex:1;">${s.name}</span>
+            <span style="font-size:9px;color:var(--c-text-muted);">${s.team}</span>
+            ${'★'.repeat(s.criticality)}<span style="font-size:8px;color:#d1d5db;">${'★'.repeat(5 - s.criticality)}</span>
+          </div>`).join('')}
+        <div style="margin-top:var(--sp-2);padding:4px 6px;background:${waveColors[w]}11;border-radius:var(--r-sm);font-size:9px;color:${waveColors[w]};font-weight:600;">
+          ${waveSystems.length} 個系統 ・ 估計 ${
+            w === 1 ? `${Math.round(totalMonths * 0.3)} 個月` :
+            w === 2 ? `${Math.round(totalMonths * 0.4)} 個月` :
+                      `${Math.round(totalMonths * 0.3)} 個月`
+          }
+        </div>
+      </div>`;
+  }).join('');
+
+  // ── Dependency summary ────────────────────────────────────────
+  const hasDeps = systems.some(s => s.depKeys?.length > 0);
+  const depHtml = hasDeps ? `
+    <div style="margin-top:var(--sp-3);padding:var(--sp-3);background:var(--c-surface);
+      border:1px solid var(--c-border-light);border-radius:var(--r-md);">
+      <div style="font-size:11px;font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">
+        🔗 關鍵相依關係
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${systems.filter(s => s.depKeys?.length).map(s =>
+          s.depKeys.map(dep => `
+            <div style="font-size:10px;padding:3px 8px;border-radius:20px;background:white;
+              border:1px solid #e5e7eb;color:var(--c-text);">
+              <span style="font-weight:600;">${s.name}</span>
+              <span style="color:var(--c-text-muted);margin:0 4px;">→</span>
+              <span style="color:#1a6baf;">${dep}</span>
+            </div>`).join('')
+        ).join('')}
+      </div>
+      <div style="margin-top:var(--sp-2);font-size:10px;color:var(--c-text-muted);">
+        ⚠️ 相依上游系統需先完成遷移或建立穩定介面層，下游系統才可安全切換
+      </div>
+    </div>` : '';
+
+  const section = document.createElement('div');
+  section.id        = 'portfolioSection';
+  section.className = 'result-section animate-up';
+  section.innerHTML = `
+    <div class="result-section-title">
+      <span class="rst-icon">🗂️</span>應用程式組合相依分析（Portfolio Analysis）
+      <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
+        ${displayCount} 個系統 ・ ${Object.values({1:0,2:0,3:0}).length} 波次規劃
+        ${isFinancial ? '・ ⚖️ 金融法遵序' : ''}
+      </span>
+    </div>
+
+    <div style="display:flex;gap:var(--sp-4);flex-wrap:wrap;align-items:flex-start;">
+      <!-- Priority matrix -->
+      <div style="min-width:240px;">
+        <div style="font-size:11px;font-weight:700;color:var(--c-text);margin-bottom:var(--sp-2);">
+          優先順序矩陣
+        </div>
+        ${matrixSvg}
+        <div style="display:flex;gap:var(--sp-2);flex-wrap:wrap;margin-top:4px;">
+          ${[1,2,3].map(w => `
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:9px;color:${waveColors[w]};">
+              <span style="width:8px;height:8px;border-radius:50%;background:${waveColors[w]};display:inline-block;"></span>Wave ${w}
+            </span>`).join('')}
+        </div>
+      </div>
+
+      <!-- Wave plan cards -->
+      <div style="flex:1;display:flex;gap:var(--sp-2);flex-wrap:wrap;">
+        ${waveCardsHtml}
+      </div>
+    </div>
+
+    ${depHtml}
+
+    <div style="margin-top:var(--sp-3);padding:8px 12px;background:rgba(26,107,175,0.04);
+      border:1px solid var(--c-border-light);border-left:3px solid var(--c-accent-teal);
+      border-radius:var(--r-md);font-size:10px;color:var(--c-text-muted);line-height:1.7;">
+      📌 本組合分析為依照<strong>行業典型架構</strong>自動生成的參考視圖，實際系統清冊、相依關係圖與波次規劃應由架構師依專案實際情況確認。
+    </div>
+  `;
+  container.appendChild(section);
+}
+
+// ── MAS/HKMA Compliance Checklist ────────────────────────────
+/**
+ * renderComplianceChecklist(result)
+ * Renders a dedicated per-rule compliance checklist section
+ * using AnalyzeEngine.runComplianceCheck() + window.__RULES_CONFIG__
+ */
+function renderComplianceChecklist(result) {
+  if (!result?.inputs || typeof AnalyzeEngine === 'undefined' || !AnalyzeEngine.runComplianceCheck) return;
+
+  const container = document.getElementById('resultContainer');
+  if (!container) return;
+
+  document.getElementById('complianceChecklistSection')?.remove();
+
+  // Patch inputs: form uses complianceRegion/complianceLevel; engine expects region/industry
+  const rawInp = result.inputs || {};
+  const _rawInd = rawInp.industry || '';
+  const _isFinancialInd = /financial|banking|insurance|finance|金融|銀行|保險/i.test(_rawInd);
+  const patchedInputs = {
+    ...rawInp,
+    region:   rawInp.region || rawInp.complianceRegion || 'tw',
+    // If industry already flags financial → keep; else fall back to complianceLevel=high → 'financial'
+    industry: _isFinancialInd ? _rawInd
+            : (rawInp.complianceLevel === 'high' ? 'financial' : (rawInp.industryVertical || _rawInd)),
+  };
+
+  const items = AnalyzeEngine.runComplianceCheck(patchedInputs);
+  if (!items || items.length === 0) return;  // No applicable framework for this region/industry
+
+  const cf = AnalyzeEngine.getComplianceFramework ? AnalyzeEngine.getComplianceFramework(patchedInputs) : null;
+  const frameworkLabel = cf
+    ? cf.frameworks.join(' / ')
+    : (result.inputs.complianceRegion === 'sg' ? 'MAS TRM / PDPA' : 'HKMA ORMiC / PDPO');
+
+  // Count by status
+  const passCount   = items.filter(i => i.status === 'pass').length;
+  const failCount   = items.filter(i => i.status === 'fail').length;
+  const reviewCount = items.filter(i => i.status === 'review').length;
+
+  const statusIcon  = { pass: '✅', fail: '❌', review: '⚠️' };
+  const statusLabel = { pass: '符合', fail: '未符合', review: '待確認' };
+  const statusColor = { pass: '#15803d', fail: '#b91c1c', review: '#92400e' };
+  const statusBg    = { pass: '#f0fdf4', fail: '#fef2f2', review: '#fffbeb' };
+  const statusBorder = { pass: '#86efac', fail: '#fca5a5', review: '#fcd34d' };
+  const severityLabel = { critical: '🔴 嚴重', high: '🟠 高', medium: '🟡 中', low: '⚪ 低' };
+
+  const itemsHtml = items.map(item => `
+    <details class="compliance-item" style="
+      background:${statusBg[item.status]};
+      border:1px solid ${statusBorder[item.status]};
+      border-radius:var(--r-md);
+      margin-bottom:var(--sp-2);
+      overflow:hidden;
+    ">
+      <summary style="
+        display:flex;align-items:flex-start;gap:10px;
+        padding:10px 12px;cursor:pointer;user-select:none;list-style:none;
+      ">
+        <span style="font-size:15px;flex-shrink:0;margin-top:1px;">${statusIcon[item.status]}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+            <span style="font-size:11px;font-weight:700;color:var(--c-text);">[${item.id}] ${item.title}</span>
+            <span style="font-size:10px;padding:1px 6px;border-radius:20px;background:rgba(0,0,0,0.06);color:var(--c-text-muted);white-space:nowrap;">${severityLabel[item.severity] || item.severity}</span>
+          </div>
+          <div style="font-size:10px;color:var(--c-text-muted);margin-top:3px;">${item.jurisdiction}</div>
+          <div style="font-size:11px;font-weight:600;color:${statusColor[item.status]};margin-top:2px;">${statusLabel[item.status]}　${item.reason}</div>
+        </div>
+        <span style="font-size:9px;color:var(--c-text-muted);flex-shrink:0;margin-top:4px;">▼ 展開</span>
+      </summary>
+      <div style="padding:0 12px 12px 12px;border-top:1px solid ${statusBorder[item.status]};">
+        ${item.remedy ? `
+        <div style="margin-top:10px;padding:8px 10px;background:white;border-radius:var(--r-sm);border-left:3px solid #1a6baf;">
+          <div style="font-size:10px;font-weight:700;color:#1a6baf;margin-bottom:3px;">📋 建議行動</div>
+          <div style="font-size:11px;color:var(--c-text);line-height:1.6;">${item.remedy}</div>
+        </div>` : ''}
+        ${item.authority ? `
+        <div style="margin-top:8px;font-size:10px;color:var(--c-text-muted);">
+          📚 法規依據：<span style="font-style:italic;">${item.authority}</span>
+        </div>` : ''}
+      </div>
+    </details>`).join('');
+
+  const section = document.createElement('div');
+  section.id        = 'complianceChecklistSection';
+  section.className = 'result-section animate-up';
+  section.innerHTML = `
+    <div class="result-section-title">
+      <span class="rst-icon">⚖️</span>法規合規逐條檢核（${frameworkLabel}）
+      <span style="font-size:10px;color:var(--c-text-muted);font-weight:400;margin-left:auto;">
+        ${passCount} 符合 ・ ${failCount} 未符合 ・ ${reviewCount} 待確認
+      </span>
+    </div>
+
+    <!-- Summary bar -->
+    <div style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap;">
+      <div style="flex:1;min-width:80px;padding:10px 12px;background:#f0fdf4;border:1px solid #86efac;border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:#15803d;">${passCount}</div>
+        <div style="font-size:10px;color:#15803d;font-weight:600;">✅ 已符合</div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:10px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:#b91c1c;">${failCount}</div>
+        <div style="font-size:10px;color:#b91c1c;font-weight:600;">❌ 需立即處理</div>
+      </div>
+      <div style="flex:1;min-width:80px;padding:10px 12px;background:#fffbeb;border:1px solid #fcd34d;border-radius:var(--r-md);text-align:center;">
+        <div style="font-size:20px;font-weight:700;color:#92400e;">${reviewCount}</div>
+        <div style="font-size:10px;color:#92400e;font-weight:600;">⚠️ 待確認</div>
+      </div>
+    </div>
+
+    <!-- Checklist items -->
+    <div>${itemsHtml}</div>
+
+    <div style="margin-top:var(--sp-3);padding:8px 12px;background:#fff8e1;border:1px solid #f59e0b;border-radius:var(--r-md);font-size:10px;color:#92400e;line-height:1.6;">
+      ⚠️ 本檢核表依系統輸入參數自動生成，屬前期盡職調查工具。最終合規確認須由法遵顧問、資安長與主管機關函釋對照確認。
+    </div>
+  `;
+  container.appendChild(section);
 }
 
 // ── What-If Simulation Panel ──────────────────────────────────
