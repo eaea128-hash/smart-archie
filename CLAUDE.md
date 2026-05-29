@@ -16,6 +16,26 @@ Cloudflare Pages is the production deployment target.
 - Legacy rollback/reference API: `netlify/functions`
 - Do not treat Netlify as production unless the user explicitly asks for a rollback.
 
+## Git Push 策略（必讀）
+
+本專案採批次 push 策略，避免 Cloudflare 部署次數過多。
+
+### 規則
+- 每個 session 所有修改統一在結束前 **一次 push**
+- 禁止每修一個 bug 就立刻 push
+- Commit message 格式：`fix: [BUG-XXX] 標題` 或 `feat: 功能名稱 (batch deploy)`
+
+### Session 結束前執行
+1. `git status` 確認所有變更
+2. `git add <明確列出的檔案>`（不要 `git add -A` 以免誤入 .env）
+3. `git commit -m "fix/feat: [本次修復清單] (batch deploy)"`
+4. 更新 `docs/BUGS.md` 狀態
+5. `git push`
+
+### 緊急例外（允許中途 push）
+- 網站完全停擺
+- 安全性漏洞
+
 ## Working Rules
 
 1. Before larger feature changes, briefly state the intended change and affected files.

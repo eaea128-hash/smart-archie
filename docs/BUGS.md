@@ -91,6 +91,24 @@ before rendering,
 must assert conditions.length > 0 — empty conditions array is a bug, not a valid state.
 ```
 
+### BUG-009: 舊版記錄無法開啟（UX Dead-End）
+
+- Status: fixed
+- Found: prior session
+- Fixed: 2026-05-29
+- Area: `dashboard.html` — `loadHistoryItem()`
+- Symptom: 舊版記錄（無 `result` / `inputs` 欄位）點擊後僅顯示 Toast「無法開啟」，
+  且歷史記錄列的 onclick 為空字串，使用者完全無法取得任何資訊
+- Root cause: fallback 未提供任何降級 UI；`canOpen = !!(h.result || h.inputs)` 使舊記錄不可點擊
+- Fix:
+  - `loadHistoryItem()` 末尾改為呼叫 `showLegacyCard(item)`
+  - 新增 `showLegacyCard()`：動態建立 `#legacy-modal`，顯示專案名稱/策略/風險/時間摘要；backdrop + ✕ 可關閉
+  - `buildHistoryRow()`：`canOpen = true`（全記錄可點擊），以 `hasFullData` 區分按鈕文字
+  - `shareBtn` 改為以 `hasFullData` 控制（舊記錄不顯示分享按鈕，避免產生空內容分享連結）
+- Regression: 既有新記錄 replay 流程（cf_replay → analyze.html?replay=1）未受影響
+
+---
+
 ## Historical Notes
 
 See `.claude/bugs.md` for older bug history until those entries are cleaned up

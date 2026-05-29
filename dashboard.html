@@ -881,16 +881,17 @@ function buildHistoryRow(h, isDup = false) {
   const styleKey     = h.style || 'executive';
   const styleBadge   = styleKey === 'executive' ? 'badge-gold' : styleKey === 'techpm' ? 'badge-teal' : 'badge-primary';
   const styleLabel   = styleKey === 'executive' ? '高層版' : styleKey === 'techpm' ? '技術PM版' : '完整版';
-  const canOpen      = !!(h.result || h.inputs);
+  const hasFullData  = !!(h.result || h.inputs);
+  const canOpen      = true;   // all records are clickable; loadHistoryItem handles legacy display
   const hasShare     = !!(h.shareToken && h.shareEnabled);
 
   // Action buttons
-  const viewBtn  = canOpen
+  const viewBtn  = hasFullData
     ? `<button class="hist-btn hist-btn-view" onclick="event.stopPropagation();loadHistoryItem('${h.id}')" title="開啟完整分析報告">查看報告</button>`
-    : `<button class="hist-btn" style="background:var(--c-bg);color:var(--c-text-muted);border-color:var(--c-border);cursor:not-allowed;" title="此記錄缺少完整報告，請重新執行分析" disabled>無報告資料</button>`;
+    : `<button class="hist-btn hist-btn-view" onclick="event.stopPropagation();loadHistoryItem('${h.id}')" title="顯示舊版摘要卡" style="opacity:0.7;">查看摘要</button>`;
   const shareBtn = hasShare
     ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();copyShareLink('${h.shareToken}')" title="複製分享連結">🔗 分享</button>`
-    : (canOpen ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();genShareLink('${h.id}')" title="產生分享連結">分享</button>` : '');
+    : (hasFullData ? `<button class="hist-btn hist-btn-share" onclick="event.stopPropagation();genShareLink('${h.id}')" title="產生分享連結">分享</button>` : '');
   const delBtn   = `<button class="hist-btn hist-btn-del" onclick="event.stopPropagation();deleteHistoryItem('${h.id}')" title="刪除此記錄">🗑</button>`;
 
   const cost = h.monthlyCost
@@ -1052,7 +1053,70 @@ function loadHistoryItem(id) {
     return;
   }
 
-  SA.Toast.info('無法開啟', '此記錄未包含完整報告資料，請重新執行分析');
+  // Legacy record: show summary card instead of dead-end toast
+  showLegacyCard(item);
+}
+
+function showLegacyCard(item) {
+  const stratLabels = {
+    rehost: '直接遷移 (Rehost)', relocate: '平台搬遷 (Relocate)',
+    repurchase: '換用 SaaS (Repurchase)', replatform: '平台調整 (Replatform)',
+    refactor: '架構重構 (Refactor)', retain: '暫緩保留 (Retain)', retire: '下線退場 (Retire)',
+  };
+  const risk     = item.risk ?? item.riskScore ?? null;
+  const riskText = risk !== null ? `${risk}%` : '—';
+  const riskColor = risk === null ? 'var(--c-text-muted)'
+    : risk >= 70 ? 'var(--c-danger)' : risk >= 50 ? 'var(--c-warning)' : 'var(--c-success)';
+  const stratText = stratLabels[item.strategy] || item.strategy || '—';
+  const dateText  = item.timestamp
+    ? new Date(item.timestamp).toLocaleDateString('zh-TW', { year:'numeric', month:'long', day:'numeric' })
+    : '—';
+
+  let modal = document.getElementById('legacy-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'legacy-modal';
+    modal.style.cssText = [
+      'position:fixed;inset:0;z-index:9000;',
+      'display:flex;align-items:center;justify-content:center;',
+      'background:rgba(15,43,61,0.7);backdrop-filter:blur(4px);',
+    ].join('');
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="
+      background:var(--c-surface);border:1px solid var(--c-border);border-radius:var(--r-xl);
+      padding:var(--sp-6);max-width:420px;width:90%;box-shadow:var(--shadow-lg);
+    ">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:var(--sp-4);">
+        <h3 style="margin:0;font-size:var(--fs-lg);color:var(--c-text);line-height:1.3;">
+          ${item.projectName || '未命名專案'}
+        </h3>
+        <button onclick="document.getElementById('legacy-modal').style.display='none'"
+          style="background:none;border:none;cursor:pointer;color:var(--c-text-muted);font-size:18px;padding:0 0 0 var(--sp-2);line-height:1;">✕</button>
+      </div>
+      <div style="display:grid;gap:var(--sp-3);">
+        <div style="display:flex;justify-content:space-between;padding:var(--sp-3);background:var(--c-bg);border-radius:var(--r-md);">
+          <span style="font-size:var(--fs-sm);color:var(--c-text-muted);">建議策略</span>
+          <span style="font-size:var(--fs-sm);font-weight:600;color:var(--c-accent-teal);">${stratText}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:var(--sp-3);background:var(--c-bg);border-radius:var(--r-md);">
+          <span style="font-size:var(--fs-sm);color:var(--c-text-muted);">整體風險</span>
+          <span style="font-size:var(--fs-sm);font-weight:600;color:${riskColor};">${riskText}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:var(--sp-3);background:var(--c-bg);border-radius:var(--r-md);">
+          <span style="font-size:var(--fs-sm);color:var(--c-text-muted);">分析時間</span>
+          <span style="font-size:var(--fs-sm);color:var(--c-text);">${dateText}</span>
+        </div>
+      </div>
+      <p style="margin:var(--sp-4) 0 0;font-size:var(--fs-xs);color:var(--c-text-muted);text-align:center;">
+        此記錄為舊版格式，僅顯示摘要。如需完整報告，請重新執行分析。
+      </p>
+    </div>
+  `;
+  modal.style.display = 'flex';
 }
 
 let chartsRendered = false;
@@ -1075,9 +1139,8 @@ function renderCharts() {
         const riskV = h.risk ?? 0;
         const riskC = riskV >= 70 ? 'var(--c-danger)' : riskV >= 50 ? 'var(--c-warning)' : 'var(--c-success)';
         const riskL = riskV >= 70 ? '高風險' : riskV >= 50 ? '中風險' : '低風險';
-        const canOpen = !!(h.result || h.inputs);
-        return `<div class="chart-card" style="cursor:${canOpen?'pointer':'default'};border-left:3px solid ${color};transition:box-shadow var(--t-fast),transform var(--t-fast);"
-          onclick="${canOpen?`loadHistoryItem('${h.id}')`:''}"
+        return `<div class="chart-card" style="cursor:pointer;border-left:3px solid ${color};transition:box-shadow var(--t-fast),transform var(--t-fast);"
+          onclick="loadHistoryItem('${h.id}')"
           onmouseenter="this.style.boxShadow='var(--shadow-md)';this.style.transform='translateY(-2px)'"
           onmouseleave="this.style.boxShadow='';this.style.transform=''">
           <div style="font-weight:600;font-size:13px;color:var(--c-text);margin-bottom:var(--sp-2);line-height:1.4;">${h.projectName || '未命名專案'}</div>
