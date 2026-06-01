@@ -786,7 +786,7 @@
     <aside class="input-panel">
       <div class="input-panel-header">
         <div class="input-panel-title">☁️ 雲端需求分析</div>
-        <div class="input-panel-sub">填寫下方資訊，生成初步雲端需求分析原型</div>
+        <div class="input-panel-sub">填寫下方資訊，生成初步雲端需求盤點與 AI 輔助分析原型</div>
       </div>
       <div style="margin:0 var(--sp-4) var(--sp-3);padding:var(--sp-2) var(--sp-3);background:#fff8e1;border:1px solid #f59e0b;border-radius:var(--r-md);display:flex;align-items:flex-start;gap:8px;">
         <span style="font-size:13px;flex-shrink:0;margin-top:1px;">⚠️</span>
@@ -983,11 +983,12 @@
             <div class="form-group">
               <label class="form-label">預估交易量 / 流量規模</label>
               <select id="txVolume" class="form-select">
-                <option value="low">低：內部系統 / 批次作業（&lt; 1,000 TPS）</option>
-                <option value="medium" selected>中：一般交易系統（1,000–10,000 TPS）</option>
-                <option value="high">高：高併發交易或對外服務（10,000–100,000 TPS）</option>
-                <option value="very_high">超高：大規模公眾服務（&gt; 100,000 TPS）</option>
+                <option value="low">低：內部系統 / 批次 / 低頻交易</option>
+                <option value="medium" selected>中：一般對內或對客服務</option>
+                <option value="high">高：高併發對外服務</option>
+                <option value="very_high">超高：大型公眾平台，需專案級容量評估</option>
               </select>
+              <div class="form-hint" style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:var(--sp-2);line-height:1.5;">TPS 僅供粗略分類，實際容量需依歷史流量、壓測結果與目標架構確認。</div>
             </div>
             <div class="form-group">
               <label class="form-label">流量是否高度波動（高峰/離峰差異大）</label>
@@ -1003,6 +1004,7 @@
                 <option value="medium" selected>高 99.9%（每月允許 43 分鐘停機）</option>
                 <option value="high">極高 99.95%+（每月允許 &lt; 22 分鐘停機）</option>
               </select>
+              <div class="form-hint" style="font-size:var(--fs-xs);color:var(--c-text-muted);margin-top:var(--sp-2);line-height:1.5;">停機時間以 30 天月份粗估，實際 SLA 需依服務合約、系統邊界、計畫性維護、RTO/RPO 與維運窗口定義。</div>
             </div>
             <div class="form-group">
               <label class="form-label">可停機時間容忍度</label>
@@ -3904,10 +3906,19 @@ async function saveToDatabase(result) {
 
 // ── Share analysis via token link ────────────────────────────
 async function shareAnalysis() {
-  if (!currentDbId) { SA.Toast.warning('尚未儲存', '報告尚未同步至雲端，請稍後再試'); return; }
   try {
-    const { data: { session } } = await SupabaseClient.getClient().auth.getSession();
-    if (!session?.access_token) { SA.Toast.warning('請先登入', '需要登入才能分享報告'); return; }
+    const client = SupabaseClient.getClient();
+    const { data: { session } } = client ? await client.auth.getSession() : { data: {} };
+    // 未登入：暫存報告無法分享，明確指引使用者登入後儲存
+    if (!session?.access_token) {
+      SA.Toast.warning('請先登入', '請登入後儲存並建立分享連結');
+      return;
+    }
+    // 已登入但報告尚未寫入雲端（例如儲存失敗）：同樣不可分享
+    if (!currentDbId) {
+      SA.Toast.warning('報告尚未儲存', '請登入後儲存並建立分享連結');
+      return;
+    }
 
     SA.Loading.show('產生分享連結…', '');
     const resp = await fetch('/api/share', {

@@ -102,9 +102,9 @@
 <!-- Error -->
 <div id="errorState" class="error-state" style="display:none;">
   <div style="font-size:56px;margin-bottom:var(--sp-4);">🔒</div>
-  <div data-err-title style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">報告不存在或已停止分享</div>
+  <div data-err-title style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);margin-bottom:var(--sp-2);">報告不存在、已過期或已停止分享</div>
   <div data-err-desc style="color:var(--c-text-muted);margin-bottom:var(--sp-6);">此連結可能已過期，或分享者已取消分享</div>
-  <a href="analyze.html" class="btn btn-primary">建立自己的分析報告</a>
+  <a href="analyze.html" class="btn btn-primary">返回分析頁重新建立報告</a>
 </div>
 
 <!-- Main Content -->
@@ -149,7 +149,7 @@
       為您的企業建立專屬分析報告
     </div>
     <div style="color:rgba(255,255,255,0.7);font-size:var(--fs-sm);margin-bottom:var(--sp-5);max-width:500px;margin-left:auto;margin-right:auto;">
-      CloudFrame 雲端需求分析原型，參考雲端遷移、Landing Zone、金融合規與風險檢核框架，生成前期分析資料，供架構師、資安與法遵覆核討論。
+      CloudFrame 雲端需求盤點與 AI 輔助分析原型，用於前期需求盤點與分析輔助，產出內容需由雲端架構、資安、法遵與 FinOps 專業人員覆核，不作為正式架構設計、採購估算或法遵結論。
     </div>
     <div style="display:flex;gap:var(--sp-3);justify-content:center;flex-wrap:wrap;">
       <a href="register.html" class="btn" style="background:var(--c-gold);color:var(--c-primary);font-weight:700;padding:12px 28px;">免費開始使用</a>
@@ -158,7 +158,7 @@
   </div>
 
   <div style="text-align:center;padding:var(--sp-4);color:var(--c-text-muted);font-size:var(--fs-xs);">
-    此報告由 <strong>CloudFrame</strong> 雲端需求分析原型生成 ·
+    此報告由 <strong>CloudFrame</strong> 雲端需求盤點與 AI 輔助分析原型生成 ·
     <a href="index.html" style="color:var(--c-accent-teal);">了解更多</a>
   </div>
 </div>
@@ -193,14 +193,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+// Hide every report module so an error state never shows empty KPI / 策略 /
+// 風險 / Landing Zone / 成本 panels alongside the error message.
+function hideReportModules() {
+  ['loadingState', 'shareHero', 'shareContent'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+}
+
 function showError() {
-  document.getElementById('loadingState').style.display = 'none';
-  document.getElementById('errorState').style.display   = 'block';
+  hideReportModules();
+  document.getElementById('errorState').style.display = 'block';
 }
 
 // Report exists but rendering hit an error — show a distinct, non-misleading state
 function showRenderError() {
-  document.getElementById('loadingState').style.display = 'none';
+  hideReportModules();
   const err = document.getElementById('errorState');
   const titleEl = err.querySelector('[data-err-title]');
   const descEl  = err.querySelector('[data-err-desc]');
@@ -210,6 +219,10 @@ function showRenderError() {
 }
 
 function renderReport(analysis) {
+  // Reveal the report shell first so Chart.js renders into a sized canvas.
+  // If anything below throws, the caller's catch runs showRenderError(),
+  // which calls hideReportModules() to hide these again — so a render
+  // failure never leaves empty KPI / 策略 / 風險 / LZ / 成本 panels on screen.
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('shareHero').style.display    = '';
   document.getElementById('shareContent').style.display = '';
