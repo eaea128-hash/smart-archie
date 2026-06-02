@@ -1793,6 +1793,22 @@ function renderResult(r, style) {
 
   const { executiveSummary: exec, strategy6R, kpi, landingZone: lz, costEstimate: cost, riskRadar: risk, presentation, techPM, nextSteps, decisions } = r;
 
+  // Cost sanity guard — LLM-generated scenarios occasionally violate low < mid < high
+  // (e.g. conservative=$166, aggressive==recommended), producing contradictory display
+  // numbers. The headline (mid = recommended) is the trusted value; when the band is
+  // inconsistent or absurd, re-derive low/high from mid so the report never self-contradicts.
+  if (cost && typeof cost.mid === 'number' && cost.mid > 0) {
+    const bandBroken = !(cost.low < cost.mid && cost.mid < cost.high)
+                       || cost.low < cost.mid * 0.4
+                       || cost.high > cost.mid * 2.5;
+    if (bandBroken) {
+      cost.low  = Math.round(cost.mid * 0.75);
+      cost.high = Math.round(cost.mid * 1.35);
+      cost.annualLow  = cost.low  * 12;
+      cost.annualHigh = cost.high * 12;
+    }
+  }
+
   let html = `
   <!-- Action Bar -->
   <div class="result-actions animate-down">
@@ -2085,7 +2101,8 @@ function renderResult(r, style) {
     <div class="cost-hero">
       <div class="cost-hero-label">每月預估費用 (USD)</div>
       <div class="cost-hero-amount">$${cost.mid.toLocaleString()}</div>
-      <div class="cost-hero-unit">中估值（低：$${cost.low.toLocaleString()} ～ 高：$${cost.high.toLocaleString()}）</div>
+      <div class="cost-hero-unit">中估值</div>
+      <div class="cost-hero-range">區間 $${cost.low.toLocaleString()} – $${cost.high.toLocaleString()}（低－高）</div>
     </div>
     <div style="padding:var(--sp-4);background:var(--c-surface);border:1px solid var(--c-border-light);border-radius:var(--r-xl);box-shadow:var(--shadow-sm);">
       <div style="font-size:11px;font-weight:600;color:var(--c-success);margin-bottom:4px;">💡 成本優化建議</div>
@@ -2096,12 +2113,12 @@ function renderResult(r, style) {
   } else {
   // Defensive fallback: API path may not include breakdown (computed from mid proportions)
   const bd = cost.breakdown || {
-    compute:   Math.round(cost.mid * 0.38),
+    compute:   Math.round(cost.mid * 0.40),
     database:  Math.round(cost.mid * 0.18),
     storage:   Math.round(cost.mid * 0.15),
     network:   Math.round(cost.mid * 0.12),
-    security:  Math.round(cost.mid * 0.08),
-    dr_backup: Math.round(cost.mid * 0.04),
+    security:  Math.round(cost.mid * 0.09),
+    dr_backup: Math.round(cost.mid * 0.06),
   };
   html += `
   <div class="result-section animate-up">
@@ -2112,15 +2129,15 @@ function renderResult(r, style) {
     <div class="cost-hero">
       <div class="cost-hero-label">每月預估費用 (USD)</div>
       <div class="cost-hero-amount">$${cost.mid.toLocaleString()}</div>
-      <div class="cost-hero-unit">中估值（含基礎設施 + 安全工具 + 管理費用）</div>
-      <div class="cost-hero-range">低估：$${cost.low.toLocaleString()} ～ 高估：$${cost.high.toLocaleString()}</div>
+      <div class="cost-hero-unit">中估值（含基礎設施 + 安全 + 管理費用）</div>
+      <div class="cost-hero-range">區間 $${cost.low.toLocaleString()} – $${cost.high.toLocaleString()}（低－高）</div>
     </div>
     <div class="cost-breakdown-grid">
       <div class="cost-item"><span class="cost-item-name">🖥️ Compute / VM</span><span class="cost-item-val">$${bd.compute.toLocaleString()}</span></div>
       <div class="cost-item"><span class="cost-item-name">🗄️ 資料庫 / RDS</span><span class="cost-item-val">$${bd.database.toLocaleString()}</span></div>
       <div class="cost-item"><span class="cost-item-name">💾 Storage / S3</span><span class="cost-item-val">$${bd.storage.toLocaleString()}</span></div>
       <div class="cost-item"><span class="cost-item-name">🌐 Network / CDN</span><span class="cost-item-val">$${bd.network.toLocaleString()}</span></div>
-      <div class="cost-item"><span class="cost-item-name">🔒 安全工具</span><span class="cost-item-val">$${bd.security.toLocaleString()}</span></div>
+      <div class="cost-item"><span class="cost-item-name">🔒 安全與管理</span><span class="cost-item-val">$${bd.security.toLocaleString()}</span></div>
       <div class="cost-item"><span class="cost-item-name">☁️ DR / Backup</span><span class="cost-item-val">$${bd.dr_backup.toLocaleString()}</span></div>
     </div>
     <div class="card mb-4">

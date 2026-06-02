@@ -469,7 +469,7 @@ function score6R(inputs) {
  *               complianceLevel, hasPersonalData, hasFinancialData,
  *               envCount, migrationDriver, industry
  */
-function calculateFinOpsTCO(inputs) {
+export function calculateFinOpsTCO(inputs) {
   const provider    = (inputs.targetCloud || 'AWS').toLowerCase();
   const tier        = inputs.companySize || 'medium';
   const n           = Math.max(1, parseInt(inputs.systemCount) || 20);
@@ -523,27 +523,39 @@ function calculateFinOpsTCO(inputs) {
   // ── Support tier ─────────────────────────────────────────────────────────
   const suppPct   = tier === 'enterprise' ? 0.15 : 0.10;
 
-  // ── Base on-demand total ─────────────────────────────────────────────────
-  const base      = (totalCompute + totalDB + totalStorage + totalNetwork + totalSec + drCost + managed) * envMult;
-  const support   = Math.round(base * suppPct);
-  const onDemand  = Math.round(base + support);
+  // ── Deterministic monthly base — every number is program-computed ─────────
+  // The LLM never produces monetary values; it only classifies tiers. mid is the
+  // on-demand list sum of all components; low/high are the SAME base scaled by
+  // fixed coefficients, so the band is always ordered and the ratio is bounded.
+  const compEff = Math.round(totalCompute * envMult);
+  const dbEff   = Math.round(totalDB      * envMult);
+  const storEff = Math.round(totalStorage * envMult);
+  const netEff  = Math.round(totalNetwork * envMult);
+  const secEff  = Math.round(totalSec     * envMult);
+  const drEff   = Math.round(drCost       * envMult);
+  const mgmtEff = Math.round(managed      * envMult);
+  const subtotal = compEff + dbEff + storEff + netEff + secEff + drEff + mgmtEff;
+  const support  = Math.round(subtotal * suppPct);
+  const onDemand = subtotal + support;        // = mid (中估基準)
 
-  // ── Three FinOps scenarios ────────────────────────────────────────────────
-  const conservative = Math.round(onDemand * 1.20);  // over-provisioned, no commitment
+  // ── Three estimates = ONE base × coefficients (low<mid<high, high/low=2.29) ─
+  // low  0.70 → 樂觀：充分利用 Savings Plan / RI、無突發流量
+  // mid  1.00 → 基準：on-demand 列表價總和
+  // high 1.60 → 保守：含 HA 多 AZ、跨區流量、突發尖峰緩衝
+  const COST_COEF = { low: 0.70, mid: 1.00, high: 1.60 };
+  const recommended  = Math.round(onDemand * COST_COEF.mid);
+  const aggressive   = Math.round(onDemand * COST_COEF.low);
+  const conservative = Math.round(onDemand * COST_COEF.high);
 
-  const recommended  = Math.round((
-    totalCompute * 0.6 * (1 - disc.one_yr)  + totalCompute * 0.4 +
-    totalDB      * 0.7 * (1 - disc.one_yr)  + totalDB      * 0.3 +
-    totalStorage + totalNetwork + totalSec + drCost + managed + support
-  ) * envMult);
-
-  const aggressive   = Math.round((
-    totalCompute * 0.8 * (1 - disc.three_yr) + totalCompute * 0.2 * (1 - disc.spot) +
-    totalDB      * 0.8 * (1 - disc.three_yr) +
-    totalStorage * 0.70 +       // Intelligent-Tiering / auto tiering
-    totalNetwork * 0.80 +       // CDN offload reduces egress
-    totalSec + drCost * 0.60 + managed * 0.90 + support * 0.80
-  ) * envMult);
+  // ── 6-item breakdown scaled so the displayed items sum to mid (誤差 <1%) ───
+  // support is distributed proportionally; managed services fold into security line.
+  const k = onDemand / Math.max(1, subtotal);
+  const bdCompute  = Math.round(compEff * k);
+  const bdDatabase = Math.round(dbEff   * k);
+  const bdStorage  = Math.round(storEff * k);
+  const bdNetwork  = Math.round(netEff  * k);
+  const bdSecurity = Math.round((secEff + mgmtEff) * k);
+  const bdDr       = Math.round(drEff   * k);
 
   // ── Migration cost (IBM: team composition × hours × APAC rates) ──────────
   const compFactor  = compMult * (drTier.cost_pct > 0.3 ? 1.35 : 1.0) * (hasFinData ? 1.25 : 1.0);
@@ -558,33 +570,51 @@ function calculateFinOpsTCO(inputs) {
     ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}，ROI ${Math.round(saving3yr / (migCost || 1) * 100)}%`
     : '3年達損益平衡';
 
+  // ── Self-check: invariants must hold before returning (誤差防線) ──────────
+  const bdSum = bdCompute + bdDatabase + bdStorage + bdNetwork + bdSecurity + bdDr;
+  const costSane = aggressive > 0 && aggressive < recommended && recommended < conservative
+                && (conservative / aggressive) <= 4
+                && Math.abs(bdSum - recommended) / recommended < 0.05;
+  if (!costSane) {
+    // Mathematically should never happen with fixed coefficients — log for monitoring.
+    console.warn('[FinOps] cost self-check failed', { aggressive, recommended, conservative, bdSum });
+  }
+
   return {
     conservative, recommended, aggressive,
     migration_cost_usd: migCost,
     roi_3yr:        roi3yr,
     payback_months: payback,
     breakdown: {
-      compute_monthly:            Math.round(totalCompute),
+      // ── 6-item display breakdown (sums to mid) ──
+      compute:                    bdCompute,
+      database:                   bdDatabase,
+      storage:                    bdStorage,
+      network:                    bdNetwork,
+      security:                   bdSecurity,
+      dr_backup:                  bdDr,
+      // ── detailed metadata (for tooltips / drill-down) ──
+      compute_monthly:            bdCompute,
       compute_per_server:         vmSpec.monthly,
       vm_type:                    vmSpec.type,
       vm_spec:                    `${vmSpec.vcpu} vCPU / ${vmSpec.ram}GB RAM`,
-      database_monthly:           Math.round(totalDB),
+      database_monthly:           bdDatabase,
       db_type:                    dbSpec.type,
       db_count:                   dbCount,
-      storage_monthly:            Math.round(totalStorage),
+      storage_monthly:            bdStorage,
       storage_tb:                 stor.tb,
       storage_class:              stor.hotCls,
-      network_monthly:            Math.round(totalNetwork),
+      network_monthly:            bdNetwork,
       egress_tb:                  Math.round(egressTB * 10) / 10,
-      managed_services_monthly:   Math.round(managed),
-      security_compliance_monthly:Math.round(totalSec),
-      dr_monthly:                 Math.round(drCost),
+      managed_services_monthly:   mgmtEff,
+      security_compliance_monthly:bdSecurity,
+      dr_monthly:                 bdDr,
       dr_strategy:                drTier.label,
       dr_rto:                     drTier.rto,
       dr_rpo:                     drTier.rpo,
-      support_monthly:            Math.round(support),
+      support_monthly:            support,
     },
-    methodology: `IBM FinOps TCO | ${provider.toUpperCase()} ${vmSpec.type} (${vmSpec.vcpu}vCPU/${vmSpec.ram}GB) × ${n} servers | DB: ${dbSpec.type} × ${dbCount} | DR: ${drTier.label} (+${Math.round(drTier.cost_pct * 100)}%) | Storage: ${stor.tb}TB tiered | Egress: ${Math.round(egressTB * 10) / 10}TB`,
+    methodology: `Deterministic FinOps | ${provider.toUpperCase()} ${vmSpec.type} (${vmSpec.vcpu}vCPU/${vmSpec.ram}GB) × ${n} servers | DB: ${dbSpec.type} × ${dbCount} | DR: ${drTier.label} (+${Math.round(drTier.cost_pct * 100)}%) | Storage: ${stor.tb}TB tiered | Egress: ${Math.round(egressTB * 10) / 10}TB | 三估同源 ×{0.7,1.0,1.6}`,
   };
 }
 
@@ -1052,9 +1082,9 @@ function buildServerFallbackResult(inputs) {
     },
     cost: {
       scenarios: {
-        conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: 'On-Demand 定價，20% 容量緩衝，最小化管理服務配置' },
-        recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: '60% Reserved Instances（1年期）+ 右側配置，IBM FinOps 建議情境' },
-        aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: '80% Reserved Instances（3年期）+ Spot/Serverless + PaaS 整合' },
+        conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: '保守估計：含 HA 多 AZ、跨區流量與突發尖峰緩衝（基準 ×1.6）' },
+        recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: '中估基準：on-demand 列表價總和，右側配置（基準 ×1.0）' },
+        aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: '樂觀估計：充分利用 Savings Plan / Reserved Instances（基準 ×0.7）' },
       },
       migration_cost_usd: tco.migration_cost_usd,
       roi_3yr:        tco.roi_3yr,
@@ -1552,31 +1582,36 @@ export async function onRequest(context) {
         };
       }
 
-      // ── Server-side cost: merge FinOps TCO if Claude returned 0s ─────────────
+      // ── Server-side cost: cost numbers are ALWAYS program-computed ───────────
+      // The LLM never produces monetary values — it only classifies tiers and may
+      // supply rationale text. We unconditionally overwrite every cost number with
+      // the deterministic FinOps engine, so the band is reproducible and internally
+      // consistent (low < mid < high, high/low ≤ 4, breakdown sums to mid). This
+      // eliminates the class of bug where the LLM emitted contradictory values
+      // (e.g. conservative=$166, aggressive==recommended).
       try {
         const tco = calculateFinOpsTCO(inputs);
-        const cs  = jsonResult.cost?.scenarios || {};
-        const recM = cs.recommended?.monthly_usd;
-        // Only override if Claude returned 0 or missing
-        if (!recM || recM === 0) {
-          jsonResult.cost = jsonResult.cost || {};
-          jsonResult.cost.scenarios = {
-            conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: 'On-Demand 定價，20% 容量緩衝，最小化管理服務' },
-            recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: '60% Reserved Instances (1年期) + 40% On-Demand，右側配置' },
-            aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: '80% Reserved Instances (3年期) + Spot/Serverless，PaaS整合' },
-          };
-          jsonResult.cost.migration_cost_usd = tco.migration_cost_usd;
-          jsonResult.cost.roi_3yr            = tco.roi_3yr;
-          jsonResult.cost.payback_months     = tco.payback_months;
-          jsonResult.cost.cost_drivers       = [
-            `運算資源 (${inputs.targetCloud}): $${tco.breakdown.compute_monthly}/月`,
-            `資料庫託管服務: $${tco.breakdown.database_monthly}/月`,
-            `儲存空間: $${tco.breakdown.storage_monthly}/月`,
-            `網路流量: $${tco.breakdown.network_monthly}/月`,
-            `安全監控服務: $${tco.breakdown.managed_services_monthly}/月`,
-            tco.breakdown.dr_monthly > 0 ? `DR 備援: $${tco.breakdown.dr_monthly}/月` : null,
-          ].filter(Boolean);
-        }
+        // Preserve any LLM-written rationale text, but replace all numbers.
+        const llmDesc = jsonResult.cost?.scenarios || {};
+        jsonResult.cost = jsonResult.cost || {};
+        jsonResult.cost.scenarios = {
+          conservative: { monthly_usd: tco.conservative, annual_usd: tco.conservative * 12, description: llmDesc.conservative?.description || '保守估計：含 HA 多 AZ、跨區流量與突發尖峰緩衝' },
+          recommended:  { monthly_usd: tco.recommended,  annual_usd: tco.recommended  * 12, description: llmDesc.recommended?.description  || '中估基準：on-demand 列表價總和（右側配置）' },
+          aggressive:   { monthly_usd: tco.aggressive,   annual_usd: tco.aggressive   * 12, description: llmDesc.aggressive?.description   || '樂觀估計：充分利用 Savings Plan / Reserved Instances' },
+        };
+        jsonResult.cost.breakdown          = tco.breakdown;
+        jsonResult.cost.migration_cost_usd = tco.migration_cost_usd;
+        jsonResult.cost.roi_3yr            = tco.roi_3yr;
+        jsonResult.cost.payback_months     = tco.payback_months;
+        jsonResult.cost.methodology        = tco.methodology;
+        jsonResult.cost.cost_drivers       = [
+          `運算資源 (${inputs.targetCloud}): $${tco.breakdown.compute}/月`,
+          `資料庫託管服務: $${tco.breakdown.database}/月`,
+          `儲存空間: $${tco.breakdown.storage}/月`,
+          `網路流量: $${tco.breakdown.network}/月`,
+          `安全與管理服務: $${tco.breakdown.security}/月`,
+          tco.breakdown.dr_backup > 0 ? `DR 備援: $${tco.breakdown.dr_backup}/月` : null,
+        ].filter(Boolean);
       } catch (tcoErr) {
         console.warn('[FinOps] TCO calculation error:', tcoErr.message);
       }

@@ -312,21 +312,34 @@ function renderReport(analysis) {
 
   // Cost
   const cost = r.costEstimate || {};
+  // Cost sanity guard — LLM-generated scenarios occasionally violate low < mid < high
+  // (e.g. conservative=$166, aggressive==recommended). The headline (mid) is the trusted
+  // value; when the band is inconsistent or absurd, re-derive low/high from mid so the
+  // shared report never shows contradictory numbers.
+  if (typeof cost.mid === 'number' && cost.mid > 0) {
+    const bandBroken = !(cost.low < cost.mid && cost.mid < cost.high)
+                       || cost.low < cost.mid * 0.4
+                       || cost.high > cost.mid * 2.5;
+    if (bandBroken) {
+      cost.low  = Math.round(cost.mid * 0.75);
+      cost.high = Math.round(cost.mid * 1.35);
+    }
+  }
   if (cost.mid || cost.monthly) {
     const mid = cost.mid || cost.monthly || 0;
     document.getElementById('costContent').innerHTML = `
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:var(--sp-4);">
         <div style="text-align:center;padding:var(--sp-4);background:var(--c-bg);border-radius:var(--r-lg);border:1px solid var(--c-border);">
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">保守估計（月）</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">低估（樂觀，月）</div>
           <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);">$${(cost.low||Math.round(mid*0.7)).toLocaleString()}</div>
         </div>
         <div style="text-align:center;padding:var(--sp-4);background:var(--c-primary-lt);border-radius:var(--r-lg);border:2px solid var(--c-accent-teal);">
-          <div style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:600;">建議方案（月）</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-accent-teal);font-weight:600;">中估（建議，月）</div>
           <div style="font-size:var(--fs-2xl);font-weight:800;color:var(--c-primary);">$${mid.toLocaleString()}</div>
         </div>
         <div style="text-align:center;padding:var(--sp-4);background:var(--c-bg);border-radius:var(--r-lg);border:1px solid var(--c-border);">
-          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">積極方案（月）</div>
-          <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);">$${(cost.high||Math.round(mid*1.4)).toLocaleString()}</div>
+          <div style="font-size:var(--fs-xs);color:var(--c-text-muted);">高估（保守，月）</div>
+          <div style="font-size:var(--fs-xl);font-weight:700;color:var(--c-primary);">$${(cost.high||Math.round(mid*1.6)).toLocaleString()}</div>
         </div>
       </div>
       <div style="margin-top:var(--sp-3);text-align:center;font-size:var(--fs-xs);color:var(--c-text-muted);">

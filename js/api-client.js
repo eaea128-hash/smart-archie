@@ -136,17 +136,24 @@
     // Always override with FinOps calculator (input-aware, not bucket-based)
     const fc = _computeFinOpsCost(inputs, null);
     const sc = fc.scenarios || {};
+    // conservative = highest cost, aggressive = lowest cost → enforce low < mid < high
+    const _mid  = sc.recommended?.monthly_usd  || result.costEstimate?.mid  || 5000;
+    const _low  = sc.aggressive?.monthly_usd   || result.costEstimate?.low  || Math.round(_mid * 0.7);
+    const _high = sc.conservative?.monthly_usd || result.costEstimate?.high || Math.round(_mid * 1.4);
+    const lowM  = Math.min(_low, _mid, _high);
+    const highM = Math.max(_low, _mid, _high);
     result.costEstimate = {
       ...(result.costEstimate || {}),
-      low:          sc.conservative?.monthly_usd || result.costEstimate?.low  || 3000,
-      mid:          sc.recommended?.monthly_usd  || result.costEstimate?.mid  || 5000,
-      high:         sc.aggressive?.monthly_usd   || result.costEstimate?.high || 7000,
-      annualLow:    (sc.conservative?.monthly_usd || 3000) * 12,
-      annualHigh:   (sc.aggressive?.monthly_usd   || 7000) * 12,
-      annual:       (sc.recommended?.monthly_usd  || 5000) * 12,
+      low:          lowM,
+      mid:          _mid,
+      high:         highM,
+      annualLow:    lowM  * 12,
+      annualHigh:   highM * 12,
+      annual:       _mid  * 12,
       roi3yr:       fc.roi_3yr || '',
       paybackMths:  fc.payback_months || 18,
       scenarios:    sc,
+      breakdown:    fc.breakdown || result.costEstimate?.breakdown,
       drivers:      fc.cost_drivers.map(d => ({ name: d, pct: 0 })),
       pricingNote:  fc.pricing_data_note || null,
     };
@@ -416,9 +423,19 @@
    * All inputs from the form are wired through — no flat buckets.
    */
   function _computeFinOpsCost(inputs, serverCost) {
-    // If server already sent verified numbers, pass them through
-    const recM = serverCost?.scenarios?.recommended?.monthly_usd;
-    if (recM && recM > 0) return serverCost;
+    // If server already sent verified, internally-consistent numbers, pass them through.
+    // Reject inconsistent LLM scenarios (must satisfy conservative > recommended > aggressive,
+    // all positive, aggressive savings ≤ 75% of conservative) so we recompute deterministically
+    // instead of trusting contradictory values like conservative=$166, aggressive==recommended.
+    const sc0  = serverCost?.scenarios;
+    const consM = sc0?.conservative?.monthly_usd;
+    const recM  = sc0?.recommended?.monthly_usd;
+    const aggM  = sc0?.aggressive?.monthly_usd;
+    const serverSane =
+      consM > 0 && recM > 0 && aggM > 0 &&
+      consM > recM && recM > aggM &&
+      aggM >= consM * 0.25;
+    if (serverSane) return serverCost;
 
     const provider = (inputs.targetCloud || 'AWS').toLowerCase().split('-')[0];
     const cat  = VM_CAT[provider] || VM_CAT.aws;
@@ -469,27 +486,34 @@
     const envCount = Math.max(1, parseInt(inputs.envCount) || 2);
     const envMult  = envCount >= 4 ? 1.30 : envCount >= 3 ? 1.15 : 1.00;
 
-    // ── On-demand total ───────────────────────────────────────────────────
+    // ── Deterministic monthly base (mirrors functions/api/analyze.js) ─────────
+    // mid = on-demand list sum; low/high are the SAME base × fixed coefficients.
     const suppPct  = tier === 'enterprise' ? 0.15 : 0.10;
-    const base     = (totalCompute + totalDB + totalStorage + totalNetwork + totalSec + drCost + managed) * envMult;
-    const support  = Math.round(base * suppPct);
-    const onDemand = Math.round(base + support);
+    const compEff = Math.round(totalCompute * envMult);
+    const dbEff   = Math.round(totalDB      * envMult);
+    const storEff = Math.round(totalStorage * envMult);
+    const netEff  = Math.round(totalNetwork * envMult);
+    const secEff  = Math.round(totalSec     * envMult);
+    const drEff   = Math.round(drCost       * envMult);
+    const mgmtEff = Math.round(managed      * envMult);
+    const subtotal = compEff + dbEff + storEff + netEff + secEff + drEff + mgmtEff;
+    const support  = Math.round(subtotal * suppPct);
+    const onDemand = subtotal + support;            // = mid
 
-    // ── IBM FinOps 3 scenarios ────────────────────────────────────────────
-    const conservative_m = Math.round(onDemand * 1.20);
+    // ── Three estimates = ONE base × coefficients (low<mid<high, high/low=2.29) ─
+    const COST_COEF = { low: 0.70, mid: 1.00, high: 1.60 };
+    const recommended_m  = Math.round(onDemand * COST_COEF.mid);
+    const aggressive_m   = Math.round(onDemand * COST_COEF.low);
+    const conservative_m = Math.round(onDemand * COST_COEF.high);
 
-    const recommended_m  = Math.round((
-      totalCompute * 0.6 * (1 - disc.one_yr)   + totalCompute * 0.4 +
-      totalDB      * 0.7 * (1 - disc.one_yr)   + totalDB      * 0.3 +
-      totalStorage + totalNetwork + totalSec + drCost + managed + support
-    ) * envMult);
-
-    const aggressive_m   = Math.round((
-      totalCompute * 0.8 * (1 - disc.three_yr) + totalCompute * 0.2 * (1 - disc.spot) +
-      totalDB      * 0.8 * (1 - disc.three_yr) +
-      totalStorage * 0.70 + totalNetwork * 0.80 +
-      totalSec + drCost * 0.60 + managed * 0.90 + support * 0.80
-    ) * envMult);
+    // ── 6-item breakdown scaled so displayed items sum to mid ─────────────────
+    const k = onDemand / Math.max(1, subtotal);
+    const bdCompute  = Math.round(compEff * k);
+    const bdDatabase = Math.round(dbEff   * k);
+    const bdStorage  = Math.round(storEff * k);
+    const bdNetwork  = Math.round(netEff  * k);
+    const bdSecurity = Math.round((secEff + mgmtEff) * k);
+    const bdDr       = Math.round(drEff   * k);
 
     // ── Migration cost (team × hours × APAC rates) ────────────────────────
     const compFactor = compMult * (drTier.cost_pct > 0.3 ? 1.35 : 1.0) * (hasFin ? 1.25 : 1.0);
@@ -504,27 +528,31 @@
       scenarios: {
         conservative: {
           monthly_usd: conservative_m, annual_usd: conservative_m * 12,
-          description: `On-Demand 定價 + 20% 容量緩衝（${cloud} ${vmSpec.type}, ${n} servers）`,
+          description: `保守估計：含 HA 多 AZ、跨區流量與突發尖峰緩衝（基準 ×1.6）`,
         },
         recommended: {
           monthly_usd: recommended_m,  annual_usd: recommended_m  * 12,
-          description: `60% Reserved 1年期 + 右側配置（IBM FinOps 建議）`,
+          description: `中估基準：on-demand 列表價總和，右側配置（基準 ×1.0）`,
         },
         aggressive: {
           monthly_usd: aggressive_m,   annual_usd: aggressive_m   * 12,
-          description: `80% Reserved 3年期 + Spot/Preemptible + PaaS 整合`,
+          description: `樂觀估計：充分利用 Savings Plan / Reserved Instances（基準 ×0.7）`,
         },
+      },
+      breakdown: {
+        compute: bdCompute, database: bdDatabase, storage: bdStorage,
+        network: bdNetwork, security: bdSecurity, dr_backup: bdDr,
       },
       migration_cost_usd: migCost,
       roi_3yr:       saving3yr > 0 ? `3年節省 USD $${Math.round(saving3yr).toLocaleString()}` : '3年達損益平衡',
       payback_months: payback,
       cost_drivers: [
-        `${cloud} ${vmSpec.type} (${vmSpec.vcpu}vCPU/${vmSpec.ram}GB) × ${n} servers × ${txMult}x: $${totalCompute}/月`,
-        `資料庫 ${dbSpec.type} × ${dbCount}: $${totalDB}/月`,
-        `儲存 ${stor.tb}TB（分層：hot/warm/cool/archive）: $${totalStorage}/月`,
-        `網路出口 ${Math.round(egressTB * 10) / 10}TB（分級計價）: $${totalNetwork}/月`,
-        `安全合規（${inputs.complianceLevel || 'medium'} 等級${hasFin ? '，金融資料' : ''}）: $${totalSec}/月`,
-        `DR 備援: ${drTier.label} (RTO ${drTier.rto}, +${Math.round(drTier.cost_pct * 100)}%): $${drCost}/月`,
+        `${cloud} ${vmSpec.type} (${vmSpec.vcpu}vCPU/${vmSpec.ram}GB) × ${n} servers × ${txMult}x: $${bdCompute}/月`,
+        `資料庫 ${dbSpec.type} × ${dbCount}: $${bdDatabase}/月`,
+        `儲存 ${stor.tb}TB（分層：hot/warm/cool/archive）: $${bdStorage}/月`,
+        `網路出口 ${Math.round(egressTB * 10) / 10}TB（分級計價）: $${bdNetwork}/月`,
+        `安全與管理（${inputs.complianceLevel || 'medium'} 等級${hasFin ? '，金融資料' : ''}）: $${bdSecurity}/月`,
+        `DR 備援: ${drTier.label} (RTO ${drTier.rto}, +${Math.round(drTier.cost_pct * 100)}%): $${bdDr}/月`,
         ...(envCount >= 3 ? [`多環境 ${envCount} 套 × ${envMult}: +${Math.round((envMult - 1) * 100)}%`] : []),
       ],
     };
@@ -657,12 +685,13 @@
     const computedCost = _computeFinOpsCost(inputs, cost);
     const computedScenarios = computedCost.scenarios || {};
     const recCost  = computedScenarios.recommended  || {};
-    const consCost = computedScenarios.conservative || {};
-    const aggCost  = computedScenarios.aggressive   || {};
+    const consCost = computedScenarios.conservative || {};  // 高估 (×1.6)
+    const aggCost  = computedScenarios.aggressive   || {};  // 低估 (×0.7)
     const mid  = recCost.monthly_usd  || 5000;
-    // Bug fix: API may return scenarios in wrong order → always enforce low < mid < high
-    const rawLow  = consCost.monthly_usd || Math.round(mid * 0.7);
-    const rawHigh = aggCost.monthly_usd  || Math.round(mid * 1.4);
+    // conservative = high, aggressive = low (same-source coefficients). min/max is a
+    // belt-and-braces guard so the band is always ordered even on unexpected data.
+    const rawLow  = aggCost.monthly_usd  || Math.round(mid * 0.7);
+    const rawHigh = consCost.monthly_usd || Math.round(mid * 1.6);
     const low  = Math.min(rawLow, mid, rawHigh);
     const high = Math.max(rawLow, mid, rawHigh);
     // Bug fix: Claude API sometimes returns migration_cost_usd as total project cost (~40x monthly).
@@ -679,16 +708,18 @@
       annual:       mid  * 12,
       migrationLow:  Math.round(migBase * 0.8),
       migrationHigh: Math.round(migBase * 1.3),
-      // breakdown: same proportions as analyze-engine.js so renderResult never crashes on undefined
-      breakdown: {
-        compute:   Math.round(mid * 0.38),
-        database:  Math.round(mid * 0.18),
-        storage:   Math.round(mid * 0.15),
-        network:   Math.round(mid * 0.12),
-        security:  Math.round(mid * 0.08),
-        mgmt:      Math.round(mid * 0.05),
-        dr_backup: Math.round(mid * 0.04),
-      },
+      // breakdown: prefer the deterministic 6-item breakdown (sums to mid); fall back to
+      // proportions that also sum to 1.0 over the 6 displayed items so total ≈ mid.
+      breakdown: (computedCost.breakdown && computedCost.breakdown.compute)
+        ? { ...computedCost.breakdown }
+        : {
+            compute:   Math.round(mid * 0.40),
+            database:  Math.round(mid * 0.18),
+            storage:   Math.round(mid * 0.15),
+            network:   Math.round(mid * 0.12),
+            security:  Math.round(mid * 0.09),
+            dr_backup: Math.round(mid * 0.06),
+          },
       drivers: (computedCost.cost_drivers || cost.cost_drivers || ['Compute', 'Storage', 'Network']).map(d =>
         typeof d === 'string' ? { name: d, pct: 30 } : d),
       roi3yr:      computedCost.roi_3yr || cost.roi_3yr || '',
