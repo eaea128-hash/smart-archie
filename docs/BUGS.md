@@ -109,6 +109,28 @@ must assert conditions.length > 0 — empty conditions array is a bug, not a val
 
 ---
 
+## BUG-020: 成本三估互相矛盾 + 摘要/簡報未同步區間（Algorithm + Consistency）
+
+- Status: fixed
+- Found: 2026-06-02 — 報告顯示「中估值 $104,632 / 低估 $166 ～ 高估 $104,632」（中=高重複、低估荒謬）
+- Fixed: 2026-06-02
+- Area: `functions/api/analyze.js`、`js/api-client.js`、`analyze.html`、`share.html`、`js/export.js`
+- Root cause: 伺服器在 LLM 回傳 `recommended>0` 時直接信任 LLM 產生的成本情境；LLM 不做數值運算，
+  低/中/高各自獨立猜測，導致 conservative=$166、aggressive==recommended 等矛盾值
+- Fix:
+  - `calculateFinOpsTCO` 改為三估同源 `base × 係數`（low 0.7 / mid 1.0 / high 1.6），數學上保證 低<中<高
+  - 伺服器一律使用程式計算成本，忽略 LLM 金額；AI 僅負責級距分類與文字說明
+  - `_computeFinOpsCost`（client）鏡像同一模型；新增 `serverSane` 驗證才採用伺服器值
+  - 產出前一致性自檢 assert：`low<mid<high`、`high/low≤4`、`|明細加總-mid|/mid<0.05`、`mid>0`
+  - 顯示層 band guard：偵測到區間破損時由 mid 重新推導 low/high
+  - 大字只顯示中估值，區間另起一行；移除「中估=高估」重複
+  - 同步五條輸出路徑：完整報告 / 分享頁 / Markdown 摘要 / 簡報 / 儀表板
+- Test: `test/cost-sanity.test.mjs` — 15 checks（S1–S10 band/sanity + A1–A5 台灣銀行核心帳務系統實機驗收），全綠
+- Lesson: 金額一律由程式計算，三估必須同源；新增任何成本顯示元件時，需追蹤資料形狀經過 API 與本地引擎兩條路徑
+- Known follow-up: network egress 估算偏高（銀行案例約佔 39%），待校準（非本次需求）
+
+---
+
 ## Historical Notes
 
 See `.claude/bugs.md` for older bug history until those entries are cleaned up
