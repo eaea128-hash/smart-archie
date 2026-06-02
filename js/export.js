@@ -213,6 +213,19 @@
       retire:      '下線退場 (Retire)',
     };
 
+    // Cost band guard — same logic as analyze.html/share.html: mid is the trusted
+    // value; re-derive low/high if the stored band is inconsistent or absurd, so the
+    // Markdown summary never shows a single number without a coherent range.
+    const cMid = r.costEstimate?.mid || 0;
+    let cLow  = r.costEstimate?.low  || 0;
+    let cHigh = r.costEstimate?.high || 0;
+    if (cMid > 0) {
+      const bandBroken = !(cLow < cMid && cMid < cHigh)
+                         || cLow < cMid * 0.4
+                         || cHigh > cMid * 2.5;
+      if (bandBroken) { cLow = Math.round(cMid * 0.75); cHigh = Math.round(cMid * 1.35); }
+    }
+
     const md = [
       `# CloudFrame 雲端分析報告`,
       `> 專案：${r.inputs?.projectName || 'Untitled'} | 分析時間：${new Date(r.timestamp || Date.now()).toLocaleDateString('zh-TW')}`,
@@ -233,7 +246,9 @@
       `整體風險：${r.riskRadar?.overall || 0}%`,
       '',
       `## 成本估算`,
-      `月費：USD $${(r.costEstimate?.mid || 0).toLocaleString()}（建議方案）`,
+      `月費中估：USD $${cMid.toLocaleString()}（建議基準）`,
+      `費用區間：USD $${cLow.toLocaleString()} – $${cHigh.toLocaleString()}（低－高）`,
+      `> ROM 粗略量級估算，實際報價以雲端供應商正式報價為準。`,
       '',
       `---`,
       `*由 CloudFrame AI 雲端顧問平台生成 · https://cloudframe.pages.dev*`,

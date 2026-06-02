@@ -801,7 +801,7 @@
           { slide: 1, title: '現況評估與業務痛點', points: ['系統現況盤點','業務需求分析','合規差距評估'] },
           { slide: 2, title: '雲端策略建議', points: [`主要策略：${stratName[primary]}`, `信心指數：${confidence}%`, strat.rationale || ''] },
           { slide: 3, title: 'Landing Zone 架構', points: [`${landingZone.tier} 治理模型`, `${accounts.length} 個帳號結構`, '安全基線 Guardrails'] },
-          { slide: 4, title: '成本與風險', points: [`月成本：USD $${mid.toLocaleString()}`, `整體風險：${overall}%`, `ROI：${cost.roi_3yr || '正向'}`] },
+          { slide: 4, title: '成本與風險', points: [`月成本中估：USD $${mid.toLocaleString()}`, `費用區間：USD $${low.toLocaleString()} – $${high.toLocaleString()}（低－高）`, `整體風險：${overall}%`, `ROI：${cost.roi_3yr || '正向'}`] },
           { slide: 5, title: '執行藍圖', points: (next.slice(0,5) || []).map(n => n.action || '') },
         ];
 
