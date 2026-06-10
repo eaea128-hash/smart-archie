@@ -209,6 +209,8 @@ export function IntakeReport() {
         <p className="mt-1 text-sm text-muted-foreground">{report.system.systemName} / {report.system.businessUnit}</p>
       </div>
 
+      <ConclusionBanner report={report} summary={summary} gaps={gaps} guardrailAlerts={guardrailAlerts} />
+
       <ReportSection icon={FileText} title="Snapshot" description="固定記錄本次輸出的時間點、資料版本、系統與供應商，作為會議附件與後續追蹤依據。">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <SummaryTile label="系統" value={`${report.system.systemName}（${report.system.systemId}）`} strong />
@@ -513,6 +515,60 @@ export function IntakeReport() {
   );
 }
 
+function ConclusionBanner({ report, summary, gaps, guardrailAlerts }: {
+  report: ReportSource;
+  summary: ReturnType<typeof buildExecutiveSummary>;
+  gaps: string[];
+  guardrailAlerts: GuardrailAlert[];
+}) {
+  const isUrgent = summary.riskLevel === "critical" || (summary.riskLevel === "high" && summary.isHndlHighRisk);
+  const isAttention = !isUrgent && (summary.riskLevel === "high" || (summary.riskLevel === "medium" && gaps.length > 0));
+  const verdict = isUrgent ? "需立即處理" : isAttention ? "需主管關注" : "持續追蹤";
+  const bg = isUrgent ? "border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/40"
+    : isAttention ? "border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40"
+    : "border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/40";
+  const textColor = isUrgent ? "text-rose-800 dark:text-rose-200" : isAttention ? "text-amber-800 dark:text-amber-200" : "text-emerald-800 dark:text-emerald-200";
+  const badgeVariant = isUrgent ? "risk" : isAttention ? "warning" : "success";
+
+  const vendorMissing = report.vendor && report.vendor.pqcRoadmapStatus !== "已提供";
+  const errorAlerts = guardrailAlerts.filter((a) => a.severity === "error").length;
+  const warnAlerts = guardrailAlerts.filter((a) => a.severity === "warning").length;
+
+  return (
+    <div className={`rounded-xl border-2 p-5 ${bg}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className={`text-xs font-semibold uppercase tracking-widest ${textColor} opacity-70`}>盤點結論</div>
+          <div className={`mt-1 text-2xl font-bold ${textColor}`}>{report.system.systemName}</div>
+          <div className={`text-sm ${textColor} opacity-80`}>{report.system.businessUnit}</div>
+        </div>
+        <Badge variant={badgeVariant} className="text-base px-4 py-1.5 shrink-0">{verdict}</Badge>
+      </div>
+      <div className={`mt-4 grid gap-2 text-sm sm:grid-cols-2 xl:grid-cols-4 ${textColor}`}>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">量子風險：</span>
+          <span>{riskLabel[summary.riskLevel]}風險（{summary.riskLevel === "critical" || summary.riskLevel === "high" ? "優先處理" : summary.riskLevel === "medium" ? "持續追蹤" : "低優先"}）</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">HNDL 資料風險：</span>
+          <span>{summary.isHndlHighRisk ? "高——長期敏感資料已達高風險門檻" : "未達高風險門檻，仍需確認"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">供應商狀態：</span>
+          <span>{vendorMissing ? `${report.vendor!.vendorName} 尚未提供 PQC 計畫` : report.vendor ? `${report.vendor.vendorName} 已部分回覆` : "供應商資料待補"}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">補件壓力：</span>
+          <span>{errorAlerts > 0 ? `${errorAlerts} 項 Error、${warnAlerts} 項 Warning 待補` : warnAlerts > 0 ? `${warnAlerts} 項 Warning 待補` : "無重大防呆告警"}</span>
+        </div>
+      </div>
+      <div className={`mt-3 text-sm leading-6 ${textColor} opacity-90 border-t border-current/20 pt-3`}>
+        <span className="font-semibold">建議行動：</span>{summary.priority}
+      </div>
+    </div>
+  );
+}
+
 function buildSecurityFollowup(report: ReportSource) {
   const form = report.submission?.form;
   const tags = [...report.system.cmdbTags, ...report.system.cryptoSignals].join(" ").toLowerCase();
@@ -772,7 +828,7 @@ function buildExecutiveSummary(report: ReportSource) {
     ...explanation.reasons,
     report.vendor ? `供應商 ${report.vendor.vendorName} 的 PQC 準備度需納入追蹤。` : "供應商資料待補或自行維護。",
   ];
-  const riskLevel: RiskLevel = system.hndlRiskScore >= 80 ? "critical" : system.hndlRiskScore >= 60 ? "high" : system.hndlRiskScore >= 40 ? "medium" : "low";
+  const riskLevel: RiskLevel = explanation.riskLevel;
   return {
     riskLevel,
     priority: riskLevel === "critical" ? "P1 / 立即納入 PQC 前期盤點" : riskLevel === "high" ? "P1 / 本季完成資安確認" : riskLevel === "medium" ? "P2 / 排入年度盤點" : "P3 / 追蹤即可",
@@ -1008,7 +1064,19 @@ ${gaps.length ? gaps.map((gap) => `- ${gap}`).join("\n") : "- 目前未發現重
 ${report.relatedTasks.map((task) => `- [${task.assignedRole}] ${task.priority} ${task.taskTitle}（Due ${task.dueDate}）`).join("\n")}
 
 ## 7. Known Limits（已知限制）
-${KNOWN_LIMITS.map((limit) => `- ${limit.id} ${limit.title}：${limit.detail}`).join("\n")}`;
+${KNOWN_LIMITS.map((limit) => `- ${limit.id} ${limit.title}：${limit.detail}`).join("\n")}
+
+## 8. Security & Architecture Follow-up / 資安與架構接續評估
+${(() => {
+  const items = buildSecurityFollowup(report);
+  return items.map((item) => `| ${item.category} | ${item.finding} | ${item.status} | ${item.role} | ${item.action} |`).join("\n");
+})()}
+
+## 9. Cryptographic Asset Clues / 密碼學資產線索清單
+${(() => {
+  const clues = buildCryptoAssetClues(report);
+  return clues.map((c) => `| ${c.type} | ${c.source} | ${c.content} | ${c.impact} | ${c.role} | ${c.nextStep} |`).join("\n");
+})()}`;
 }
 
 function buildCsvReport(
@@ -1040,6 +1108,8 @@ function buildCsvReport(
     ...gaps.map((gap) => ["Compliance Gaps", "gap", gap]),
     ...report.relatedTasks.map((task) => ["Action Items", task.assignedRole, `${task.priority} ${task.taskTitle}`]),
     ...KNOWN_LIMITS.map((limit) => ["Known Limits", limit.id, `${limit.title}: ${limit.detail}`]),
+    ...buildSecurityFollowup(report).map((item) => ["Security Follow-up", item.category, `${item.finding} / 狀態：${item.status} / 角色：${item.role} / 行動：${item.action}`]),
+    ...buildCryptoAssetClues(report).map((c) => ["Crypto Asset Clues", c.type, `${c.source} / ${c.content} / 衝擊：${c.impact} / 角色：${c.role} / 下一步：${c.nextStep}`]),
   ];
   return rows.map((row) => row.map(escapeCsv).join(",")).join("\n");
 }
