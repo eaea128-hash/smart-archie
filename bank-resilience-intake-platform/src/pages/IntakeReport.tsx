@@ -177,7 +177,7 @@ export function IntakeReport() {
           <Button variant="outline" onClick={exportJson}><FileJson className="mr-2 h-4 w-4" />JSON</Button>
           <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
           <Button variant="outline" onClick={exportMarkdown}><FileText className="mr-2 h-4 w-4" />Markdown</Button>
-          <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print / PDF</Button>
+          <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print / Save as PDF</Button>
         </div>
       </div>
 
@@ -218,23 +218,44 @@ export function IntakeReport() {
         </div>
       </ReportSection>
 
+      {/* 量子風險評級卡 */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <RatingCard
+          title="PQC / Quantum Readiness 初步風險評級"
+          rating={riskLabel[summary.riskLevel] + "風險"}
+          riskLevel={summary.riskLevel}
+          sub={summary.priority}
+          icon={ShieldCheck}
+        />
+        <RatingCard
+          title="HNDL 資料生命週期風險"
+          rating={summary.isHndlHighRisk ? "高風險" : report.system.dataRetentionYears >= 5 ? "中風險" : "低風險"}
+          riskLevel={summary.isHndlHighRisk ? "high" : report.system.dataRetentionYears >= 5 ? "medium" : "low"}
+          sub={`HNDL score ${report.system.hndlRiskScore} / 資料保存 ${formatRetention(report.system.dataRetentionYears)}`}
+          icon={DatabaseZap}
+        />
+      </div>
+
       <section className="grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
         <Card className="border-primary/20">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />主管摘要</CardTitle>
-            <CardDescription>主管摘要，聚焦初步風險、原因與處理優先級。</CardDescription>
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-4 w-4" />核心風險摘要</CardTitle>
+            <CardDescription>以業務語言說明為何此系統需納入 PQC 優先盤點。</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
               <SummaryTile label="系統名稱" value={report.system.systemName} />
               <SummaryTile label="業務單位" value={report.system.businessUnit} />
-              <SummaryTile label="初步風險等級" value={`${riskLabel[summary.riskLevel]}風險`} strong tone={summary.riskLevel} />
               <SummaryTile label="建議優先級" value={summary.priority} strong />
             </div>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <SummaryTile label="初步風險等級" value={`${riskLabel[summary.riskLevel]}風險`} strong tone={summary.riskLevel} />
+              <SummaryTile label="風險分數" value={`${riskExplanation.score} 分`} strong tone={summary.riskLevel} />
+              <SummaryTile label="主要觸發規則" value={`${riskExplanation.triggeredRules.length} 條`} strong /></div>
             <div className="rounded-lg border bg-muted/20 p-4">
-              <div className="mb-2 text-sm font-semibold">主要風險原因</div>
-              <p className="mb-3 text-sm font-medium leading-6">
-                {explainRiskForSystem(report.system, report.vendor ?? null).summary}
+              <div className="mb-2 text-sm font-semibold">核心風險說明（主管版）</div>
+              <p className="mb-3 text-sm font-medium leading-7">
+                {buildNarrativeSummary(report, summary)}
               </p>
               <ul className="grid gap-2 text-sm leading-6 text-muted-foreground lg:grid-cols-2">
                 {riskExplanation.reasons.map((reason) => <li key={reason}>• {reason}</li>)}
@@ -286,17 +307,63 @@ export function IntakeReport() {
         </ReportSection>
       </section>
 
-      <ReportSection icon={KeyRound} title="加密使用情境與待確認事項" description="提供資安與架構團隊確認 TLS、憑證、簽章、HSM、API token 與舊型加密相依性。">
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {cryptoSignals.map((signal) => (
-            <div className="rounded-lg border bg-muted/20 p-3" key={signal.label}>
-              <div className="flex items-start justify-between gap-2">
-                <div className="font-medium">{signal.label}</div>
-                <Badge variant={signal.status === "需確認" ? "warning" : signal.status === "高優先確認" ? "risk" : "success"}>{signal.status}</Badge>
-              </div>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">{signal.reason}</p>
-            </div>
-          ))}
+      <ReportSection icon={KeyRound} title="Security & Architecture Follow-up / 資安與架構接續評估" description="針對 8 類加密相依性，提供資安與架構團隊的接續確認清單與建議行動。">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">類別</th>
+                <th className="py-2 pr-3 font-medium">狀態</th>
+                <th className="py-2 pr-3 font-medium">發現說明</th>
+                <th className="py-2 pr-3 font-medium">建議行動</th>
+                <th className="py-2 font-medium">負責角色</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {buildSecurityFollowup(report).map((row) => (
+                <tr key={row.category} className="align-top">
+                  <td className="py-2 pr-3 font-medium leading-6 whitespace-nowrap">{row.category}</td>
+                  <td className="py-2 pr-3">
+                    <Badge variant={row.status === "高優先確認" ? "risk" : row.status === "需確認" || row.status === "部分完成" ? "warning" : row.status === "待補" || row.status === "待補件" ? "secondary" : "success"}>
+                      {row.status}
+                    </Badge>
+                  </td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{row.finding}</td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{row.action}</td>
+                  <td className="py-2 text-xs text-muted-foreground whitespace-nowrap">{row.role}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </ReportSection>
+
+      <ReportSection icon={KeyRound} title="Cryptographic Asset Clues / 密碼學資產線索清單" description="將系統 CMDB 標籤、加密訊號與問卷填答轉成資安可接續盤點的線索，用於建立 CBOM 密碼物料清單。">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">線索類型</th>
+                <th className="py-2 pr-3 font-medium">來源</th>
+                <th className="py-2 pr-3 font-medium">線索內容</th>
+                <th className="py-2 pr-3 font-medium">可能影響</th>
+                <th className="py-2 pr-3 font-medium">建議確認角色</th>
+                <th className="py-2 font-medium">建議下一步</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {buildCryptoAssetClues(report).map((clue, idx) => (
+                <tr key={idx} className="align-top">
+                  <td className="py-2 pr-3 font-medium leading-6 whitespace-nowrap">{clue.type}</td>
+                  <td className="py-2 pr-3 text-xs text-muted-foreground whitespace-nowrap">{clue.source}</td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{clue.content}</td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{clue.impact}</td>
+                  <td className="py-2 pr-3 text-xs text-muted-foreground whitespace-nowrap">{clue.role}</td>
+                  <td className="py-2 leading-6 text-muted-foreground">{clue.nextStep}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </ReportSection>
 
@@ -350,6 +417,37 @@ export function IntakeReport() {
               <div className="text-sm text-amber-800">目前未發現重大缺口；仍需由資安與法遵覆核。</div>
             )}
           </div>
+        </div>
+      </ReportSection>
+
+      <ReportSection icon={ClipboardList} title="FSC PQC Readiness Checklist — 金管會遷移準備度對照" description="對齊金管會 PQC 先導計畫，逐項確認準備度狀態、缺口說明與建議補件角色。">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">檢核項目</th>
+                <th className="py-2 pr-3 font-medium">狀態</th>
+                <th className="py-2 pr-3 font-medium">對應資料欄位</th>
+                <th className="py-2 pr-3 font-medium">缺口說明</th>
+                <th className="py-2 font-medium">建議補件角色</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {buildFscChecklist(report).map((row) => (
+                <tr key={row.item} className="align-top">
+                  <td className="py-2 pr-3 font-medium leading-6">{row.item}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">
+                    <Badge variant={row.status === "已完成" ? "success" : row.status === "已初步盤點" ? "secondary" : row.status === "部分完成" ? "warning" : "risk"}>
+                      {row.status}
+                    </Badge>
+                  </td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{row.source}</td>
+                  <td className="py-2 pr-3 leading-6 text-muted-foreground">{row.gap || "—"}</td>
+                  <td className="py-2 text-xs text-muted-foreground whitespace-nowrap">{row.role || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </ReportSection>
 
@@ -413,6 +511,227 @@ export function IntakeReport() {
       </Card>
     </div>
   );
+}
+
+function buildSecurityFollowup(report: ReportSource) {
+  const form = report.submission?.form;
+  const tags = [...report.system.cmdbTags, ...report.system.cryptoSignals].join(" ").toLowerCase();
+  const v = report.vendor;
+  return [
+    {
+      category: "TLS / HTTPS",
+      status: form?.usesHttps || tags.includes("tls") || tags.includes("https") ? "需確認" : "待補" as const,
+      finding: form?.usesHttps || tags.includes("tls") ? "系統具備 TLS/HTTPS 相依，需確認版本與憑證有效性" : "TLS/HTTPS 使用情況未填答",
+      action: "確認 TLS 版本（需 1.2+）、憑證有效期、是否有舊版協定殘留",
+      role: "資安",
+    },
+    {
+      category: "憑證 / PKI",
+      status: form?.hasDigitalSig || tags.includes("certificate") || tags.includes("pki") ? "高優先確認" : "待補" as const,
+      finding: form?.hasDigitalSig || tags.includes("certificate") ? "偵測到 PKI 憑證或數位憑證相依" : "憑證使用情況待確認",
+      action: "確認 RSA/ECC 憑證有效期、CA 鏈完整性，列入 CBOM",
+      role: "資安 / 架構",
+    },
+    {
+      category: "數位簽章 / JWT / XML Sig",
+      status: form?.hasDigitalSig || tags.includes("signature") || tags.includes("jwt") ? "高優先確認" : "待補" as const,
+      finding: form?.hasDigitalSig || tags.includes("signature") ? "系統涉及數位簽章或 JWT，演算法待確認" : "簽章使用情況待確認",
+      action: "確認 RS256/ES256 或 XML 簽章演算法是否為量子脆弱演算法",
+      role: "架構",
+    },
+    {
+      category: "HSM / 硬體加密設備",
+      status: form?.hasHsm || tags.includes("hsm") ? "需確認" : "待補" as const,
+      finding: form?.hasHsm || tags.includes("hsm") ? "系統涉及 HSM，需確認型號與 PQC 支援路徑" : "HSM 使用情況待確認",
+      action: "確認 HSM 廠牌型號、韌體版本與後量子演算法支援計畫",
+      role: "架構 / 採購",
+    },
+    {
+      category: "API Token / mTLS / API Key",
+      status: report.system.hasExternalApi || form?.hasApiCertOrToken ? "高優先確認" : "待補" as const,
+      finding: report.system.hasExternalApi || form?.hasApiCertOrToken ? "有外部 API 串接或 API Token，傳輸加密需確認" : "API 加密使用情況待確認",
+      action: "確認 API token 演算法、mTLS 憑證版本、JWT signing key 是否為量子脆弱",
+      role: "資安",
+    },
+    {
+      category: "Legacy Crypto / TLS 1.0 / 1.1",
+      status: tags.includes("legacy") || tags.includes("tls 1.0") || tags.includes("tls 1.1") ? "高優先確認" : "需確認" as const,
+      finding: tags.includes("legacy") ? "偵測到 legacy crypto 標籤，需優先停用" : "Legacy crypto 使用情況待確認",
+      action: "停用 TLS 1.0/1.1，淘汰舊型憑證，確認無 RC4/DES/3DES/MD5",
+      role: "資安",
+    },
+    {
+      category: "Unknown Crypto Module",
+      status: tags.includes("unknown") ? "高優先確認" : "待補" as const,
+      finding: tags.includes("unknown") ? "存在未知加密模組，需強制列入 CBOM" : "未偵測到 unknown crypto 標籤",
+      action: "要求系統 Owner 或廠商列出完整加密函式庫清單",
+      role: "資安 / 系統Owner",
+    },
+    {
+      category: "供應商 PQC Roadmap / Crypto-agility",
+      status: v?.pqcRoadmapStatus === "已提供" && v?.cryptoAgilityStatus === "已支援" ? "部分完成" : "待補件" as const,
+      finding: v ? `${v.vendorName}：PQC Roadmap ${v.pqcRoadmapStatus}、Crypto-agility ${v.cryptoAgilityStatus}` : "供應商加密能力待確認",
+      action: "向供應商索取 PQC 遷移計畫、加密演算法清單與 crypto-agility 書面說明",
+      role: "採購 / 資安",
+    },
+  ];
+}
+
+function buildCryptoAssetClues(report: ReportSource) {
+  const s = report.system;
+  const form = report.submission?.form;
+  const clues: { type: string; source: string; content: string; impact: string; role: string; nextStep: string }[] = [];
+
+  for (const tag of s.cmdbTags) {
+    clues.push({
+      type: "CMDB Tag",
+      source: "系統 CMDB",
+      content: tag,
+      impact: tag.toLowerCase().includes("legacy") || tag.toLowerCase().includes("rsa") || tag.toLowerCase().includes("ecc") ? "可能涉及量子脆弱演算法，需列入 CBOM" : "需由資安確認實際加密使用情境",
+      role: "架構 / 資安",
+      nextStep: "由系統 Owner 確認此標籤對應的加密函式庫版本",
+    });
+  }
+
+  for (const signal of s.cryptoSignals) {
+    clues.push({
+      type: "Crypto Signal",
+      source: "盤點填答 / 掃描標籤",
+      content: signal,
+      impact: signal.toLowerCase().includes("rsa") || signal.toLowerCase().includes("ecc") ? "RSA/ECC 為 PQC 遷移核心依存" : signal.toLowerCase().includes("unknown") ? "未知模組需強制納入 CBOM" : "需確認加密演算法版本",
+      role: "資安",
+      nextStep: "列入 CBOM 密碼物料清單，確認演算法版本與遷移時程",
+    });
+  }
+
+  if (form?.usesHttps) clues.push({ type: "TLS/HTTPS", source: "問卷填答", content: "系統使用 HTTPS", impact: "需確認 TLS 版本與憑證有效期", role: "資安", nextStep: "確認 TLS 1.2+ 並記錄憑證到期日" });
+  if (form?.hasDigitalSig) clues.push({ type: "數位簽章", source: "問卷填答", content: "系統具備數位簽章", impact: "RSA/ECC 簽章為 PQC 遷移核心依存", role: "架構", nextStep: "確認簽章演算法，列入 CBOM" });
+  if (form?.hasHsm) clues.push({ type: "HSM", source: "問卷填答", content: "系統使用 HSM", impact: "需確認 HSM 廠牌是否支援後量子演算法", role: "採購 / 架構", nextStep: "確認 HSM 型號與 PQC 韌體路徑" });
+  if (form?.hasApiCertOrToken) clues.push({ type: "API Token / 憑證", source: "問卷填答", content: "系統有 API 憑證或 Token", impact: "API 認證可能使用量子脆弱演算法", role: "資安", nextStep: "確認 token 類型與 signing 演算法" });
+  if (form?.hasBatchFile) clues.push({ type: "批次檔加密", source: "問卷填答", content: "系統有批次檔交換", impact: "批次檔可能使用 PGP 或對稱金鑰，需確認金鑰長度與保存", role: "資安", nextStep: "確認批次檔加密方式與金鑰管理機制" });
+
+  if (clues.length === 0) {
+    clues.push({ type: "無線索", source: "—", content: "未填答加密使用情境或無 CMDB 標籤", impact: "無法評估密碼學風險", role: "系統Owner", nextStep: "請至 PQC Intake 補充填答加密使用情境" });
+  }
+  return clues;
+}
+
+function RatingCard({ title, rating, riskLevel, sub, icon: Icon }: {
+  title: string; rating: string; riskLevel: RiskLevel; sub: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  const bg = riskLevel === "critical" || riskLevel === "high" ? "border-rose-200 bg-rose-50 dark:border-rose-800 dark:bg-rose-950/30"
+    : riskLevel === "medium" ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
+    : "border-emerald-200 bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950/30";
+  const textColor = riskLevel === "critical" || riskLevel === "high" ? "text-rose-700 dark:text-rose-300"
+    : riskLevel === "medium" ? "text-amber-700 dark:text-amber-300"
+    : "text-emerald-700 dark:text-emerald-300";
+  return (
+    <div className={`rounded-xl border p-5 ${bg}`}>
+      <div className={`flex items-center gap-2 text-xs font-semibold uppercase tracking-wide ${textColor}`}>
+        <Icon className="h-4 w-4" />{title}
+      </div>
+      <div className={`mt-3 text-3xl font-bold ${textColor}`}>{rating}</div>
+      <div className={`mt-1 text-xs ${textColor} opacity-80`}>{sub}</div>
+    </div>
+  );
+}
+
+function buildNarrativeSummary(report: ReportSource, summary: ReturnType<typeof buildExecutiveSummary>): string {
+  const s = report.system;
+  const v = report.vendor;
+  const parts: string[] = [];
+
+  const retentionDesc = s.dataRetentionYears >= 999 ? "永久" : `${s.dataRetentionYears} 年`;
+  const dataTypeDesc = s.dataTypes.slice(0, 3).join("、");
+  parts.push(`${s.systemName}（${s.businessUnit}）保存${dataTypeDesc}等敏感資料，保存年限為${retentionDesc}。`);
+
+  if (summary.isHndlHighRisk) {
+    parts.push("因保存期限長、資料具長期商業或個人識別價值，攻擊者若現在攔截傳輸中的加密資料，未來量子運算成熟後仍可能解密，構成 HNDL（Harvest Now, Decrypt Later）高風險。");
+  }
+
+  if (s.hasExternalApi && s.externalParties.length > 0) {
+    parts.push(`系統涉及與 ${s.externalParties.slice(0, 2).join("、")} 等外部機構的 API 串接，需確認各串接點的傳輸加密方式與憑證有效性。`);
+  } else if (s.hasExternalApi) {
+    parts.push("系統具有外部 API 串接，但外部對象尚未列明，需補充跨機構交換的加密傳輸確認。");
+  }
+
+  if (v) {
+    if (v.pqcRoadmapStatus !== "已提供") {
+      parts.push(`供應商 ${v.vendorName} 尚未提供 PQC 遷移計畫，建議採購與資安共同發出正式詢問，要求在 30 天內回覆。`);
+    } else {
+      parts.push(`供應商 ${v.vendorName} 已提供 PQC 遷移計畫，建議進一步確認本系統相依的加密演算法遷移時程。`);
+    }
+  }
+
+  return parts.join("") || "請參閱下方觸發規則清單取得詳細風險說明。";
+}
+
+function buildFscChecklist(report: ReportSource) {
+  const s = report.system;
+  const v = report.vendor;
+  const form = report.submission?.form;
+  const tags = [...s.cmdbTags, ...s.cryptoSignals].join(" ").toLowerCase();
+  const hasCryptoTags = tags.length > 0;
+
+  return [
+    {
+      item: "加密使用情境初步盤點",
+      status: hasCryptoTags ? "已初步盤點" : "待確認",
+      source: "Crypto Signals / CMDB Tags",
+      gap: hasCryptoTags ? "需資安確認實際演算法版本，建立 CBOM" : "尚未填入加密標籤，無法評估",
+      role: "資安",
+    },
+    {
+      item: "業務衝擊與風險評估",
+      status: "已初步盤點",
+      source: `業務重要性：${s.businessCriticality} / HNDL score：${s.hndlRiskScore}`,
+      gap: "初步評估完成，需資安與業務共同確認正式風險等級",
+      role: "業務 / 資安",
+    },
+    {
+      item: "長期敏感資料 / HNDL 風險辨識",
+      status: s.dataRetentionYears >= 10 ? "已完成" : "部分完成",
+      source: `保存年限：${formatRetention(s.dataRetentionYears)} / 資料類型：${s.dataTypes.slice(0,2).join("、")}`,
+      gap: s.dataRetentionYears >= 10 ? "" : "確認是否有法定或業務義務延長保存年限",
+      role: "業務 / 法遵",
+    },
+    {
+      item: "外部 API / 跨機構資料交換盤點",
+      status: s.hasExternalApi ? (s.externalParties.length > 0 ? "部分完成" : "待確認") : "已完成",
+      source: s.hasExternalApi ? `外部串接：${s.externalParties.slice(0,2).join("、") || "待列明"}` : "無外部串接",
+      gap: s.hasExternalApi && s.externalParties.length === 0 ? "需補充外部對象名稱與加密傳輸方式" : s.hasExternalApi ? "需補 mTLS / TLS 版本 / 憑證明細" : "",
+      role: "架構 / 資安",
+    },
+    {
+      item: "供應商 PQC Roadmap 準備度",
+      status: v?.pqcRoadmapStatus === "已提供" ? "部分完成" : "待確認",
+      source: v ? `${v.vendorName} / PQC Roadmap：${v.pqcRoadmapStatus}` : (form?.vendorName ?? "待補"),
+      gap: v?.pqcRoadmapStatus !== "已提供" ? "供應商尚未提供 PQC 遷移計畫，需採購追蹤" : "建議索取本系統相依加密元件清單",
+      role: "採購",
+    },
+    {
+      item: "Crypto-agility 加密敏捷性",
+      status: v?.cryptoAgilityStatus === "已支援" || form?.vendorCryptoAgility ? "部分完成" : "待確認",
+      source: v ? `加密調整能力：${v.cryptoAgilityStatus}` : (form?.vendorCryptoAgility ? "填答已具備" : "待補"),
+      gap: v?.cryptoAgilityStatus !== "已支援" && !form?.vendorCryptoAgility ? "需廠商書面說明可替換演算法能力" : "",
+      role: "採購 / 資安",
+    },
+    {
+      item: "採購 / 合約資安升級責任",
+      status: v?.contractUpgradeClause === "有" || form?.contractHasSecurityClause ? "部分完成" : "待確認",
+      source: v ? `合約加密升級條款：${v.contractUpgradeClause}` : (form?.contractHasSecurityClause ? "填答已有條款" : "待補"),
+      gap: v?.contractUpgradeClause !== "有" && !form?.contractHasSecurityClause ? "採購需在合約中納入 PQC 升級責任條款" : "",
+      role: "採購 / 法遵",
+    },
+    {
+      item: "資安團隊接續確認事項",
+      status: hasCryptoTags ? "部分完成" : "待確認",
+      source: `觸發規則數：${explainRiskForSystem(s, v ?? null).triggeredRules.length} 條 / Guardrail 待確認`,
+      gap: "需由資安覆核觸發規則、確認密碼學資產線索清單並排定 CBOM 建立時程",
+      role: "資安",
+    },
+  ] as { item: string; status: "已完成" | "已初步盤點" | "部分完成" | "待確認"; source: string; gap: string; role: string }[];
 }
 
 function buildReportSource(
