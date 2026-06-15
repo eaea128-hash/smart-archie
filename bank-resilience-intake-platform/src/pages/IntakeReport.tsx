@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { RiskExplanationPanel } from "@/components/common/RiskExplanationPanel";
 import { explainRiskForSystem } from "@/lib/risk-rules";
 import {
@@ -25,6 +26,9 @@ import { loadDemoData, loadIntakeSubmissions, type IntakeSubmission } from "@/li
 import { runGuardrails, type GuardrailAlert } from "@/lib/guardrails";
 import { GuardrailPanel } from "@/components/guardrails/GuardrailPanel";
 import { cn } from "@/lib/utils";
+
+const RULE_ENGINE_VERSION = "1.2.0";
+const RULE_ENGINE_UPDATED = "2026-06";
 
 const KNOWN_LIMITS = [
   {
@@ -71,7 +75,15 @@ const riskLabel: Record<RiskLevel, string> = {
 };
 
 export function IntakeReport() {
-  const [selectedId, setSelectedId] = useState<string>("latest");
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const initId = searchParams.get("systemId") ?? "latest";
+  const [selectedId, setSelectedId] = useState<string>(initId);
+
+  function handleSelectId(id: string) {
+    setSelectedId(id);
+    navigate(id === "latest" ? "/report" : `/report?systemId=${id}`, { replace: true });
+  }
   const data = loadDemoData();
   const submissions = loadIntakeSubmissions();
 
@@ -191,7 +203,7 @@ export function IntakeReport() {
             aria-label="選擇報告來源"
             className="h-9 rounded-md border bg-background px-3 text-sm"
             value={selectedId}
-            onChange={(event) => setSelectedId(event.target.value)}
+            onChange={(event) => handleSelectId(event.target.value)}
           >
             <option value="latest">最新盤點紀錄或示範高風險系統</option>
             {submissions.slice().reverse().map((submission) => (
@@ -488,6 +500,10 @@ export function IntakeReport() {
           <CardDescription className="text-amber-700 dark:text-amber-300">使用前請閱讀。這些限制應記錄在主管會議附件中。</CardDescription>
         </CardHeader>
         <CardContent>
+          <div className="mb-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline" className="font-mono">Risk Engine v{RULE_ENGINE_VERSION}</Badge>
+            <span>最後更新：{RULE_ENGINE_UPDATED}・對應金管會 PQC 治理指引</span>
+          </div>
           <ul className="space-y-2">
             {KNOWN_LIMITS.map((limit) => (
               <li key={limit.id} className="flex items-start gap-3 text-sm">
@@ -1064,7 +1080,9 @@ ${gaps.length ? gaps.map((gap) => `- ${gap}`).join("\n") : "- 目前未發現重
 ${report.relatedTasks.map((task) => `- [${task.assignedRole}] ${task.priority} ${task.taskTitle}（Due ${task.dueDate}）`).join("\n")}
 
 ## 7. Known Limits（已知限制）
+> 風險評估引擎版本：v${RULE_ENGINE_VERSION}（${RULE_ENGINE_UPDATED} 更新，對應金管會 PQC 治理指引）
 ${KNOWN_LIMITS.map((limit) => `- ${limit.id} ${limit.title}：${limit.detail}`).join("\n")}
+- 免責聲明：本報告為 POC 展示，所有資料均為模擬假資料，不代表任何真實機構之盤點結果。
 
 ## 8. Security & Architecture Follow-up / 資安與架構接續評估
 ${(() => {

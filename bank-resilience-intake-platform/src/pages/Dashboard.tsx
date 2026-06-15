@@ -128,6 +128,40 @@ export function Dashboard() {
     open: tasks.filter((task) => task.assignedRole === role && task.status !== "completed").length,
   }));
 
+  // 2030 wave distribution (simplified inline calculation)
+  const waveCounts = systems.reduce(
+    (acc, s) => {
+      const v = s.vendorId ? vendorById.get(s.vendorId) ?? null : null;
+      const exp = explainRiskForSystem(s, v);
+      const isHndl = s.dataRetentionYears >= 10 || s.hndlRiskScore >= 80;
+      const urgency = Math.min(100, Math.round(exp.score * 0.5 + (isHndl ? 20 : 0)));
+      const tags = [...s.cmdbTags, ...s.cryptoSignals].join(" ").toLowerCase();
+      let feasibility = 50;
+      if (v?.pqcRoadmapStatus === "已提供") feasibility += 15;
+      else if (v?.pqcRoadmapStatus === "未提供") feasibility -= 10;
+      if (v?.cryptoAgilityStatus === "不支援") feasibility -= 15;
+      if (tags.includes("unknown crypto")) feasibility -= 15;
+      const wave =
+        urgency >= 60 && feasibility >= 55 ? "Wave 1" :
+        urgency >= 60 && feasibility < 55  ? "Wave 2" :
+        urgency < 60  && feasibility >= 55 ? "Wave 3" : "觀察";
+      acc[wave] = (acc[wave] ?? 0) + 1;
+      return acc;
+    },
+    {} as Record<string, number>
+  );
+  const daysTo2030 = Math.round((new Date("2030-01-01").getTime() - new Date().setHours(0,0,0,0)) / (1000 * 60 * 60 * 24));
+  const completedCount = systems.filter(s => s.status === "completed").length;
+  const estimatedReadyPct = Math.round(
+    ((completedCount + (waveCounts["Wave 1"] ?? 0) * 0.3) / systems.length) * 100
+  );
+  const waveChartData = [
+    { name: "Wave 1（緊迫）", value: waveCounts["Wave 1"] ?? 0, fill: "#be123c" },
+    { name: "Wave 2（阻礙）", value: waveCounts["Wave 2"] ?? 0, fill: "#d97706" },
+    { name: "Wave 3（計畫）", value: waveCounts["Wave 3"] ?? 0, fill: "#2563eb" },
+    { name: "觀察", value: waveCounts["觀察"] ?? 0, fill: "#94a3b8" },
+  ];
+
   return (
     <div className="space-y-6">
       <Card className="border-primary/20">
@@ -174,6 +208,73 @@ export function Dashboard() {
         <MetricCard icon={AlertTriangle} label="資安待辦" value={pendingSecurityTasks} helper="指派角色：資安" tone="warn" />
         <MetricCard icon={ShoppingCart} label="採購待辦" value={pendingProcurementTasks} helper="指派角色：採購" tone="warn" />
       </section>
+
+      {/* 2030 PQC Target Progress */}
+      <Card className="border-rose-200 bg-rose-50/30 dark:border-rose-900 dark:bg-rose-950/10">
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <span className="text-rose-700 dark:text-rose-400">🎯 2030 PQC 達標進度</span>
+            <span className="ml-auto font-mono text-sm font-normal text-muted-foreground">
+              距 2030-01-01 還有 <span className="font-semibold text-rose-700">{daysTo2030.toLocaleString()}</span> 天
+            </span>
+          </CardTitle>
+          <CardDescription>NSA CNSA 2.0 全面停用傳統算法截止日 · 以 Wave 計畫估算各系統就緒狀態</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Donut chart */}
+            <div>
+              <div className="mb-2 text-xs font-medium text-muted-foreground">系統遷移優先波次分布</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie
+                    data={waveChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={80}
+                    paddingAngle={2}
+                    dataKey="value"
+                    label={({ name, value }) => value > 0 ? `${name}: ${value}` : ""}
+                    labelLine={false}
+                  >
+                    {waveChartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(v) => [`${v} 系統`]} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Stats */}
+            <div className="flex flex-col justify-center gap-3">
+              {waveChartData.map((w) => (
+                <div key={w.name} className="flex items-center gap-3">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: w.fill }} />
+                  <span className="flex-1 text-sm">{w.name}</span>
+                  <span className="font-semibold">{w.value}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {w.name === "Wave 1（緊迫）" ? "→ 2027 Q2 前" :
+                     w.name === "Wave 2（阻礙）" ? "→ 2028 Q1 前" :
+                     w.name === "Wave 3（計畫）" ? "→ 2029 Q2 前" : "→ 持續追蹤"}
+                  </span>
+                </div>
+              ))}
+              <div className="mt-2 border-t pt-3">
+                <div className="mb-1 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">估計現況啟動率</span>
+                  <span className="font-semibold text-rose-700">{estimatedReadyPct}%</span>
+                </div>
+                <Progress value={estimatedReadyPct} className="h-2" />
+                <p className="mt-1.5 text-xs text-muted-foreground">
+                  基於已完成盤點 + Wave 1 系統進度估算，非精確預測。
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="border-primary/20 bg-primary/5">
         <CardHeader>

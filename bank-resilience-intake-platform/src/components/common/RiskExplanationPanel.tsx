@@ -86,6 +86,11 @@ export function RiskExplanationPanel({
                     <p className="mt-1 text-xs text-muted-foreground">
                       依據：{rule.policySource}
                     </p>
+                    {rule.policyReference && (
+                      <p className="mt-0.5 text-xs text-muted-foreground/70 font-mono">
+                        條文：{rule.policyReference}
+                      </p>
+                    )}
                   </div>
                 ))}
               </div>

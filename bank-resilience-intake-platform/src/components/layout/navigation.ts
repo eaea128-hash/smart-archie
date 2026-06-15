@@ -1,12 +1,18 @@
 import {
   BarChart3,
+  Ban,
+  CalendarClock,
   ClipboardList,
   DatabaseZap,
+  FileJson,
   FileText,
   GitBranch,
+  Layers,
   Lightbulb,
+  RefreshCw,
   Settings,
   ShieldCheck,
+  TrendingDown,
   Users
 } from "lucide-react";
 
@@ -18,6 +24,12 @@ export const navigation = [
   { title: "Vendor Readiness", path: "/vendors", icon: ShieldCheck },
   { title: "Cross-functional Tasks", path: "/tasks", icon: Users },
   { title: "Compliance Lineage", path: "/lineage", icon: GitBranch },
+  { title: "Migration Priority", path: "/migration", icon: Layers },
+  { title: "Crypto-Agility Roadmap", path: "/crypto-agility", icon: RefreshCw },
+  { title: "Regulatory Timeline", path: "/regulatory", icon: CalendarClock },
+  { title: "Algorithm Sunset", path: "/sunset", icon: Ban },
+  { title: "CBOM Export", path: "/cbom", icon: FileJson },
+  { title: "Business Impact", path: "/business-impact", icon: TrendingDown },
   { title: "Evidence Pack", path: "/report", icon: FileText },
   { title: "Settings", path: "/settings", icon: Settings },
 ];
