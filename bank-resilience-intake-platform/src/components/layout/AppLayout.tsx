@@ -161,8 +161,11 @@ export function AppLayout() {
                 )
               }
             >
-              <item.icon className="h-4 w-4" />
-              {item.title}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="flex flex-col leading-tight">
+                <span>{item.title}</span>
+                <span className="text-xs font-normal text-muted-foreground/70">{item.subtitle}</span>
+              </span>
             </NavLink>
           ))}
         </nav>
