@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "lint": "tsc --noEmit",
-    "test": "npm run lint && npm run build",
+    "test": "npm run lint && node scripts/quality-checks.mjs && npm run build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview"
   },

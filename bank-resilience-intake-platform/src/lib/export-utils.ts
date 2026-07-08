@@ -99,7 +99,7 @@ export function exportSystemCsv(payload: SystemReportPayload): void {
     ["供應商 ID", system.vendorId ?? "無"],
     ["供應商名稱", vendor?.vendorName ?? "無"],
     ["供應商 PQC 遷移計畫", vendor?.pqcRoadmapStatus ?? "無"],
-    ["Crypto-agility 狀態", vendor?.cryptoAgilityStatus ?? "無"],
+    ["加密調整能力狀態", vendor?.cryptoAgilityStatus ?? "無"],
     ["合約資安升級條款", vendor?.contractUpgradeClause ?? "無"],
     ["風險評分觸發規則數", evaluation ? String(evaluation.triggeredRules.length) : "（未計算）"],
     ["待辦任務數", String(tasks.filter(t => t.status !== "completed").length)],
@@ -179,7 +179,7 @@ ${vendor ? `
 |------|------|
 | 供應商名稱 | ${vendor.vendorName} |
 | PQC 遷移計畫 | ${vendor.pqcRoadmapStatus} |
-| Crypto-agility | ${vendor.cryptoAgilityStatus} |
+| 加密調整能力 | ${vendor.cryptoAgilityStatus} |
 | 合約資安升級條款 | ${vendor.contractUpgradeClause} |
 | 供應商風險等級 | ${RISK_ZH[vendor.riskLevel] ?? vendor.riskLevel} |
 ` : "本系統無外部供應商。"}

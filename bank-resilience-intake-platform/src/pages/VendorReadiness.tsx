@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { loadDemoData } from "@/lib/storage";
 import type { CryptoAgilityStatus, PqcRoadmapStatus, RiskLevel, System, Vendor } from "@/data/demo-data";
 import { contractClauseLabel, cryptoAgilityLabel, pqcRoadmapLabel, riskLevelLabel, vendorReadinessScore } from "@/lib/labels";
@@ -117,10 +118,9 @@ export function VendorReadiness() {
           <ShieldCheck className="h-4 w-4" />
           供應商 PQC 準備度資料庫
         </div>
-        <h2 className="mt-1 text-2xl font-semibold">供應商科技韌性與 PQC 準備度追蹤資料庫</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-          這不是採購系統，而是供應商科技韌性與 PQC 準備度的追蹤資料庫。同一供應商若維護多個系統，
-          一次供應商層級回覆可被多個系統引用，避免每個系統重複詢問。
+        <h2 className="mt-1 text-2xl font-semibold">供應商準備度資料庫</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          集中追蹤供應商 PQC 遷移計畫、加密調整能力與關聯系統。
         </p>
       </div>
 
@@ -168,7 +168,7 @@ export function VendorReadiness() {
             ))}
           </FilterGroup>
           <div className="grid gap-4 lg:grid-cols-2">
-            <FilterGroup label="Crypto-agility 狀態">
+            <FilterGroup label="加密調整能力狀態">
               {agilityFilters.map((status) => (
                 <FilterChip key={status} active={agilityFilter === status} onClick={() => setAgilityFilter(status)}>
                   {status === "all" ? "全部" : cryptoAgilityLabel[status]}
@@ -193,6 +193,57 @@ export function VendorReadiness() {
           </Button>
         </div>
       )}
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">供應商準備度總覽</CardTitle>
+          <CardDescription>以供應商層級回覆、合約條款與關聯系統數管理追蹤，並支援套用供應商既有回覆。</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>供應商</TableHead>
+                <TableHead>關聯系統</TableHead>
+                <TableHead>PQC 遷移計畫</TableHead>
+                <TableHead>加密調整能力</TableHead>
+                <TableHead>合約條款</TableHead>
+                <TableHead>待補件</TableHead>
+                <TableHead>風險狀態</TableHead>
+                <TableHead>下一次追蹤</TableHead>
+                <TableHead className="w-[88px]">動作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((vendor) => (
+                <TableRow key={vendor.vendorId}>
+                  <TableCell>
+                    <div className="font-medium">{vendor.vendorName}</div>
+                    <div className="text-xs text-muted-foreground">{vendor.vendorId}</div>
+                  </TableCell>
+                  <TableCell>{vendor.relatedSystemCount} 個</TableCell>
+                  <TableCell><StatusBadge label={pqcRoadmapLabel[vendor.pqcRoadmapStatus]} status={vendor.pqcRoadmapStatus} /></TableCell>
+                  <TableCell><StatusBadge label={cryptoAgilityLabel[vendor.cryptoAgilityStatus]} status={vendor.cryptoAgilityStatus} /></TableCell>
+                  <TableCell>{contractClauseLabel[vendor.contractUpgradeClause]}</TableCell>
+                  <TableCell>{vendorPending[vendor.vendorId]?.length ?? 0} 項</TableCell>
+                  <TableCell><Badge variant={vendor.riskLevel === "critical" || vendor.riskLevel === "high" ? "risk" : vendor.riskLevel === "medium" ? "warning" : "success"}>{riskLevelLabel[vendor.riskLevel]}風險</Badge></TableCell>
+                  <TableCell>{vendor.nextFollowUpDate}</TableCell>
+                  <TableCell>
+                    <Button className="h-8 px-3 text-xs" variant="outline" onClick={() => setSelectedVendor(vendor)}>查看</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center text-sm text-muted-foreground">
+                    目前沒有符合條件的供應商。
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4">
         {rows.map((vendor) => (
@@ -317,7 +368,7 @@ function VendorDetail({ vendor, relatedSystems, onClose, onApply }: { vendor: Ve
               <span className="font-mono text-xs text-muted-foreground">{vendor.vendorId}</span>
             </div>
             <h3 className="mt-2 text-xl font-semibold">{vendor.vendorName}</h3>
-            <p className="text-sm text-muted-foreground">供應商科技韌性與 PQC 準備度詳情</p>
+            <p className="text-sm text-muted-foreground">供應商準備度與關聯系統</p>
           </div>
           <button className="rounded-md p-1.5 hover:bg-muted" onClick={onClose} aria-label="Close vendor detail">
             <X className="h-5 w-5" />

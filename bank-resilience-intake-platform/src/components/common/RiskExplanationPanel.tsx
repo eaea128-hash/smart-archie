@@ -58,11 +58,10 @@ export function RiskExplanationPanel({
             {explanation.summary}
           </p>
 
-          {/* Triggered rules */}
           {explanation.triggeredRules.length > 0 ? (
             <div>
               <div className="mb-2 text-xs font-semibold text-foreground uppercase tracking-wide">
-                觸發原因（{explanation.triggeredRules.length} 條規則）
+                風險觸發原因（{explanation.triggeredRules.length} 條規則）
               </div>
               <div className="space-y-2">
                 {explanation.triggeredRules.map(({ rule, message, contribution }) => (
@@ -83,8 +82,22 @@ export function RiskExplanationPanel({
                       <span className="text-xs text-muted-foreground">{rule.name}</span>
                     </div>
                     <p className="text-sm leading-5 text-foreground">{message}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      依據：{rule.policySource}
+                    <div className="mt-2 grid gap-2 text-xs text-muted-foreground md:grid-cols-2">
+                      <div className="rounded border bg-muted/20 p-2">
+                        <span className="font-semibold text-foreground">來源欄位：</span>{rule.sourceField}
+                      </div>
+                      <div className="rounded border bg-muted/20 p-2">
+                        <span className="font-semibold text-foreground">負責單位：</span>{rule.ownerRoles.join("、")}
+                      </div>
+                      <div className="rounded border bg-muted/20 p-2 md:col-span-2">
+                        <span className="font-semibold text-foreground">風險說明：</span>{rule.riskStatement}
+                      </div>
+                      <div className="rounded border bg-muted/20 p-2 md:col-span-2">
+                        <span className="font-semibold text-foreground">對應建議：</span>{rule.recommendation}
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      治理依據：{rule.policySource}
                     </p>
                     {rule.policyReference && (
                       <p className="mt-0.5 text-xs text-muted-foreground/70 font-mono">
@@ -117,6 +130,11 @@ export function RiskExplanationPanel({
               </ul>
             </div>
           )}
+          <div className="rounded-md border bg-background px-3 py-2 text-xs text-muted-foreground">
+            <span className="font-semibold text-foreground">建議處理優先級：</span>{explanation.priority}
+            <span className="mx-2">/</span>
+            <span className="font-semibold text-foreground">後續負責單位：</span>{explanation.recommendedOwners.join("、")}
+          </div>
         </div>
       )}
     </div>

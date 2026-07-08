@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { saveIntakeSubmission } from "@/lib/storage";
 import { generateIntakeTasks } from "@/rules/taskGenerationRules";
+import { evaluateIntakeRisk } from "@/lib/risk-rules";
 import { cn } from "@/lib/utils";
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -667,8 +668,10 @@ function ResultScreen({ f, hndlScore, tasks, onReset }: {
   onReset: () => void;
 }) {
   const navigate = useNavigate();
-  const sc = scoreLabel(hndlScore);
+  const riskEvaluation = evaluateIntakeRisk(f);
+  const sc = scoreLabel(riskEvaluation.score);
   const [expanded, setExpanded] = useState<string | null>(null);
+  const riskText = riskEvaluation.riskLevel === "high" ? "高風險" : riskEvaluation.riskLevel === "medium" ? "中風險" : "低風險";
 
   return (
     <div className="space-y-6">
@@ -683,39 +686,83 @@ function ResultScreen({ f, hndlScore, tasks, onReset }: {
         </div>
       </div>
 
-      {/* HNDL Score */}
+      {/* Risk Rating */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
-            <Zap className="h-4 w-4" />HNDL 風險評分結果
+            <Zap className="h-4 w-4" />風險評級結果
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-end gap-4 mb-4">
-            <div className={cn("text-5xl font-bold tabular-nums", sc.cls)}>{hndlScore}</div>
+            <div className={cn("text-5xl font-bold tabular-nums", sc.cls)}>{riskEvaluation.score}</div>
             <div className="mb-1">
-              <Badge variant={sc.badgeVariant}>{sc.label}</Badge>
+              <Badge variant={sc.badgeVariant}>{riskText}</Badge>
               <div className="mt-1 text-xs text-muted-foreground">滿分 100 分</div>
             </div>
           </div>
           <div className="h-3 rounded-full bg-muted overflow-hidden mb-4">
             <div
               className={cn("h-full rounded-full transition-all",
-                hndlScore >= 80 ? "bg-rose-500" :
-                hndlScore >= 60 ? "bg-orange-400" :
-                hndlScore >= 40 ? "bg-amber-400" : "bg-emerald-400")}
-              style={{ width:`${hndlScore}%` }}
+                riskEvaluation.score >= 80 ? "bg-rose-500" :
+                riskEvaluation.score >= 60 ? "bg-orange-400" :
+                riskEvaluation.score >= 40 ? "bg-amber-400" : "bg-emerald-400")}
+              style={{ width:`${riskEvaluation.score}%` }}
             />
           </div>
-          <div className="grid gap-2 sm:grid-cols-3 text-xs text-muted-foreground">
+          <div className="grid gap-2 sm:grid-cols-5 text-xs text-muted-foreground">
             {[
               { label:"資料保存年限", value: f.dataRetentionYears ? `${f.dataRetentionYears} 年` : "未填" },
               { label:"敏感資料類型", value: `${f.sensitiveDataTypes.length} 項` },
               { label:"外部 API 串接", value: f.hasRealtimeApi ? "有即時 API" : f.hasBatchFile ? "批次交換" : "無" },
+              { label:"建議優先級", value: riskEvaluation.priority },
+              { label:"負責單位", value: riskEvaluation.recommendedOwners.join("、") },
             ].map(({ label, value }) => (
               <div key={label} className="rounded-md border bg-muted/20 px-3 py-2">
                 <div className="text-muted-foreground">{label}</div>
                 <div className="mt-0.5 font-medium text-foreground">{value}</div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <AlertTriangle className="h-4 w-4" />風險觸發原因
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm font-medium leading-6">{riskEvaluation.summary}</p>
+          <div className="grid gap-3">
+            {riskEvaluation.triggeredReasons.map((reason, index) => (
+              <div key={reason.ruleId} className="rounded-lg border bg-background p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={reason.priority === "P1" ? "risk" : reason.priority === "P2" ? "warning" : "outline"}>
+                    {index + 1}
+                  </Badge>
+                  <span className="font-semibold">{reason.title}</span>
+                  <span className="rounded-full border px-2 py-0.5 text-xs text-muted-foreground">+{reason.scoreContribution}</span>
+                </div>
+                <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                  <div className="rounded-md bg-muted/20 p-3">
+                    <div className="text-xs font-semibold text-muted-foreground">來源欄位</div>
+                    <div className="mt-1 font-medium">{reason.sourceField}</div>
+                  </div>
+                  <div className="rounded-md bg-muted/20 p-3">
+                    <div className="text-xs font-semibold text-muted-foreground">後續負責單位</div>
+                    <div className="mt-1 font-medium">{reason.ownerRoles.join("、")}</div>
+                  </div>
+                  <div className="rounded-md bg-muted/20 p-3 md:col-span-2">
+                    <div className="text-xs font-semibold text-muted-foreground">風險說明</div>
+                    <div className="mt-1 leading-6">{reason.riskStatement}</div>
+                  </div>
+                  <div className="rounded-md bg-muted/20 p-3 md:col-span-2">
+                    <div className="text-xs font-semibold text-muted-foreground">對應建議</div>
+                    <div className="mt-1 leading-6">{reason.recommendation}</div>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
@@ -809,7 +856,8 @@ export function PqcIntake() {
       return;
     }
 
-    const score = calcHndlScore(form);
+    const riskEvaluation = evaluateIntakeRisk(form);
+    const score = riskEvaluation.score;
     const generatedTasks = generateIntakeTasks(form, score);
 
     saveIntakeSubmission(form, score, generatedTasks);

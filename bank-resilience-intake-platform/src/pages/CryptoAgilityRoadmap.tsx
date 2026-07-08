@@ -295,7 +295,7 @@ export function CryptoAgilityRoadmap() {
           所有演算法建議均對應已定案的 FIPS 標準（2024）。
         </p>
         <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
-          <Badge variant="outline" className="font-mono">Roadmap v{ROADMAP_VERSION}</Badge>
+          <Badge variant="outline" className="font-mono">路線圖 v{ROADMAP_VERSION}</Badge>
           <span>最後更新：{ROADMAP_UPDATED}</span>
           <span>·</span>
           <span>對應 NIST FIPS 203 / 204 / 205（2024 定案）</span>

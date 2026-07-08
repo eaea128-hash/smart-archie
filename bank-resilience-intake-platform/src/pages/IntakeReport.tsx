@@ -26,6 +26,7 @@ import { loadDemoData, loadIntakeSubmissions, type IntakeSubmission } from "@/li
 import { runGuardrails, type GuardrailAlert } from "@/lib/guardrails";
 import { GuardrailPanel } from "@/components/guardrails/GuardrailPanel";
 import { cn } from "@/lib/utils";
+import { buildEvidenceSnapshotMeta, type EvidenceSnapshotMeta } from "@/lib/evidence";
 
 const RULE_ENGINE_VERSION = "1.2.0";
 const RULE_ENGINE_UPDATED = "2026-06";
@@ -107,13 +108,34 @@ export function IntakeReport() {
   );
   const snapshotAt = new Date().toISOString();
   const snapshotTime = new Date(snapshotAt).toLocaleString("zh-TW");
-  const markdown = buildMarkdownReport(report, summary, cryptoSignals, vendorItems, gaps, guardrailAlerts, snapshotAt);
+  const evidencePayload = {
+    systemId: report.system.systemId,
+    systemName: report.system.systemName,
+    businessUnit: report.system.businessUnit,
+    sourceLabel: report.sourceLabel,
+    riskLevel: riskExplanation.riskLevel,
+    riskScore: riskExplanation.score,
+    triggeredRuleIds: riskExplanation.triggeredRules.map(({ rule }) => rule.ruleId),
+    guardrailIds: guardrailAlerts.map((alert) => alert.guardrailId),
+    taskIds: report.relatedTasks.map((task) => task.taskId),
+    complianceLineageIds: report.lineage.map((item) => item.lineageId),
+  };
+  const evidenceMeta = buildEvidenceSnapshotMeta({
+    systemId: report.system.systemId,
+    snapshotAt,
+    dataVersion: "demo-local-v1",
+    ruleEngineVersion: RULE_ENGINE_VERSION,
+    ruleEngineUpdated: RULE_ENGINE_UPDATED,
+    payload: evidencePayload,
+  });
+  const markdown = buildMarkdownReport(report, summary, cryptoSignals, vendorItems, gaps, guardrailAlerts, evidenceMeta);
 
   const exportJson = () => downloadFile(`${report.system.systemId}-evidence-pack.json`, JSON.stringify({
     evidencePack: {
+      ...evidenceMeta,
       version: "1.0",
-      snapshotAt,
       generatedBy: "Bank Resilience Intake Platform",
+      note: "Demo 完整性指紋用於固定本次輸出內容，不等同正式電子簽章。",
     },
     snapshot: {
       systemId: report.system.systemId,
@@ -169,7 +191,7 @@ export function IntakeReport() {
     submission: report.submission,
   }, null, 2), "application/json;charset=utf-8");
 
-  const exportCsv = () => downloadFile(`${report.system.systemId}-evidence-pack.csv`, buildCsvReport(report, summary, cryptoSignals, vendorItems, gaps, guardrailAlerts), "text/csv;charset=utf-8");
+  const exportCsv = () => downloadFile(`${report.system.systemId}-evidence-pack.csv`, buildCsvReport(report, summary, cryptoSignals, vendorItems, gaps, guardrailAlerts, evidenceMeta), "text/csv;charset=utf-8");
   const exportMarkdown = () => downloadFile(`${report.system.systemId}-evidence-pack.md`, markdown, "text/markdown;charset=utf-8");
 
   return (
@@ -181,15 +203,15 @@ export function IntakeReport() {
             Evidence Pack
           </div>
           <h2 className="mt-1 text-2xl font-semibold">PQC 盤點證據包</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-            治理證據包：將業務填答、風險規則、供應商回覆、防呆告警與政策依據，彙整為主管可讀、稽核可用的完整紀錄。
+          <p className="mt-1 text-sm text-muted-foreground">
+            匯出系統盤點、風險依據、防呆告警、待辦與完整性指紋。
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={exportJson}><FileJson className="mr-2 h-4 w-4" />JSON</Button>
-          <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" />CSV</Button>
-          <Button variant="outline" onClick={exportMarkdown}><FileText className="mr-2 h-4 w-4" />Markdown</Button>
-          <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print / Save as PDF</Button>
+          <Button variant="outline" onClick={exportJson}><FileJson className="mr-2 h-4 w-4" />匯出 JSON</Button>
+          <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" />匯出 CSV</Button>
+          <Button variant="outline" onClick={exportMarkdown}><FileText className="mr-2 h-4 w-4" />匯出 Markdown</Button>
+          <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />列印 / 存成 PDF</Button>
         </div>
       </div>
 
@@ -217,7 +239,7 @@ export function IntakeReport() {
       </Card>
 
       <div className="hidden border-b pb-4 print:block">
-        <h1 className="text-2xl font-semibold">PQC / Quantum Readiness Evidence Pack</h1>
+        <h1 className="text-2xl font-semibold">PQC / Quantum Readiness 盤點證據包</h1>
         <p className="mt-1 text-sm text-muted-foreground">{report.system.systemName} / {report.system.businessUnit}</p>
       </div>
 
@@ -228,7 +250,11 @@ export function IntakeReport() {
           <SummaryTile label="系統" value={`${report.system.systemName}（${report.system.systemId}）`} strong />
           <SummaryTile label="供應商" value={report.vendor?.vendorName ?? report.submission?.form.vendorName ?? "待補"} />
           <SummaryTile label="匯出時間" value={snapshotTime} />
-          <SummaryTile label="資料版本" value={`示範資料 / ${report.sourceLabel}`} />
+          <SummaryTile label="資料版本" value={evidenceMeta.dataVersion} />
+          <SummaryTile label="證據包 ID" value={evidenceMeta.evidencePackId} />
+          <SummaryTile label="規則版本" value={`v${evidenceMeta.ruleEngineVersion} / ${evidenceMeta.ruleEngineUpdated}`} />
+          <SummaryTile label="完整性指紋" value={evidenceMeta.integrityDigest} strong />
+          <SummaryTile label="資料來源" value={`示範資料 / ${report.sourceLabel}`} />
         </div>
       </ReportSection>
 
@@ -321,7 +347,7 @@ export function IntakeReport() {
         </ReportSection>
       </section>
 
-      <ReportSection icon={KeyRound} title="Security & Architecture Follow-up / 資安與架構接續評估" description="針對 8 類加密相依性，提供資安與架構團隊的接續確認清單與建議行動。">
+      <ReportSection icon={KeyRound} title="資安與架構接續評估" description="針對 8 類加密相依性，提供資安與架構團隊的接續確認清單與建議行動。">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -352,7 +378,7 @@ export function IntakeReport() {
         </div>
       </ReportSection>
 
-      <ReportSection icon={KeyRound} title="Cryptographic Asset Clues / 密碼學資產線索清單" description="將系統 CMDB 標籤、加密訊號與問卷填答轉成資安可接續盤點的線索，用於建立 CBOM 密碼物料清單。">
+      <ReportSection icon={KeyRound} title="密碼學資產線索清單" description="將系統 CMDB 標籤、加密訊號與盤點資料轉成資安可接續盤點的線索，用於建立 CBOM 密碼物料清單。">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -434,7 +460,7 @@ export function IntakeReport() {
         </div>
       </ReportSection>
 
-      <ReportSection icon={ClipboardList} title="FSC PQC Readiness Checklist — 金管會遷移準備度對照" description="對齊金管會 PQC 先導計畫，逐項確認準備度狀態、缺口說明與建議補件角色。">
+      <ReportSection icon={ClipboardList} title="PQC 遷移準備度檢核" description="對齊相關趨勢與檢核方向，逐項確認準備度、缺口與建議補件角色。">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -640,10 +666,10 @@ function buildSecurityFollowup(report: ReportSource) {
       role: "資安 / 系統Owner",
     },
     {
-      category: "供應商 PQC Roadmap / Crypto-agility",
+      category: "供應商 PQC 遷移計畫 / 加密調整能力",
       status: v?.pqcRoadmapStatus === "已提供" && v?.cryptoAgilityStatus === "已支援" ? "部分完成" : "待補件" as const,
-      finding: v ? `${v.vendorName}：PQC Roadmap ${v.pqcRoadmapStatus}、Crypto-agility ${v.cryptoAgilityStatus}` : "供應商加密能力待確認",
-      action: "向供應商索取 PQC 遷移計畫、加密演算法清單與 crypto-agility 書面說明",
+      finding: v ? `${v.vendorName}：PQC 遷移計畫 ${v.pqcRoadmapStatus}、加密調整能力 ${v.cryptoAgilityStatus}` : "供應商加密能力待確認",
+      action: "向供應商索取 PQC 遷移計畫、加密演算法清單與加密調整能力書面說明",
       role: "採購 / 資安",
     },
   ];
@@ -676,11 +702,11 @@ function buildCryptoAssetClues(report: ReportSource) {
     });
   }
 
-  if (form?.usesHttps) clues.push({ type: "TLS/HTTPS", source: "問卷填答", content: "系統使用 HTTPS", impact: "需確認 TLS 版本與憑證有效期", role: "資安", nextStep: "確認 TLS 1.2+ 並記錄憑證到期日" });
-  if (form?.hasDigitalSig) clues.push({ type: "數位簽章", source: "問卷填答", content: "系統具備數位簽章", impact: "RSA/ECC 簽章為 PQC 遷移核心依存", role: "架構", nextStep: "確認簽章演算法，列入 CBOM" });
-  if (form?.hasHsm) clues.push({ type: "HSM", source: "問卷填答", content: "系統使用 HSM", impact: "需確認 HSM 廠牌是否支援後量子演算法", role: "採購 / 架構", nextStep: "確認 HSM 型號與 PQC 韌體路徑" });
-  if (form?.hasApiCertOrToken) clues.push({ type: "API Token / 憑證", source: "問卷填答", content: "系統有 API 憑證或 Token", impact: "API 認證可能使用量子脆弱演算法", role: "資安", nextStep: "確認 token 類型與 signing 演算法" });
-  if (form?.hasBatchFile) clues.push({ type: "批次檔加密", source: "問卷填答", content: "系統有批次檔交換", impact: "批次檔可能使用 PGP 或對稱金鑰，需確認金鑰長度與保存", role: "資安", nextStep: "確認批次檔加密方式與金鑰管理機制" });
+  if (form?.usesHttps) clues.push({ type: "TLS/HTTPS", source: "盤點資料", content: "系統使用 HTTPS", impact: "需確認 TLS 版本與憑證有效期", role: "資安", nextStep: "確認 TLS 1.2+ 並記錄憑證到期日" });
+  if (form?.hasDigitalSig) clues.push({ type: "數位簽章", source: "盤點資料", content: "系統具備數位簽章", impact: "RSA/ECC 簽章為 PQC 遷移核心依存", role: "架構", nextStep: "確認簽章演算法，列入 CBOM" });
+  if (form?.hasHsm) clues.push({ type: "HSM", source: "盤點資料", content: "系統使用 HSM", impact: "需確認 HSM 廠牌是否支援後量子演算法", role: "採購 / 架構", nextStep: "確認 HSM 型號與 PQC 韌體路徑" });
+  if (form?.hasApiCertOrToken) clues.push({ type: "API Token / 憑證", source: "盤點資料", content: "系統有 API 憑證或 Token", impact: "API 認證可能使用量子脆弱演算法", role: "資安", nextStep: "確認 token 類型與 signing 演算法" });
+  if (form?.hasBatchFile) clues.push({ type: "批次檔加密", source: "盤點資料", content: "系統有批次檔交換", impact: "批次檔可能使用 PGP 或對稱金鑰，需確認金鑰長度與保存", role: "資安", nextStep: "確認批次檔加密方式與金鑰管理機制" });
 
   if (clues.length === 0) {
     clues.push({ type: "無線索", source: "—", content: "未填答加密使用情境或無 CMDB 標籤", impact: "無法評估密碼學風險", role: "系統Owner", nextStep: "請至 PQC Intake 補充填答加密使用情境" });
@@ -776,14 +802,14 @@ function buildFscChecklist(report: ReportSource) {
       role: "架構 / 資安",
     },
     {
-      item: "供應商 PQC Roadmap 準備度",
+      item: "供應商 PQC 遷移計畫準備度",
       status: v?.pqcRoadmapStatus === "已提供" ? "部分完成" : "待確認",
-      source: v ? `${v.vendorName} / PQC Roadmap：${v.pqcRoadmapStatus}` : (form?.vendorName ?? "待補"),
+      source: v ? `${v.vendorName} / PQC 遷移計畫：${v.pqcRoadmapStatus}` : (form?.vendorName ?? "待補"),
       gap: v?.pqcRoadmapStatus !== "已提供" ? "供應商尚未提供 PQC 遷移計畫，需採購追蹤" : "建議索取本系統相依加密元件清單",
       role: "採購",
     },
     {
-      item: "Crypto-agility 加密敏捷性",
+      item: "加密調整能力",
       status: v?.cryptoAgilityStatus === "已支援" || form?.vendorCryptoAgility ? "部分完成" : "待確認",
       source: v ? `加密調整能力：${v.cryptoAgilityStatus}` : (form?.vendorCryptoAgility ? "填答已具備" : "待補"),
       gap: v?.cryptoAgilityStatus !== "已支援" && !form?.vendorCryptoAgility ? "需廠商書面說明可替換演算法能力" : "",
@@ -1029,19 +1055,23 @@ function buildMarkdownReport(
   vendorItems: ReturnType<typeof buildVendorItems>,
   gaps: string[],
   guardrailAlerts: GuardrailAlert[],
-  snapshotAt: string,
+  evidenceMeta: EvidenceSnapshotMeta,
 ) {
   const explanation = explainRiskForSystem(report.system, report.vendor ?? null);
-  return `# PQC Intake Evidence Pack
+  return `# PQC 盤點證據包
 > Bank Resilience Intake Platform — 將新興科技風險的分散填報，轉化為跨部門可查閱、可追蹤、可稽核的治理紀錄
 
 ## 1. Snapshot
 - 系統 ID：${report.system.systemId}
 - 系統名稱：${report.system.systemName}
 - 業務單位：${report.system.businessUnit}
-- 資料版本：示範假資料
+- 資料版本：${evidenceMeta.dataVersion}
 - 報告來源：${report.sourceLabel}
-- 匯出時間：${snapshotAt}
+- 匯出時間：${evidenceMeta.snapshotAt}
+- 證據包 ID：${evidenceMeta.evidencePackId}
+- 規則版本：v${evidenceMeta.ruleEngineVersion}（${evidenceMeta.ruleEngineUpdated}）
+- 完整性指紋：${evidenceMeta.integrityDigest}
+- 指紋說明：Demo 完整性指紋用於固定本次輸出內容，不等同正式電子簽章。
 
 ## 2. Business Context
 - 業務重要性：${riskLabel[report.system.businessCriticality]}
@@ -1104,6 +1134,7 @@ function buildCsvReport(
   vendorItems: ReturnType<typeof buildVendorItems>,
   gaps: string[],
   guardrailAlerts: GuardrailAlert[],
+  evidenceMeta: EvidenceSnapshotMeta,
 ) {
   const explanation = explainRiskForSystem(report.system, report.vendor ?? null);
   const rows = [
@@ -1112,6 +1143,11 @@ function buildCsvReport(
     ["Snapshot", "systemName", report.system.systemName],
     ["Snapshot", "businessUnit", report.system.businessUnit],
     ["Snapshot", "reportSource", report.sourceLabel],
+    ["Snapshot", "evidencePackId", evidenceMeta.evidencePackId],
+    ["Snapshot", "snapshotAt", evidenceMeta.snapshotAt],
+    ["Snapshot", "dataVersion", evidenceMeta.dataVersion],
+    ["Snapshot", "ruleEngineVersion", `v${evidenceMeta.ruleEngineVersion} / ${evidenceMeta.ruleEngineUpdated}`],
+    ["Snapshot", "integrityDigest", evidenceMeta.integrityDigest],
     ["Business Context", "businessCriticality", riskLabel[report.system.businessCriticality]],
     ["Business Context", "dataRetentionYears", formatRetention(report.system.dataRetentionYears)],
     ["Business Context", "dataTypes", report.system.dataTypes.join("、")],

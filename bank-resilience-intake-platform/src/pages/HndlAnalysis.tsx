@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { loadDemoData } from "@/lib/storage";
 import type { System, Vendor } from "@/data/demo-data";
 import { pqcRoadmapLabel, riskLevelLabel, systemStatusLabel } from "@/lib/labels";
@@ -148,10 +149,9 @@ export function HndlAnalysis() {
               <Archive className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <h3 className="text-base font-semibold">主管閱讀重點</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                HNDL 不是立即被破解，而是「今日被蒐集、未來被解密」。房貸、保單、醫療、授信與財富管理資料通常保存十年以上，
-                即使現在加密強度足夠，也可能在資料仍具價值時被量子能力解密。因此這些系統應優先納入 PQC 遷移準備度盤點。
+              <h3 className="text-base font-semibold">HNDL（長期資料解密風險）判斷規則</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                以保存年限、敏感資料、外部串接與業務重要性排序 PQC 優先盤點系統。
               </p>
               <div className="mt-4 grid gap-3 md:grid-cols-3">
                 <ConceptTile icon={Clock} title="保存年限" value="10 年以上或永久保存" />
@@ -181,6 +181,64 @@ export function HndlAnalysis() {
         ]}
         resultCount={filtered.length}
       />
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">系統風險清單</CardTitle>
+          <CardDescription>以保存年限、資料類型、外部串接與觸發規則排序。</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>系統</TableHead>
+                <TableHead>業務單位</TableHead>
+                <TableHead>保存年限</TableHead>
+                <TableHead>敏感資料</TableHead>
+                <TableHead>外部串接</TableHead>
+                <TableHead>風險狀態</TableHead>
+                <TableHead>風險原因</TableHead>
+                <TableHead className="w-[88px]">動作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((system) => (
+                <TableRow key={system.systemId} className={spotlightSystems.has(system.systemId) ? "bg-rose-50/50" : undefined}>
+                  <TableCell>
+                    <div className="font-medium">{system.systemName}</div>
+                    <div className="text-xs text-muted-foreground">{system.systemId}</div>
+                  </TableCell>
+                  <TableCell>{system.businessUnit}</TableCell>
+                  <TableCell className="font-medium">{formatRetention(system.dataRetentionYears)}</TableCell>
+                  <TableCell className="max-w-[220px]">
+                    <div className="flex flex-wrap gap-1">
+                      {system.dataTypes.filter(isSensitiveDataType).slice(0, 3).map((type) => (
+                        <Badge key={type} variant="outline">{type}</Badge>
+                      ))}
+                      {!hasSensitiveData(system.dataTypes) && <span className="text-muted-foreground">無高敏感標籤</span>}
+                    </div>
+                  </TableCell>
+                  <TableCell>{system.hasExternalApi ? system.externalParties.join("、") || "待補外部對象" : "無"}</TableCell>
+                  <TableCell><Badge variant={riskConfig[system.risk.level].badge}>{riskConfig[system.risk.level].label}</Badge></TableCell>
+                  <TableCell className="max-w-[320px] text-sm text-muted-foreground">
+                    {system.risk.reasons.slice(0, 2).join("；")}
+                  </TableCell>
+                  <TableCell>
+                    <Button className="h-8 px-3 text-xs" variant="outline" onClick={() => setSelected(system)}>查看</Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filtered.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={8} className="h-24 text-center text-sm text-muted-foreground">
+                    目前沒有符合條件的系統。
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <section className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">

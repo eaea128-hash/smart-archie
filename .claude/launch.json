@@ -1,0 +1,19 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "intelligence",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", ".", "-p", "3333", "--no-clipboard"],
+      "port": 3333
+    },
+    {
+      "name": "bank-resilience",
+      "cwd": "D:\\AI專案\\smart\\bank-resilience-intake-platform",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5174,
+      "autoPort": true
+    }
+  ]
+}

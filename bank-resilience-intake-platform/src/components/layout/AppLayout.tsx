@@ -177,19 +177,16 @@ export function AppLayout() {
             <Button variant="ghost" className="lg:hidden" aria-label="Open navigation">
               <Menu className="h-5 w-5" />
             </Button>
-            <div>
-              <div className="text-xs font-medium uppercase text-muted-foreground">銀行科技韌性前期盤點平台</div>
-              <h1 className="text-lg font-semibold">PQC / Quantum Readiness 治理</h1>
-            </div>
+            <h1 className="text-base font-semibold">量子韌性治理平台</h1>
           </div>
           <GlobalSearch />
         </header>
-        <div className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-800 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-          ⚠️ 本平台為 POC 展示，所有資料均為<strong>模擬假資料</strong>，不代表任何真實機構之盤點結果，不取代 CBOM／CMDB／GRC／SIEM 等專業工具。
-        </div>
         <main className="px-4 py-6 md:px-8">
           <Outlet />
         </main>
+        <div className="border-t bg-muted/30 px-4 py-2 text-center text-[11px] text-muted-foreground md:px-8">
+          Demo Notice：所有資料均為模擬假資料，不代表任何真實機構之盤點結果。
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { loadDemoData } from "@/lib/storage";
 import type { AssignedRole, System, Vendor } from "@/data/demo-data";
 import { assignedRoleLabel, cryptoAgilityLabel, pqcRoadmapLabel } from "@/lib/labels";
@@ -102,9 +103,8 @@ export function CrossFunctionalTasks() {
           跨部門待辦 / 雙向轉譯管控
         </div>
         <h2 className="mt-1 text-2xl font-semibold">跨部門語言轉譯與待辦管控</h2>
-        <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
-          這不是單純任務清單，而是跨部門語言轉譯與盤點品質控管。平台把業務白話轉成資安/架構待確認項目，
-          也把 CMDB 與加密技術標籤回補成業務與 PM 能理解的風險提示。
+        <p className="mt-1 text-sm text-muted-foreground">
+          將盤點缺口、風險觸發原因與補件責任轉成可追蹤待辦。
         </p>
       </div>
 
@@ -195,6 +195,61 @@ export function CrossFunctionalTasks() {
           </Button>
         )}
       </div>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">跨部門待辦清單</CardTitle>
+          <CardDescription>每筆待辦保留來源系統、觸發原因、負責角色與證據包入口。</CardDescription>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>來源系統</TableHead>
+                <TableHead>觸發原因</TableHead>
+                <TableHead>指派角色</TableHead>
+                <TableHead>白話說明</TableHead>
+                <TableHead>技術說明</TableHead>
+                <TableHead>建議動作</TableHead>
+                <TableHead>優先級</TableHead>
+                <TableHead>狀態</TableHead>
+                <TableHead>到期日</TableHead>
+                <TableHead className="w-[112px]">動作</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredTasks.map((task) => (
+                <TableRow key={task.taskId}>
+                  <TableCell>
+                    <div className="font-medium">{task.sourceSystem}</div>
+                    <div className="text-xs text-muted-foreground">{task.relatedSystemId}</div>
+                  </TableCell>
+                  <TableCell className="max-w-[220px] text-sm text-muted-foreground">{task.triggerReason}</TableCell>
+                  <TableCell><span className={cn("rounded-full px-2 py-1 text-xs font-medium", roleTone[task.assignedRole])}>{assignedRoleLabel[task.assignedRole]}</span></TableCell>
+                  <TableCell className="max-w-[260px] text-sm">{task.plainDescription}</TableCell>
+                  <TableCell className="max-w-[280px] text-sm text-muted-foreground">{task.technicalDescription}</TableCell>
+                  <TableCell className="max-w-[240px] text-sm">{task.suggestedAction}</TableCell>
+                  <TableCell><Badge variant={task.priority === "高" ? "risk" : task.priority === "中" ? "warning" : "outline"}>{task.priority}</Badge></TableCell>
+                  <TableCell>{task.status}</TableCell>
+                  <TableCell>{task.dueDate}</TableCell>
+                  <TableCell>
+                    <Button className="h-8 px-3 text-xs" variant="outline" onClick={() => { window.location.href = `/report?systemId=${task.relatedSystemId}`; }}>
+                      查看證據包
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {filteredTasks.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={10} className="h-24 text-center text-sm text-muted-foreground">
+                    目前沒有符合條件的待辦。
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-3">
         {filteredTasks.map((task) => <TaskCard key={task.taskId} task={task} systems={systems} vendors={vendors} />)}

@@ -33,3 +33,38 @@
     font-family: Inter, "Noto Sans TC", "Microsoft JhengHei", ui-sans-serif, system-ui, sans-serif;
   }
 }
+
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  body {
+    color: #111827 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  main {
+    padding: 0 !important;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  table,
+  pre,
+  section,
+  .rounded-lg,
+  .rounded-xl {
+    break-inside: avoid;
+  }
+}
